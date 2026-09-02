@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nexa Web
 
-## Getting Started
+Client web de la messagerie Nexa (Next.js), troisième repo du projet aux côtés de
+`first-app` (mobile Expo) et `first-app-backend`.
 
-First, run the development server:
+## Démarrer
 
 ```bash
+npm install
+cp .env.example .env.local   # puis renseigner l'URL du backend
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Configuration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Rôle |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | URL du backend. En local `http://localhost:3000`, en production l'URL Railway. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+⚠️ Le préfixe `NEXT_PUBLIC_` est obligatoire : sans lui la variable n'atteint pas le
+navigateur et les appels partent vers `undefined`.
 
-## Learn More
+## Ce qu'il faut savoir avant de toucher au code
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Le backend est partagé avec le mobile**, à l'identique : mêmes endpoints, même contrat
+  d'authentification (JWT en en-tête `Authorization`, rafraîchissement sur 401). Toute
+  évolution d'API doit rester compatible avec les deux clients.
+- **Les jetons vivent dans `localStorage`**, pas dans un cookie `httpOnly` — écart assumé
+  avec le mobile (qui utilise le trousseau chiffré) et documenté dans `src/lib/storage.ts`.
+- **L'aiguillage connecté / non connecté se fait côté client**, jamais dans un middleware :
+  le serveur ne voit pas `localStorage`.
+- `src/lib/api.ts` ne lance **qu'un seul** rafraîchissement à la fois, même quand plusieurs
+  requêtes reçoivent un 401 simultanément — le serveur invalide l'ancien jeton à chaque
+  usage, et des refresh concurrents déconnecteraient l'utilisateur.

@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ⚠️ APRÈS la règle générale : en git, c'est la DERNIÈRE règle correspondante qui l'emporte,
+# donc une négation placée avant `.env*` ne servirait à rien. Ce modèle SANS secret doit être
+# versionné — c'est le seul repère de ce qu'il faut définir pour faire tourner le projet.
+!.env.example
 
 # vercel
 .vercel

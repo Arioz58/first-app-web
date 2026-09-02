@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { emojiCount, formatTime, QUICK_REACTIONS, type Message, type Row } from '@/lib/messages';
 import { formatFileSize } from '@/lib/upload';
+import { MessageText } from '@/components/MessageText';
 
 /** Taille d'un message composé uniquement d'emojis — dégressive, comme sur mobile. */
 const BIG_EMOJI = [0, 44, 38, 32];
@@ -172,9 +173,7 @@ export function MessageBubble({
               </a>
             )}
 
-            {item.content && (
-              <p className="whitespace-pre-wrap break-words">{item.content}</p>
-            )}
+            {item.content && <MessageText content={item.content} isMe={isMe} />}
 
             <p className={`mt-0.5 text-right text-[11px] ${isMe ? 'text-white/70' : 'text-slate-400'}`}>
               {item.editedAt && <span className="mr-1 italic">modifié</span>}

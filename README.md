@@ -27,6 +27,9 @@ navigateur et les appels partent vers `undefined`.
   évolution d'API doit rester compatible avec les deux clients.
 - **Les jetons vivent dans `localStorage`**, pas dans un cookie `httpOnly` — écart assumé
   avec le mobile (qui utilise le trousseau chiffré) et documenté dans `src/lib/storage.ts`.
+  ⚠️ Ils sont donc lisibles par tout script de la page : ce qui protège, c'est l'absence de
+  XSS. Trois mesures au Mois 5 : CSP stricte, CORS restreint côté backend, et révocation du
+  refresh token à la déconnexion (il dure 7 jours et rien ne l'invalide aujourd'hui).
 - **L'aiguillage connecté / non connecté se fait côté client**, jamais dans un middleware :
   le serveur ne voit pas `localStorage`.
 - `src/lib/api.ts` ne lance **qu'un seul** rafraîchissement à la fois, même quand plusieurs

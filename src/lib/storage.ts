@@ -12,6 +12,13 @@
  * protection CSRF. À rouvrir au Mois 5 (hardening) si le client le demande ; la vraie
  * protection contre le vol de jeton reste de ne pas avoir de XSS.
  *
+ * ⚠️ CE QUI PROTÈGE VRAIMENT, c'est l'absence de XSS — pas le lieu de stockage. Trois
+ * mesures sont prévues au Mois 5 et comptent davantage que ce choix (voir le `todo` du repo
+ * mobile) : CSP stricte sur le site, CORS restreint côté backend (`cors()` est aujourd'hui
+ * grand ouvert), et révocation du refresh token à la déconnexion — il dure 7 jours et rien
+ * ne l'invalide, donc un jeton volé reste valide jusqu'à son expiration, déconnexion
+ * comprise.
+ *
  * ⚠️ Chaque lecture est gardée : ce code peut s'exécuter côté SERVEUR (rendu Next.js), où
  * `localStorage` n'existe pas — un accès direct y lèverait une erreur au build.
  */

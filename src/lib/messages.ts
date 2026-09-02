@@ -202,3 +202,68 @@ export const emojiCount = (raw?: string | null): number => {
   if (!stripped || !/^\p{Extended_Pictographic}+$/u.test(stripped)) return 0;
   return [...stripped].length;
 };
+
+// --- Actions sur les messages ---
+
+/** Réaction : poser, remplacer, ou retirer (le même emoji reposé la retire). */
+export const reactToMessage = (conversationId: string, messageId: string, emoji: string | null) =>
+  apiRequest<{ reactions: Reaction[] }>(
+    `/conversations/${conversationId}/messages/${messageId}/reaction`,
+    { method: 'POST', body: { emoji } },
+  );
+
+/**
+ * Suppression. `scope: 'me'` ne regarde que soi ; `'all'` vide réellement le message côté
+ * serveur (délai de 2 jours pour l'auteur, illimité pour un admin de groupe).
+ */
+export const deleteMessage = (
+  conversationId: string,
+  messageId: string,
+  scope: 'me' | 'all',
+) =>
+  apiRequest(`/conversations/${conversationId}/messages/${messageId}?scope=${scope}`, {
+    method: 'DELETE',
+  });
+
+/** Modification d'un de SES messages texte, dans les 15 minutes. */
+export const editMessage = (conversationId: string, messageId: string, content: string) =>
+  apiRequest<Message>(`/conversations/${conversationId}/messages/${messageId}`, {
+    method: 'PATCH',
+    body: { content },
+  });
+
+export const pinMessage = (conversationId: string, messageId: string, pinned: boolean) =>
+  apiRequest(`/conversations/${conversationId}/messages/${messageId}/pin`, {
+    method: pinned ? 'DELETE' : 'POST',
+  });
+
+export const starMessage = (conversationId: string, messageId: string, starred: boolean) =>
+  apiRequest(`/conversations/${conversationId}/messages/${messageId}/star`, {
+    method: starred ? 'DELETE' : 'POST',
+  });
+
+export type Flags = { pinned: string[]; starred: string[] };
+
+export const fetchFlags = (conversationId: string) =>
+  apiRequest<Flags>(`/conversations/${conversationId}/flags`);
+
+/** Recherche dans la conversation courante (≥ 2 caractères côté serveur). */
+export const searchInConversation = (conversationId: string, q: string) =>
+  apiRequest<{ id: string; content: string | null; createdAt: string; senderId: string }[]>(
+    `/conversations/${conversationId}/search?q=${encodeURIComponent(q)}`,
+  );
+
+/**
+ * Fenêtre d'historique CENTRÉE sur un message.
+ *
+ * ⚠️ Seule façon d'atteindre une cible arbitrairement ancienne — un épinglé d'il y a un mois,
+ * un résultat de recherche. On ne peut pas défiler vers un message absent de la liste, et
+ * remonter page par page serait interminable.
+ */
+export const fetchAround = (conversationId: string, messageId: string) =>
+  apiRequest<{ messages: Message[]; hasOlder: boolean; hasNewer: boolean }>(
+    `/conversations/${conversationId}/messages/around/${messageId}?before=30&after=10`,
+  );
+
+/** Les 6 réactions rapides, dans le même ordre que le mobile — le geste doit être identique. */
+export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];

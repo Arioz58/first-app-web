@@ -35,3 +35,18 @@ navigateur et les appels partent vers `undefined`.
 - `src/lib/api.ts` ne lance **qu'un seul** rafraîchissement à la fois, même quand plusieurs
   requêtes reçoivent un 401 simultanément — le serveur invalide l'ancien jeton à chaque
   usage, et des refresh concurrents déconnecteraient l'utilisateur.
+
+## État des fonctionnalités
+
+| | Web | Note |
+|---|---|---|
+| Connexion | QR (principal) + OTP (repli) | le mobile approuve la session |
+| Liste des conversations | ✅ | temps réel, filtres, recherche |
+| Fil, envoi texte | ✅ | pagination, séparateurs de date, séries |
+| Répondre / réagir / épingler / favori | ✅ | |
+| Modifier / supprimer | ✅ | 15 min pour modifier, 2 j pour supprimer pour tous |
+| Médias (images, vidéos, audio, documents) | ✅ | upload S3 presigned, albums |
+| Recherche dans la conversation | ✅ | avec saut vers le message |
+| Transférer | ⏳ | à faire |
+| Vocaux (enregistrement) | ⏳ | lecture seule pour l'instant |
+| Stories, appels, groupes (gestion) | ⏳ | hors périmètre V1 web |

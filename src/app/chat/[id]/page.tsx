@@ -9,14 +9,26 @@ import { hasSession } from '@/lib/auth';
 import {
   buildRows,
   dayLabel,
+  deleteMessage,
+  editMessage,
+  fetchAround,
   fetchConversationMeta,
+  fetchFlags,
   fetchMessages,
   markConversationRead,
   mergeMessages,
+  pinMessage,
+  reactToMessage,
   sameGroup,
+  searchInConversation,
+  starMessage,
   type ConvMeta,
+  type Flags,
   type Message,
+  type Quote,
 } from '@/lib/messages';
+import { mediaKindOf, uploadFile } from '@/lib/upload';
+import type { BubbleActions } from '@/components/MessageBubble';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
@@ -39,6 +51,19 @@ export default function ThreadPage() {
   const [peerTyping, setPeerTyping] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [hasOlder, setHasOlder] = useState(true);
+  /** Message auquel la prochaine saisie répondra. */
+  const [replyTo, setReplyTo] = useState<Quote | null>(null);
+  /** Message en cours de modification — le composeur bascule alors en édition. */
+  const [editing, setEditing] = useState<{ id: string; original: string } | null>(null);
+  const [flags, setFlags] = useState<Flags>({ pinned: [], starred: [] });
+  /** Message rejoint (citation, épinglé, recherche) : surligné brièvement. */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [viewer, setViewer] = useState<{ url: string; kind: 'image' | 'video' } | null>(null);
+  const [search, setSearch] = useState<{ term: string; results: string[]; index: number } | null>(
+    null,
+  );
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadingOlderRef = useRef(false);
@@ -73,9 +98,14 @@ export default function ThreadPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [m, page] = await Promise.all([fetchConversationMeta(id), fetchMessages(id)]);
+        const [m, page, f] = await Promise.all([
+          fetchConversationMeta(id),
+          fetchMessages(id),
+          fetchFlags(id).catch(() => ({ pinned: [], starred: [] }) as Flags),
+        ]);
         if (cancelled) return;
         setMeta(m);
+        setFlags(f);
         // L'API renvoie du plus récent au plus ancien : le fil s'affiche dans l'autre sens.
         setMessages(page.slice().reverse());
         setHasOlder(page.length >= 30);
@@ -202,9 +232,35 @@ export default function ThreadPage() {
   const send = (e: React.FormEvent) => {
     e.preventDefault();
     const content = text.trim();
+
+    // Mode édition : on modifie au lieu d'envoyer.
+    if (editing) {
+      const target = editing;
+      setEditing(null);
+      setText(target.original);
+      if (!content) return;
+      // Optimiste, avec restauration si le serveur refuse (fenêtre écoulée, horloge décalée).
+      const before = messages.find((m) => m.id === target.id)?.content ?? '';
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === target.id ? { ...m, content, editedAt: new Date().toISOString() } : m,
+        ),
+      );
+      void editMessage(id, target.id, content).catch((err) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === target.id ? { ...m, content: before } : m)),
+        );
+        window.alert(err.message);
+      });
+      return;
+    }
+
     if (!content) return;
     const socket = connectSocket();
-    socket.emit('send_message', { conversationId: id, content });
+    // La citation est consommée par CET envoi : on la vide tout de suite, sinon un second
+    // message partirait en citant encore le même.
+    socket.emit('send_message', { conversationId: id, content, replyToId: replyTo?.id });
+    setReplyTo(null);
     setText('');
     stopTyping();
   };
@@ -228,6 +284,157 @@ export default function ThreadPage() {
     if (typingStopRef.current) clearTimeout(typingStopRef.current);
     typingStopRef.current = setTimeout(stopTyping, 3000);
   };
+
+  /**
+   * Saut vers un message, y compris hors de la mémoire.
+   *
+   * ⚠️ Une cible ancienne n'est PAS dans le fil chargé : on recharge alors une fenêtre
+   * centrée sur elle. On ne peut pas défiler vers un élément absent du DOM, et remonter page
+   * par page serait interminable.
+   */
+  const jumpTo = useCallback(
+    (messageId: string) => {
+      const scrollToIt = () => {
+        const el = document.getElementById(`msg-${messageId}`);
+        if (!el) return false;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightId(messageId);
+        setTimeout(() => setHighlightId(null), 2000);
+        return true;
+      };
+      if (scrollToIt()) return;
+
+      void (async () => {
+        try {
+          const win = await fetchAround(id, messageId);
+          setMessages(win.messages.slice().reverse());
+          setHasOlder(win.hasOlder);
+          // Le DOM n'a pas encore rendu la fenêtre : on vise à l'image suivante.
+          requestAnimationFrame(() => requestAnimationFrame(scrollToIt));
+        } catch {
+          // Message introuvable (supprimé, expiré) : on ne bouge pas.
+        }
+      })();
+    },
+    [id],
+  );
+
+  const react = useCallback(
+    (m: Message, emoji: string) => {
+      // Optimiste : la pastille doit apparaître sous le doigt. Le serveur rediffuse ensuite
+      // l'état complet par `message_reaction`, qui fait foi.
+      setMessages((prev) =>
+        prev.map((x) => {
+          if (x.id !== m.id) return x;
+          const others = (x.reactions ?? []).filter((r) => r.userId !== meId);
+          const mine = (x.reactions ?? []).find((r) => r.userId === meId);
+          // Reposer le même emoji le retire — c'est le geste attendu.
+          const next =
+            mine?.emoji === emoji ? others : [...others, { userId: meId ?? '', emoji }];
+          return { ...x, reactions: next };
+        }),
+      );
+      void reactToMessage(id, m.id, emoji).catch(() => {});
+    },
+    [id, meId],
+  );
+
+  const actions: BubbleActions = useMemo(
+    () => ({
+      onReply: (m) =>
+        setReplyTo({
+          id: m.id,
+          senderId: m.sender?.id ?? '',
+          sender: m.sender ? { id: m.sender.id, name: m.sender.name } : null,
+          type: m.type,
+          content: m.content,
+          mediaUrl: m.mediaUrl,
+          mediaType: m.mediaType,
+          fileName: m.fileName,
+        }),
+      onReact: react,
+      onEdit: (m) => {
+        setEditing({ id: m.id, original: text });
+        setText(m.content ?? '');
+      },
+      onDelete: (m) => {
+        // ⚠️ « Pour tout le monde » n'est proposé que si le serveur l'accepterait : sur ses
+        // propres messages récents, ou en modération. Offrir un choix voué au refus est pire
+        // que de ne pas l'offrir.
+        const mine = m.sender?.id === meId;
+        const recent = Date.now() - new Date(m.createdAt).getTime() < 2 * 24 * 3600 * 1000;
+        const canAll = mine && recent;
+        const scope: 'me' | 'all' =
+          canAll && window.confirm('Supprimer pour tout le monde ?\n\nAnnuler = supprimer pour moi seulement.')
+            ? 'all'
+            : 'me';
+        void deleteMessage(id, m.id, scope)
+          .then(() => {
+            setMessages((prev) =>
+              scope === 'me'
+                ? prev.filter((x) => x.id !== m.id)
+                : prev.map((x) =>
+                    x.id === m.id
+                      ? { ...x, deletedAt: new Date().toISOString(), content: '', mediaUrl: null, reactions: [] }
+                      : x,
+                  ),
+            );
+          })
+          .catch((e) => window.alert(e.message));
+      },
+      onPin: (m) => {
+        const pinned = flags.pinned.includes(m.id);
+        void pinMessage(id, m.id, pinned)
+          .then(() => fetchFlags(id).then(setFlags))
+          .catch(() => {});
+      },
+      onStar: (m) => {
+        const starred = flags.starred.includes(m.id);
+        void starMessage(id, m.id, starred)
+          .then(() => fetchFlags(id).then(setFlags))
+          .catch(() => {});
+      },
+      onForward: () => window.alert('Transfert : à venir sur le web.'),
+      onJumpTo: jumpTo,
+      onOpenMedia: (url, kind) => setViewer({ url, kind }),
+    }),
+    [react, jumpTo, id, flags, meId, text],
+  );
+
+  /** Envoi de fichiers : téléversement S3 puis un message par pièce jointe. */
+  const sendFiles = useCallback(
+    (files: FileList) => {
+      const list = Array.from(files).slice(0, 10);
+      if (!list.length) return;
+      setUploading(true);
+      // ⚠️ Un `batchId` partagé regroupe les médias d'un même envoi en UNE bulle chez le
+      // destinataire — le suffixe `#n` lui dit combien en attendre.
+      const batchId = list.length > 1 ? `${meId}-${Date.now()}#${list.length}` : undefined;
+
+      void (async () => {
+        const socket = connectSocket();
+        for (const file of list) {
+          try {
+            const url = await uploadFile(file);
+            socket.emit('send_message', {
+              conversationId: id,
+              content: '',
+              mediaUrl: url,
+              mediaType: mediaKindOf(file.type),
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+              batchId,
+            });
+          } catch {
+            window.alert(`Échec de l'envoi de ${file.name}`);
+          }
+        }
+        setUploading(false);
+      })();
+    },
+    [id, meId],
+  );
 
   const title =
     meta?.type === 'group'
@@ -253,10 +460,79 @@ export default function ThreadPage() {
           ←
         </button>
         <Avatar name={title} photoUrl={photo} size={40} group={meta?.type === 'group'} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
           {peerTyping && <p className="text-xs text-[#1E40AF]">écrit…</p>}
         </div>
+
+        {search ? (
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              value={search.term}
+              onChange={(e) => {
+                const term = e.target.value;
+                setSearch({ term, results: [], index: 0 });
+                if (term.trim().length < 2) return;
+                void searchInConversation(id, term.trim())
+                  .then((res) =>
+                    setSearch((prev) =>
+                      // ⚠️ On ignore une réponse périmée : les requêtes ne reviennent pas
+                      // forcément dans l'ordre, et une ancienne écraserait les résultats
+                      // d'un terme que l'utilisateur a fini de corriger.
+                      prev && prev.term === term
+                        ? { ...prev, results: res.map((r) => r.id), index: 0 }
+                        : prev,
+                    ),
+                  )
+                  .catch(() => {});
+              }}
+              placeholder="Rechercher…"
+              className="w-48 rounded-lg bg-slate-100 px-3 py-1.5 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            {search.results.length > 0 && (
+              <>
+                <span className="text-xs text-slate-500">
+                  {search.index + 1}/{search.results.length}
+                </span>
+                {/* La flèche HAUT va vers le plus ANCIEN : les résultats sont ordonnés du
+                    plus récent au plus ancien, comme le fil. */}
+                <button
+                  onClick={() => {
+                    const next = (search.index + 1) % search.results.length;
+                    setSearch({ ...search, index: next });
+                    jumpTo(search.results[next]);
+                  }}
+                  className="px-1 text-slate-500"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => {
+                    const next =
+                      (search.index - 1 + search.results.length) % search.results.length;
+                    setSearch({ ...search, index: next });
+                    jumpTo(search.results[next]);
+                  }}
+                  className="px-1 text-slate-500"
+                >
+                  ↓
+                </button>
+              </>
+            )}
+            <button onClick={() => setSearch(null)} className="px-1 text-slate-500">
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setSearch({ term: '', results: [], index: 0 })}
+            className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+            aria-label="Rechercher"
+          >
+            🔍
+          </button>
+        )}
       </header>
 
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -318,6 +594,11 @@ export default function ThreadPage() {
                     isGroup={meta?.type === 'group'}
                     firstOfGroup={!sameGroup(prevMsg, first)}
                     lastOfGroup={!sameGroup(row.messages[row.messages.length - 1], nextMsg)}
+                    pinned={row.messages.some((m) => flags.pinned.includes(m.id))}
+                    starred={row.messages.some((m) => flags.starred.includes(m.id))}
+                    canModerate={meta?.myRole === 'admin' || meta?.myRole === 'moderator'}
+                    highlighted={row.messages.some((m) => m.id === highlightId)}
+                    actions={actions}
                   />
                 </div>
               );
@@ -330,10 +611,57 @@ export default function ThreadPage() {
 
       </div>
 
+      {(replyTo || editing) && (
+        <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-800/60">
+          <div className="min-w-0 flex-1 border-l-[3px] border-[#1E40AF] pl-2">
+            <p className="font-semibold text-[#1E40AF]">
+              {editing ? 'Modification du message' : replyTo?.sender?.name}
+            </p>
+            {replyTo && !editing && (
+              <p className="truncate text-slate-500">
+                {replyTo.content ?? 'Pièce jointe'}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              // Annuler une modification restaure ce qu'on écrivait AVANT d'y entrer.
+              if (editing) setText(editing.original);
+              setEditing(null);
+              setReplyTo(null);
+            }}
+            className="px-2 text-slate-400"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={send}
         className="flex items-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
       >
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            if (e.target.files) sendFiles(e.target.files);
+            // ⚠️ Remis à zéro : sans cela, choisir DEUX FOIS le même fichier ne déclenche
+            // pas `onChange`, la valeur de l'input n'ayant pas changé.
+            e.target.value = '';
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading || !!editing}
+          className="h-11 w-11 shrink-0 rounded-full text-xl text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+          aria-label="Joindre un fichier"
+        >
+          {uploading ? '…' : '＋'}
+        </button>
         <textarea
           value={text}
           onChange={(e) => onType(e.target.value)}
@@ -357,6 +685,19 @@ export default function ThreadPage() {
           ➤
         </button>
       </form>
+      {viewer && (
+        <div
+          onClick={() => setViewer(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-8"
+        >
+          {viewer.kind === 'video' ? (
+            <video src={viewer.url} controls autoPlay className="max-h-full max-w-full" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={viewer.url} alt="" className="max-h-full max-w-full object-contain" />
+          )}
+        </div>
+      )}
     </section>
   );
 }

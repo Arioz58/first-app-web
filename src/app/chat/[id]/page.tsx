@@ -239,11 +239,15 @@ export default function ThreadPage() {
       : meta?.members.find((m) => m.userId !== meId)?.user.photoUrl;
 
   return (
-    <main className="flex h-dvh flex-col bg-slate-50 dark:bg-zinc-950">
+    // ⚠️ `flex-1` et non `h-dvh` : la hauteur et le fond viennent du layout à deux colonnes.
+    // `min-w-0` est indispensable dans un conteneur flex — sans lui, un message très long
+    // élargirait la colonne au lieu de passer à la ligne, et pousserait la liste hors écran.
+    <section className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        {/* Retour à la liste : utile seulement sur écran étroit, où elle est masquée. */}
         <button
           onClick={() => router.push('/chat')}
-          className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+          className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-zinc-800"
           aria-label="Retour"
         >
           ←
@@ -255,6 +259,18 @@ export default function ThreadPage() {
         </div>
       </header>
 
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      {!atBottom && (
+        // ⚠️ Positionné par rapport à CETTE zone (`relative` ci-dessus) et non à la fenêtre :
+        // en absolu sans conteneur positionné, il se plaçait au-dessus de la liste.
+        <button
+          onClick={() => scrollToBottom(true)}
+          className="absolute bottom-4 right-6 z-10 h-11 w-11 rounded-full bg-white text-lg shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
+          aria-label="Revenir en bas"
+        >
+          ↓
+        </button>
+      )}
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
           <div className="space-y-3">
@@ -310,15 +326,9 @@ export default function ThreadPage() {
         )}
       </div>
 
-      {!atBottom && (
-        <button
-          onClick={() => scrollToBottom(true)}
-          className="absolute bottom-24 right-8 h-11 w-11 rounded-full bg-white text-lg shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
-          aria-label="Revenir en bas"
-        >
-          ↓
-        </button>
-      )}
+
+
+      </div>
 
       <form
         onSubmit={send}
@@ -347,6 +357,6 @@ export default function ThreadPage() {
           ➤
         </button>
       </form>
-    </main>
+    </section>
   );
 }

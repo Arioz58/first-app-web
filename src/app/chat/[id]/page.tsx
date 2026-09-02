@@ -29,6 +29,8 @@ import {
 } from '@/lib/messages';
 import { mediaKindOf, uploadFile } from '@/lib/upload';
 import type { BubbleActions } from '@/components/MessageBubble';
+import { ForwardDialog } from '@/components/ForwardDialog';
+import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
@@ -63,6 +65,9 @@ export default function ThreadPage() {
   const [search, setSearch] = useState<{ term: string; results: string[]; index: number } | null>(
     null,
   );
+  /** Messages à transférer — un album en compte plusieurs pour une seule bulle. */
+  const [forwarding, setForwarding] = useState<Message[] | null>(null);
+  const [recording, setRecording] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -394,11 +399,64 @@ export default function ThreadPage() {
           .then(() => fetchFlags(id).then(setFlags))
           .catch(() => {});
       },
-      onForward: () => window.alert('Transfert : à venir sur le web.'),
+      onForward: (m) => {
+        // ⚠️ Un ALBUM est UNE bulle mais PLUSIEURS messages : ne transférer que celui sur
+        // lequel on a cliqué n'enverrait qu'une image sur cinq.
+        const group = m.batchId
+          ? messages.filter((x) => x.batchId === m.batchId)
+          : [m];
+        setForwarding(group);
+      },
       onJumpTo: jumpTo,
       onOpenMedia: (url, kind) => setViewer({ url, kind }),
     }),
-    [react, jumpTo, id, flags, meId, text],
+    [react, jumpTo, id, flags, meId, text, messages],
+  );
+
+  /**
+   * Transfert : on RÉÉMET les messages vers chaque conversation choisie.
+   *
+   * ⚠️ Le média est réutilisé par son URL S3, sans re-téléverser : le fichier est déjà en
+   * ligne, en poster une copie multiplierait le stockage pour un contenu identique.
+   * ⚠️ La CITATION n'est pas reprise — le message cité n'existe pas dans la conversation
+   * d'arrivée, et l'y afficher exposerait un extrait d'une conversation dont le destinataire
+   * n'est pas membre.
+   */
+  const forwardTo = useCallback(
+    (msgs: Message[], conversationIds: string[]) => {
+      const socket = connectSocket();
+      // ⚠️ Ordre explicite : l'horodatage est posé par le SERVEUR à la réception, donc
+      // émettre dans le désordre remettrait les messages dans le désordre chez l'autre.
+      const ordered = [...msgs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+      for (const convId of conversationIds) {
+        // ⚠️ Un batchId NEUF par transfert : réutiliser celui d'origine ferait cohabiter
+        // deux albums de même identifiant, et le `#n` serait faux si l'on n'en transfère
+        // qu'une partie.
+        const withBatch = ordered.filter((m) => m.batchId);
+        const fresh =
+          withBatch.length > 1 ? `${meId}-${Date.now()}#${withBatch.length}` : undefined;
+
+        for (const m of ordered) {
+          socket.emit('send_message', {
+            conversationId: convId,
+            content: m.content ?? '',
+            type: m.type === 'story_reply' ? 'text' : m.type,
+            mediaUrl: m.mediaUrl ?? undefined,
+            mediaType: m.mediaType ?? undefined,
+            fileName: m.fileName ?? undefined,
+            fileSize: m.fileSize ?? undefined,
+            mimeType: m.mimeType ?? undefined,
+            durationMs: m.durationMs ?? undefined,
+            latitude: m.latitude ?? undefined,
+            longitude: m.longitude ?? undefined,
+            batchId: m.batchId ? fresh : undefined,
+            forwarded: true,
+          });
+        }
+      }
+    },
+    [meId],
   );
 
   /** Envoi de fichiers : téléversement S3 puis un message par pièce jointe. */
@@ -434,6 +492,39 @@ export default function ThreadPage() {
       })();
     },
     [id, meId],
+  );
+
+  /**
+   * Envoi d'un vocal enregistré.
+   *
+   * ⚠️ `durationMs` est transmis : c'est ce qui permet d'afficher la durée AVANT tout
+   * chargement du fichier, côté web comme sur mobile.
+   */
+  const sendVoice = useCallback(
+    (file: File, durationMs: number) => {
+      setRecording(false);
+      setUploading(true);
+      void (async () => {
+        try {
+          const url = await uploadFile(file);
+          connectSocket().emit('send_message', {
+            conversationId: id,
+            content: '',
+            mediaUrl: url,
+            mediaType: 'audio',
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+            durationMs,
+          });
+        } catch {
+          window.alert("Échec de l'envoi du message vocal");
+        } finally {
+          setUploading(false);
+        }
+      })();
+    },
+    [id],
   );
 
   const title =
@@ -637,6 +728,11 @@ export default function ThreadPage() {
         </div>
       )}
 
+      {recording ? (
+        <div className="flex items-center border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <VoiceRecorder onSend={sendVoice} onCancel={() => setRecording(false)} />
+        </div>
+      ) : (
       <form
         onSubmit={send}
         className="flex items-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
@@ -676,15 +772,42 @@ export default function ThreadPage() {
           placeholder="Écrire un message"
           className="max-h-32 flex-1 resize-none rounded-2xl bg-slate-100 px-4 py-2.5 text-base outline-none dark:bg-zinc-800 dark:text-zinc-100"
         />
-        <button
-          type="submit"
-          disabled={!text.trim()}
-          className="h-11 w-11 shrink-0 rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-          aria-label="Envoyer"
-        >
-          ➤
-        </button>
+        {/* ⚠️ Micro quand le champ est vide, envoi sinon — et jamais de micro en mode
+            édition : on modifie du texte, pas un vocal. */}
+        {text.trim() || editing ? (
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className="h-11 w-11 shrink-0 rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+            aria-label={editing ? 'Valider' : 'Envoyer'}
+          >
+            {editing ? '✓' : '➤'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setRecording(true)}
+            disabled={uploading}
+            className="h-11 w-11 shrink-0 rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+            aria-label="Enregistrer un message vocal"
+          >
+            🎤
+          </button>
+        )}
       </form>
+      )}
+      <ForwardDialog
+        open={!!forwarding}
+        // Compte de BULLES : un album désigné une fois ne doit pas annoncer « 5 messages ».
+        count={forwarding ? new Set(forwarding.map((m) => m.batchId ?? m.id)).size : 0}
+        meId={meId}
+        onClose={() => setForwarding(null)}
+        onConfirm={(ids) => {
+          if (forwarding) forwardTo(forwarding, ids);
+          setForwarding(null);
+        }}
+      />
+
       {viewer && (
         <div
           onClick={() => setViewer(null)}

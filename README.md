@@ -47,6 +47,6 @@ navigateur et les appels partent vers `undefined`.
 | Modifier / supprimer | ✅ | 15 min pour modifier, 2 j pour supprimer pour tous |
 | Médias (images, vidéos, audio, documents) | ✅ | upload S3 presigned, albums |
 | Recherche dans la conversation | ✅ | avec saut vers le message |
-| Transférer | ⏳ | à faire |
-| Vocaux (enregistrement) | ⏳ | lecture seule pour l'instant |
+| Transférer | ✅ | multi-destinataires, albums entiers |
+| Vocaux | ✅ | ⚠️ format selon le navigateur — voir `VoiceRecorder.tsx` |
 | Stories, appels, groupes (gestion) | ⏳ | hors périmètre V1 web |

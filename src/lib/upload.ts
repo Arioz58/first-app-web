@@ -37,7 +37,13 @@ export const uploadFile = async (file: File, folder: 'chat' | 'stories' = 'chat'
     headers: { 'Content-Type': file.type },
     body: file,
   });
-  if (!res.ok) throw new Error("Échec de l'envoi du fichier");
+  if (!res.ok) {
+    // ⚠️ S3 répond en XML, pas en JSON : son message (`SignatureDoesNotMatch`,
+    // `AccessDenied`…) est la seule information exploitable pour diagnostiquer.
+    const body = await res.text().catch(() => '');
+    const code = body.match(/<Code>([^<]+)<\/Code>/)?.[1];
+    throw new Error(`S3 ${res.status}${code ? ` (${code})` : ''}`);
+  }
 
   return publicUrl;
 };

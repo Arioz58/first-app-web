@@ -517,8 +517,15 @@ export default function ThreadPage() {
             mimeType: file.type,
             durationMs,
           });
-        } catch {
-          window.alert("Échec de l'envoi du message vocal");
+        } catch (err) {
+          // ⚠️ On remonte le message RÉEL : un `catch` muet ne dit pas si c'est la signature
+          // (type refusé), le PUT vers S3, ou le socket qui a échoué.
+          console.error('[vocal] envoi échoué', err);
+          window.alert(
+            `Échec de l'envoi du message vocal : ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
         } finally {
           setUploading(false);
         }

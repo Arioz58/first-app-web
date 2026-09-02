@@ -2,8 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { sendCode, verifyCode } from '@/lib/auth';
-import { hasSession } from '@/lib/auth';
+import { hasSession, sendCode, verifyCode } from '@/lib/auth';
+import { QrLogin } from '@/components/QrLogin';
 
 /** Longueur du code OTP — alignée sur le mobile (6 champs individuels). */
 const CODE_LENGTH = 6;
@@ -12,6 +12,13 @@ const RESEND_COOLDOWN = 45;
 
 export default function LoginPage() {
   const router = useRouter();
+  /**
+   * QR en principal, numéro en REPLI — décision du 2 sept.
+   *
+   * ⚠️ Le repli n'est pas décoratif : sans téléphone sous la main (déchargé, appareil photo
+   * cassé), le QR seul enfermerait dehors quelqu'un qui a pourtant un compte valide.
+   */
+  const [mode, setMode] = useState<'qr' | 'phone'>('qr');
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -69,10 +76,26 @@ export default function LoginPage() {
       <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-xl dark:bg-zinc-900">
         <h1 className="text-3xl font-bold text-[#1E40AF] dark:text-blue-400">Nexa</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
-          {step === 'phone'
-            ? 'Entrez votre numéro pour recevoir un code.'
-            : `Code envoyé au ${phone}.`}
+          {mode === 'qr'
+            ? 'Scannez ce code avec votre téléphone.'
+            : step === 'phone'
+              ? 'Entrez votre numéro pour recevoir un code.'
+              : `Code envoyé au ${phone}.`}
         </p>
+
+        {mode === 'qr' ? (
+          <div className="mt-6">
+            <QrLogin onConnected={() => router.replace('/chat')} />
+            <button
+              type="button"
+              onClick={() => setMode('phone')}
+              className="mt-6 w-full text-center text-sm text-slate-500 hover:underline dark:text-zinc-400"
+            >
+              Se connecter avec mon numéro
+            </button>
+          </div>
+        ) : (
+        <>
 
         {step === 'phone' ? (
           <form onSubmit={submitPhone} className="mt-6 space-y-3">
@@ -149,6 +172,20 @@ export default function LoginPage() {
         )}
 
         {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode('qr');
+            setStep('phone');
+            setError('');
+          }}
+          className="mt-6 w-full text-center text-sm text-slate-500 hover:underline dark:text-zinc-400"
+        >
+          Revenir au code QR
+        </button>
+        </>
+        )}
       </div>
     </main>
   );

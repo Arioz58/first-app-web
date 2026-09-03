@@ -1,18 +1,44 @@
 'use client';
 
 import {
+  IconAddMember,
+  IconAdmin,
   IconBell,
   IconBellOff,
   IconBlock,
+  IconCamera,
+  IconCheck,
   IconClose,
+  IconEdit,
+  IconLeave,
   IconLocation,
+  IconModerator,
+  IconMore,
   IconPhone,
   IconPin,
+  IconRemoveMember,
   IconReport,
+  IconSpinner,
   IconStar,
+  IconTimer,
   IconUnblock,
   IconVideo,
 } from '@/components/icons';
+import { AddMembersDialog } from '@/components/AddMembersDialog';
+import {
+  canManageMembers,
+  canRemoveMember,
+  isGroupAdmin,
+  leaveGroup,
+  removeMember,
+  ROLE_LABEL,
+  setMemberRole,
+  setWhoCanSend,
+  updateGroup,
+  type Role,
+} from '@/lib/groups';
+import { uploadFile } from '@/lib/upload';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
@@ -60,6 +86,7 @@ export function DetailsPanel({
   onClose,
   onOpenMedia,
   onChanged,
+  onMetaChanged,
   onJumpTo,
 }: {
   open: boolean;
@@ -71,6 +98,15 @@ export function DetailsPanel({
   onOpenMedia: (url: string, kind: 'image' | 'video') => void;
   /** Prévient la liste qu'un réglage a changé, pour qu'elle se rafraîchisse. */
   onChanged: () => void;
+  /**
+   * Recharge les métadonnées de la conversation (membres, rôles, nom, réglages du groupe).
+   *
+   * ⚠️ Distinct de `onChanged`, qui ne rafraîchit que les réglages PERSONNELS de la liste
+   * (épinglage, sourdine…). La modération touche des données PARTAGÉES : après avoir promu
+   * ou expulsé quelqu'un, c'est `meta` qu'il faut relire, sinon le panneau continuerait
+   * d'afficher l'ancienne composition.
+   */
+  onMetaChanged: () => void;
   /** Saut vers un message épinglé ou favori — le fil sait charger une fenêtre autour. */
   onJumpTo: (messageId: string) => void;
 }) {
@@ -84,9 +120,21 @@ export function DetailsPanel({
   const [starred, setStarred] = useState<Message[]>([]);
   const [blocked, setBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  // --- Modération de groupe ---
+  const [addOpen, setAddOpen] = useState(false);
+  const [whoOpen, setWhoOpen] = useState(false);
+  /** Membre dont le menu d'actions est ouvert (un seul à la fois). */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** Édition du nom + description : `null` = pas en cours. */
+  const [edit, setEdit] = useState<{ name: string; description: string } | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const router = useRouter();
 
   const other = meta?.members.find((m) => m.userId !== meId);
   const isGroup = meta?.type === 'group';
+  const myRole = meta?.myRole as Role | undefined;
+  const admin = isGroup && isGroupAdmin(myRole);
+  const canManage = isGroup && canManageMembers(myRole);
 
   useEffect(() => {
     if (!open || !meta) return;
@@ -94,6 +142,9 @@ export function DetailsPanel({
       setProfile(null);
       setGallery([]);
       setMuteOpen(false);
+      setMenuFor(null);
+      setEdit(null);
+      setWhoOpen(false);
     });
 
     void fetchMediaCounts(meta.id).then(setCounts).catch(() => setCounts(null));
@@ -136,13 +187,125 @@ export function DetailsPanel({
 
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col items-center px-6 py-6">
-          <Avatar name={title} photoUrl={photo} size={96} group={isGroup} />
-          <h2 className="mt-3 text-center text-xl font-semibold text-slate-900 dark:text-zinc-100">
-            {title}
-          </h2>
+          <div className="relative">
+            <Avatar name={title} photoUrl={photo} size={96} group={isGroup} />
+            {admin && (
+              <>
+                <input
+                  id="group-photo"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    // ⚠️ Vidé tout de suite : sans ça, rechoisir LE MÊME fichier ne
+                    // déclencherait pas `change` et le clic paraîtrait sans effet.
+                    e.target.value = '';
+                    if (!file) return;
+                    setPhotoBusy(true);
+                    void uploadFile(file)
+                      .then((url) => updateGroup(meta.id, { photoUrl: url }))
+                      .then(onMetaChanged)
+                      .catch((err) => window.alert(err.message))
+                      .finally(() => setPhotoBusy(false));
+                  }}
+                />
+                <label
+                  htmlFor="group-photo"
+                  title="Changer la photo du groupe"
+                  className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#1E40AF] text-white shadow-md"
+                >
+                  {photoBusy ? (
+                    <IconSpinner size={15} className="animate-spin" />
+                  ) : (
+                    <IconCamera size={15} />
+                  )}
+                </label>
+              </>
+            )}
+          </div>
+
+          {edit ? (
+            /* ⚠️ Nom ET description dans une seule édition, validée d'un coup : ce sont deux
+               champs du même PATCH, et les valider séparément ferait deux bandeaux système
+               là où l'utilisateur n'a fait qu'une modification. */
+            <div className="mt-3 w-full">
+              <input
+                value={edit.name}
+                onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                placeholder="Nom du groupe"
+                className="w-full rounded-xl bg-slate-100 px-3 py-2 text-center text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
+              />
+              <textarea
+                value={edit.description}
+                onChange={(e) => setEdit({ ...edit, description: e.target.value })}
+                placeholder="Description"
+                rows={2}
+                className="mt-2 w-full resize-none rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
+              />
+              <div className="mt-2 flex justify-center gap-2">
+                <button
+                  onClick={() => setEdit(null)}
+                  className="px-3 py-1.5 text-sm text-slate-500"
+                >
+                  Annuler
+                </button>
+                <button
+                  disabled={busy || !edit.name.trim()}
+                  onClick={() => {
+                    setBusy(true);
+                    void updateGroup(meta.id, {
+                      name: edit.name.trim(),
+                      // Vider la description l'EFFACE : `null` est un choix, pas une absence.
+                      description: edit.description.trim() || null,
+                    })
+                      .then(() => {
+                        setEdit(null);
+                        onMetaChanged();
+                        // Le nom apparaît aussi dans la liste des conversations.
+                        onChanged();
+                      })
+                      .catch((e) => window.alert(e.message))
+                      .finally(() => setBusy(false));
+                  }}
+                  className="flex items-center gap-1 rounded-xl bg-[#1E40AF] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  <IconCheck size={14} />
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <h2 className="mt-3 flex items-center gap-2 text-center text-xl font-semibold text-slate-900 dark:text-zinc-100">
+              {title}
+              {admin && (
+                <button
+                  onClick={() =>
+                    setEdit({ name: meta.name ?? '', description: meta.description ?? '' })
+                  }
+                  aria-label="Modifier le nom et la description"
+                  className="text-slate-400 hover:text-[#1E40AF]"
+                >
+                  <IconEdit size={15} />
+                </button>
+              )}
+            </h2>
+          )}
 
           {isGroup ? (
-            <p className="mt-1 text-sm text-slate-400">{meta.members.length} membres</p>
+            !edit && (
+              <>
+                {meta.description && (
+                  <p className="mt-2 text-center text-sm text-slate-500 dark:text-zinc-400">
+                    {meta.description}
+                  </p>
+                )}
+                <p className="mt-1 text-sm text-slate-400">
+                  {meta.members.length} membres
+                  {myRole && myRole !== 'member' ? ` · vous êtes ${ROLE_LABEL[myRole].toLowerCase()}` : ''}
+                </p>
+              </>
+            )
           ) : (
             profile && (
               <>
@@ -292,20 +455,106 @@ export function DetailsPanel({
         {/* Membres d'un groupe */}
         {isGroup && (
           <Section title={`Membres · ${meta.members.length}`}>
+            {canManage && (
+              <button
+                onClick={() => setAddOpen(true)}
+                className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-[#1E40AF] hover:bg-slate-50 dark:hover:bg-zinc-800"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30">
+                  <IconAddMember size={16} />
+                </span>
+                Ajouter des membres
+              </button>
+            )}
             <ul className="px-2">
-              {meta.members.map((m) => (
-                <li key={m.userId} className="flex items-center gap-3 px-2 py-2">
-                  <Avatar name={m.user.name} photoUrl={m.user.photoUrl} size={36} />
-                  <span className="flex-1 truncate text-sm text-slate-900 dark:text-zinc-100">
-                    {m.userId === meId ? 'Vous' : m.user.name}
-                  </span>
-                  {m.role !== 'member' && (
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-[#1E40AF] dark:bg-blue-900/30">
-                      {m.role === 'admin' ? 'admin' : 'modérateur'}
-                    </span>
-                  )}
-                </li>
-              ))}
+              {/* ⚠️ Admins d'abord, puis modérateurs, puis les membres par ordre alphabétique :
+                  qui décide est ce qu'on cherche en premier dans un groupe nombreux. */}
+              {[...meta.members]
+                .sort((a, b) => {
+                  const rank = { admin: 0, moderator: 1, member: 2 } as Record<string, number>;
+                  const d = (rank[a.role] ?? 2) - (rank[b.role] ?? 2);
+                  return d !== 0 ? d : a.user.name.localeCompare(b.user.name);
+                })
+                .map((m) => {
+                  const isMe = m.userId === meId;
+                  const removable = canRemoveMember(myRole, m, meId);
+                  // Un admin change les rôles ; jamais le sien (il se retirerait ses droits
+                  // sans pouvoir les reprendre si personne d'autre n'est admin).
+                  const roleChangeable = admin && !isMe;
+                  const open = menuFor === m.userId;
+                  return (
+                    <li key={m.userId} className="relative">
+                      <div className="flex items-center gap-3 px-2 py-2">
+                        <Avatar name={m.user.name} photoUrl={m.user.photoUrl} size={36} />
+                        <span className="flex-1 truncate text-sm text-slate-900 dark:text-zinc-100">
+                          {isMe ? 'Vous' : m.user.name}
+                        </span>
+                        {m.role !== 'member' && (
+                          <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-[#1E40AF] dark:bg-blue-900/30">
+                            {m.role === 'admin' ? (
+                              <IconAdmin size={11} />
+                            ) : (
+                              <IconModerator size={11} />
+                            )}
+                            {ROLE_LABEL[m.role as Role]}
+                          </span>
+                        )}
+                        {(roleChangeable || removable) && (
+                          <button
+                            onClick={() => setMenuFor(open ? null : m.userId)}
+                            aria-label={`Actions sur ${m.user.name}`}
+                            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                          >
+                            <IconMore size={16} />
+                          </button>
+                        )}
+                      </div>
+
+                      {open && (
+                        <div className="mb-2 ml-12 mr-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
+                          {roleChangeable &&
+                            (['admin', 'moderator', 'member'] as Role[])
+                              .filter((r) => r !== m.role)
+                              .map((r) => (
+                                <button
+                                  key={r}
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setBusy(true);
+                                    setMenuFor(null);
+                                    void setMemberRole(meta.id, m.userId, r)
+                                      .then(onMetaChanged)
+                                      .catch((e) => window.alert(e.message))
+                                      .finally(() => setBusy(false));
+                                  }}
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                                >
+                                  Passer {r === 'member' ? 'simple membre' : ROLE_LABEL[r].toLowerCase()}
+                                </button>
+                              ))}
+                          {removable && (
+                            <button
+                              disabled={busy}
+                              onClick={() => {
+                                if (!window.confirm(`Retirer ${m.user.name} du groupe ?`)) return;
+                                setBusy(true);
+                                setMenuFor(null);
+                                void removeMember(meta.id, m.userId)
+                                  .then(onMetaChanged)
+                                  .catch((e) => window.alert(e.message))
+                                  .finally(() => setBusy(false));
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <IconRemoveMember size={14} />
+                              Retirer du groupe
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
             </ul>
           </Section>
         )}
@@ -372,7 +621,8 @@ export function DetailsPanel({
                 onClick={() => setEphemeralOpen(true)}
                 className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                ⏱ Messages éphémères
+                <IconTimer size={15} className="mr-2 inline align-[-3px]" />
+                Messages éphémères
                 <span className="ml-2 text-xs text-slate-400">
                   {meta.ephemeralDuration
                     ? `${Math.round(meta.ephemeralDuration / 86400)} j`
@@ -382,6 +632,65 @@ export function DetailsPanel({
             )}
           </div>
         </Section>
+
+        {/* Gestion du groupe : réglage partagé (admin) + sortie (tout le monde). */}
+        {isGroup && (
+          <Section title="Gestion du groupe">
+            <div className="px-4">
+              {admin &&
+                (whoOpen ? (
+                  (['all', 'admins'] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => {
+                        setWhoOpen(false);
+                        void setWhoCanSend(meta.id, v)
+                          .then(onMetaChanged)
+                          .catch((e) => window.alert(e.message));
+                      }}
+                      className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      {v === 'all' ? 'Tout le monde' : 'Les admins uniquement'}
+                    </button>
+                  ))
+                ) : (
+                  <button
+                    onClick={() => setWhoOpen(true)}
+                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    <IconEdit size={15} className="mr-2 inline align-[-3px]" />
+                    Qui peut envoyer des messages
+                    <span className="ml-2 text-xs text-slate-400">
+                      {meta.whoCanSend === 'admins' ? 'admins' : 'tout le monde'}
+                    </span>
+                  </button>
+                ))}
+
+              {/* ⚠️ Ouvert à TOUS, y compris au dernier admin : le serveur promeut le membre
+                  suivant. Empêcher son départ laisserait quelqu'un prisonnier de son groupe. */}
+              <button
+                disabled={busy}
+                onClick={() => {
+                  if (!window.confirm('Quitter ce groupe ?')) return;
+                  setBusy(true);
+                  void leaveGroup(meta.id)
+                    .then(() => {
+                      onClose();
+                      // La conversation disparaît de la liste : c'est elle qui fait foi.
+                      onChanged();
+                      router.push('/chat');
+                    })
+                    .catch((e) => window.alert(e.message))
+                    .finally(() => setBusy(false));
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <IconLeave size={15} />
+                Quitter le groupe
+              </button>
+            </div>
+          </Section>
+        )}
 
         {/* Gestion — conversation directe seulement : bloquer un groupe n'a pas de sens. */}
         {!isGroup && other && (
@@ -451,6 +760,17 @@ export function DetailsPanel({
           </Section>
         )}
       </div>
+      {/* Le dialogue est en `fixed inset-0`, donc positionné par rapport à la FENÊTRE : il
+          couvre toute la page bien qu'il soit rendu ici, dans une colonne étroite. */}
+      {isGroup && (
+        <AddMembersDialog
+          open={addOpen}
+          conversationId={meta.id}
+          existingIds={meta.members.map((m) => m.userId)}
+          onClose={() => setAddOpen(false)}
+          onAdded={onMetaChanged}
+        />
+      )}
     </aside>
   );
 }

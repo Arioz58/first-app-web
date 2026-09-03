@@ -82,6 +82,8 @@ export type ConvMeta = {
   members: ConvMember[];
   ephemeralDuration: number | null;
   myMutedUntil: string | null;
+  /** Groupe : description éditable par un admin (renvoyée par `GET /conversations/:id`). */
+  description?: string | null;
   whoCanSend?: 'all' | 'admins';
   myRole?: 'admin' | 'moderator' | 'member';
   /** Premier message non lu et leur nombre — calculés par le SERVEUR (voir mobile). */

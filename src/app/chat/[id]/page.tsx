@@ -1,5 +1,6 @@
 'use client';
 
+import { canManageMembers, type Role } from '@/lib/groups';
 import {
   IconAttach,
   IconBack,
@@ -300,7 +301,35 @@ export default function ThreadPage() {
       );
     };
 
+    /**
+     * Composition du groupe modifiée par quelqu'un d'autre (ajout, expulsion, départ,
+     * renommage, changement de rôle).
+     *
+     * ⚠️ On RECHARGE les métadonnées au lieu d'appliquer un delta : les événements ne portent
+     * que des identifiants, pas les noms ni les rôles, et un rôle changé ailleurs n'émet même
+     * pas d'événement dédié. Relire est une requête, contre un état qui divergerait autrement.
+     */
+    const onGroupChanged = (d: { conversationId: string }) => {
+      if (d.conversationId !== id) return;
+      void fetchConversationMeta(id).then(setMeta).catch(() => {});
+    };
+    /**
+     * On m'a retiré du groupe : la conversation ne m'est plus accessible.
+     *
+     * ⚠️ Rediriger AVANT que quoi que ce soit ne la rappelle — le serveur répondrait 403 sur
+     * chaque requête suivante, et l'écran se remplirait d'erreurs au lieu de se fermer.
+     */
+    const onRemovedFromGroup = (d: { conversationId: string }) => {
+      if (d.conversationId !== id) return;
+      router.replace('/chat');
+    };
+
     socket.on('presence_update', onPresence);
+    socket.on('members_added', onGroupChanged);
+    socket.on('member_removed', onGroupChanged);
+    socket.on('member_left', onGroupChanged);
+    socket.on('group_updated', onGroupChanged);
+    socket.on('removed_from_group', onRemovedFromGroup);
     socket.on('conversation_delivered', onDelivered);
     socket.on('conversation_read', onRead);
     socket.on('message_preview', onPreview);
@@ -313,6 +342,11 @@ export default function ThreadPage() {
     return () => {
       socket.emit('leave_conversation', id);
       socket.off('presence_update', onPresence);
+      socket.off('members_added', onGroupChanged);
+      socket.off('member_removed', onGroupChanged);
+      socket.off('member_left', onGroupChanged);
+      socket.off('group_updated', onGroupChanged);
+      socket.off('removed_from_group', onRemovedFromGroup);
       socket.off('conversation_delivered', onDelivered);
       socket.off('conversation_read', onRead);
       socket.off('message_preview', onPreview);
@@ -322,7 +356,7 @@ export default function ThreadPage() {
       socket.off('message_deleted', onDeleted);
       socket.off('message_reaction', onReaction);
     };
-  }, [id, meId, scrollToBottom, meta]);
+  }, [id, meId, scrollToBottom, meta, router]);
 
   // Masquage automatique de l'indicateur de frappe, comme sur mobile (5 s).
   useEffect(() => {
@@ -747,6 +781,17 @@ export default function ThreadPage() {
           : '';
 
   /**
+   * Groupe en « admins uniquement » et je n'ai pas les droits : fil en lecture seule.
+   *
+   * ⚠️ Modérateur INCLUS dans ceux qui peuvent écrire — c'est la règle du serveur
+   * (`canManage`), et l'exclure ici bloquerait quelqu'un que le backend accepte.
+   */
+  const readOnly =
+    meta?.type === 'group' &&
+    meta.whoCanSend === 'admins' &&
+    !canManageMembers(meta.myRole as Role | undefined);
+
+  /**
    * Épinglés présents dans le fil, du plus récent au plus ancien.
    *
    * ⚠️ Construit depuis `flags.pinned` ET les messages chargés : un épinglé hors mémoire n'a
@@ -1049,7 +1094,15 @@ export default function ThreadPage() {
         </div>
       )}
 
-      {recording ? (
+      {/* ⚠️ Groupe réservé aux admins : le socket REFUSE déjà l'envoi côté serveur, la barre
+          n'est donc pas une sécurité — elle évite d'écrire un message qui serait rejeté sans
+          explication. Les modérateurs peuvent envoyer, comme sur mobile et comme le serveur
+          l'autorise (`canManage`). */}
+      {readOnly ? (
+        <div className="border-t border-slate-200 bg-white px-4 py-4 text-center text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-900">
+          Seuls les admins peuvent envoyer des messages dans ce groupe.
+        </div>
+      ) : recording ? (
         <div className="flex items-center border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
           <VoiceRecorder onSend={sendVoice} onCancel={() => setRecording(false)} />
         </div>
@@ -1139,6 +1192,9 @@ export default function ThreadPage() {
       onClose={() => setDetailsOpen(false)}
       onOpenMedia={(url, kind) => setViewer({ url, kind })}
       onChanged={loadConvSettings}
+      onMetaChanged={() => {
+        void fetchConversationMeta(id).then(setMeta).catch(() => {});
+      }}
       onJumpTo={(mid) => {
         jumpTo(mid);
         // Sur écran étroit le panneau couvre le fil : le refermer permet de VOIR le message

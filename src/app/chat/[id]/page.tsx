@@ -31,6 +31,8 @@ import { mediaKindOf, uploadFile } from '@/lib/upload';
 import type { BubbleActions } from '@/components/MessageBubble';
 import { ForwardDialog } from '@/components/ForwardDialog';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { DetailsPanel } from '@/components/DetailsPanel';
+import { fetchConversations, type Conversation } from '@/lib/conversations';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
@@ -79,6 +81,14 @@ export default function ThreadPage() {
   /** Index de l'épinglé affiché : chaque clic passe au suivant, en cyclant. */
   const [pinIndex, setPinIndex] = useState(0);
   const [pinBarHidden, setPinBarHidden] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  /**
+   * Réglages personnels de CETTE conversation (sourdine, favori…).
+   *
+   * ⚠️ Ils vivent sur `ConversationMember` et arrivent par `GET /conversations`, pas par les
+   * métadonnées du fil — d'où cette lecture séparée.
+   */
+  const [convSettings, setConvSettings] = useState<Conversation | null>(null);
   const [viewer, setViewer] = useState<{ url: string; kind: 'image' | 'video' } | null>(null);
   const [search, setSearch] = useState<{ term: string; results: string[]; index: number } | null>(
     null,
@@ -744,6 +754,18 @@ export default function ThreadPage() {
   const pinnedPreview =
     messages.find((m) => m.id === pinnedRows[safePinIndex])?.content ?? 'Pièce jointe';
 
+  const loadConvSettings = useCallback(() => {
+    void fetchConversations()
+      .then((list) => setConvSettings(list.find((c) => c.id === id) ?? null))
+      .catch(() => {});
+  }, [id]);
+
+  // ⚠️ Chargé à l'OUVERTURE du panneau, pas à celle du fil : c'est une liste complète des
+  // conversations, inutile de la demander tant que personne ne la regarde.
+  useEffect(() => {
+    if (detailsOpen) loadConvSettings();
+  }, [detailsOpen, loadConvSettings]);
+
   const title =
     meta?.type === 'group'
       ? meta.name ?? ''
@@ -754,10 +776,17 @@ export default function ThreadPage() {
       : meta?.members.find((m) => m.userId !== meId)?.user.photoUrl;
 
   return (
-    // ⚠️ `flex-1` et non `h-dvh` : la hauteur et le fond viennent du layout à deux colonnes.
-    // `min-w-0` est indispensable dans un conteneur flex — sans lui, un message très long
-    // élargirait la colonne au lieu de passer à la ligne, et pousserait la liste hors écran.
-    <section className="flex min-w-0 flex-1 flex-col">
+    // ⚠️ `flex-1` et non `h-dvh` : la hauteur et le fond viennent du layout. `min-w-0` est
+    // indispensable dans un conteneur flex — sans lui, un message très long élargirait la
+    // colonne au lieu de passer à la ligne, et pousserait la liste hors écran.
+    <div className="flex min-w-0 flex-1">
+    <section
+      className={`flex min-w-0 flex-1 flex-col ${
+        // ⚠️ Sur écran étroit, les trois colonnes ne tiennent pas : le panneau prend toute
+        // la place et le fil se masque, plutôt que de les comprimer tous les deux.
+        detailsOpen ? 'hidden md:flex' : 'flex'
+      }`}
+    >
       <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
         {/* Retour à la liste : utile seulement sur écran étroit, où elle est masquée. */}
         <button
@@ -767,6 +796,12 @@ export default function ThreadPage() {
         >
           ←
         </button>
+        {/* ⚠️ Zone cliquable large (avatar + nom), comme sur mobile : viser un petit bouton
+            « infos » serait moins direct, et l'en-tête est le repère naturel. */}
+        <button
+          onClick={() => setDetailsOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/60"
+        >
         <Avatar name={title} photoUrl={photo} size={40} group={meta?.type === 'group'} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
@@ -780,6 +815,7 @@ export default function ThreadPage() {
             </p>
           )}
         </div>
+        </button>
 
         {search ? (
           <div className="flex items-center gap-2">
@@ -1072,19 +1108,35 @@ export default function ThreadPage() {
         }}
       />
 
-      {viewer && (
-        <div
-          onClick={() => setViewer(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-8"
-        >
-          {viewer.kind === 'video' ? (
-            <video src={viewer.url} controls autoPlay className="max-h-full max-w-full" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={viewer.url} alt="" className="max-h-full max-w-full object-contain" />
-          )}
-        </div>
-      )}
     </section>
+
+    <DetailsPanel
+      open={detailsOpen}
+      meta={meta}
+      conversation={convSettings}
+      meId={meId}
+      onClose={() => setDetailsOpen(false)}
+      onOpenMedia={(url, kind) => setViewer({ url, kind })}
+      onChanged={loadConvSettings}
+    />
+
+    {/* ⚠️ Hors des colonnes : la visionneuse est plein écran et appartient à la PAGE.
+        Laissée dans la section du fil, elle disparaissait avec elle quand le panneau de
+        détails prend l'écran sur mobile — un média ouvert depuis le panneau ne s'affichait
+        alors pas. */}
+    {viewer && (
+      <div
+        onClick={() => setViewer(null)}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-8"
+      >
+        {viewer.kind === 'video' ? (
+          <video src={viewer.url} controls autoPlay className="max-h-full max-w-full" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={viewer.url} alt="" className="max-h-full max-w-full object-contain" />
+        )}
+      </div>
+    )}
+    </div>
   );
 }

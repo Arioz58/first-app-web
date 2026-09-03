@@ -267,3 +267,45 @@ export const fetchAround = (conversationId: string, messageId: string) =>
 
 /** Les 6 réactions rapides, dans le même ordre que le mobile — le geste doit être identique. */
 export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+// --- Détails d'une conversation ---
+
+export type UserProfile = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  bio: string | null;
+  phone: string | null;
+  location: { city: string; country: string | null } | null;
+  online: boolean;
+  lastSeenAt: string | null;
+  isFriend: boolean;
+  mutualFriendsCount: number;
+  relationStatus: string;
+};
+
+/**
+ * Profil d'un autre utilisateur.
+ *
+ * ⚠️ GATED côté serveur : chaque champ n'est renvoyé que si la matrice de confidentialité de
+ * la personne l'autorise (photo, bio, téléphone, dernière connexion, ville). Un champ absent
+ * n'est pas une erreur — c'est un refus, et il ne faut donc rien afficher à sa place.
+ */
+export const fetchUserProfile = (userId: string) =>
+  apiRequest<UserProfile>(`/users/${userId}/profile`);
+
+export type MediaCounts = {
+  images: number;
+  videos: number;
+  documents: number;
+  audio: number;
+  gifs: number;
+  links: number;
+};
+
+export const fetchMediaCounts = (conversationId: string) =>
+  apiRequest<MediaCounts>(`/conversations/${conversationId}/media-counts`);
+
+/** Pièces jointes d'une catégorie, paginées (30 par page). */
+export const fetchMedia = (conversationId: string, category: string) =>
+  apiRequest<Message[]>(`/conversations/${conversationId}/media?category=${category}`);

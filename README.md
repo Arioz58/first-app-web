@@ -35,6 +35,15 @@ navigateur et les appels partent vers `undefined`.
 - `src/lib/api.ts` ne lance **qu'un seul** rafraîchissement à la fois, même quand plusieurs
   requêtes reçoivent un 401 simultanément — le serveur invalide l'ancien jeton à chaque
   usage, et des refresh concurrents déconnecteraient l'utilisateur.
+- **Le thème clair/sombre est piloté par une CLASSE `dark` sur `<html>`**, pas par la media
+  query : `globals.css` redéfinit la variante `dark:` de Tailwind en conséquence
+  (`@custom-variant`). Sans ça, le réglage « Clair »/« Sombre » du profil ne pourrait pas
+  contredire celui du système — il ne resterait qu'à le subir.
+  ⚠️ Un script INLINE en tête de `layout.tsx` pose la classe avant la première peinture. Il
+  est indispensable : la page est rendue sur le serveur, qui ne peut pas connaître un choix
+  rangé dans le `localStorage` du navigateur. Sans lui, une app réglée en sombre s'affiche en
+  clair le temps de l'hydratation — un éclair blanc à chaque chargement. Pendant web de
+  `initTheme()` appelé avant le rendu sur mobile.
 - **Les icônes viennent de `lucide-react`, via `src/components/icons.ts`** — jamais d'emoji
   comme icône d'interface, et jamais d'import direct de lucide dans un composant. Le fichier
   central nomme les concepts (`IconPin`, `IconCheckDouble`…) : une même idée garde le même

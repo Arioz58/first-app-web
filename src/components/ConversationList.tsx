@@ -23,11 +23,13 @@ import {
   IconPin,
   IconPlus,
   IconStar,
+  IconUser,
   IconVideo,
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
+import { ProfilePanel } from '@/components/ProfilePanel';
 import { setSessionExpiredHandler } from '@/lib/api';
-import { hasSession, logout } from '@/lib/auth';
+import { hasSession } from '@/lib/auth';
 import {
   archiveConversation,
   conversationName,
@@ -46,7 +48,7 @@ import {
   type LastMessage,
   type PreviewKind,
 } from '@/lib/conversations';
-import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
 type Filter = 'all' | 'unread' | 'favorites' | 'groups' | 'archived';
@@ -97,6 +99,7 @@ export function ConversationList() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   /** Conversation dont le menu d'actions est ouvert. */
   /** Conversation dont le menu est ouvert, et où le poser (voir `FloatingMenu`). */
   const [menuFor, setMenuFor] = useState<{ id: string; at: MenuAnchor } | null>(null);
@@ -240,7 +243,7 @@ export function ConversationList() {
 
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-r border-slate-200 bg-white md:w-[380px] dark:border-zinc-800 dark:bg-zinc-900">
+    <aside className="relative flex w-full shrink-0 flex-col border-r border-slate-200 bg-white md:w-[380px] dark:border-zinc-800 dark:bg-zinc-900">
       <header className="flex items-center justify-between px-4 py-4">
         <h1 className="text-2xl font-bold text-[#1E40AF] dark:text-blue-400">
           Discussions
@@ -258,17 +261,15 @@ export function ConversationList() {
           >
             <IconPlus size={20} />
           </button>
+          {/* ⚠️ La déconnexion a DÉMÉNAGÉ dans « Vous » : à côté d'un bouton « nouvelle
+              conversation », elle était à un clic d'une action fréquente. */}
           <button
-            onClick={() => {
-              // Le socket porte le jeton dans son handshake : le laisser ouvert maintiendrait
-              // la connexion au nom du compte qu'on vient de quitter.
-              disconnectSocket();
-              logout();
-              router.replace('/login');
-            }}
-            className="text-sm text-slate-500 hover:underline dark:text-zinc-400"
+            onClick={() => setProfileOpen(true)}
+            title="Vous"
+            aria-label="Vous"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
-            Déconnexion
+            <IconUser size={19} />
           </button>
         </div>
       </header>
@@ -526,6 +527,8 @@ export function ConversationList() {
           </FloatingMenu>
         );
       })()}
+
+      {profileOpen && <ProfilePanel onClose={() => setProfileOpen(false)} />}
 
       <NewChatDialog
         open={newChatOpen}

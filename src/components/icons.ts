@@ -62,6 +62,10 @@ export {
   LogOut as IconLeave,
   Camera as IconCamera,
   MoreVertical as IconMore,
+  Sun as IconLight,
+  Moon as IconDark,
+  Monitor as IconSystem,
+  User as IconUser,
   // Médias
   Image as IconPhoto,
   FileText as IconDocument,

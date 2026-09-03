@@ -369,3 +369,22 @@ export const EPHEMERAL_OPTIONS: { label: string; value: number | null }[] = [
   { label: '30 jours', value: 30 * DAY },
   { label: 'Désactivé', value: null },
 ];
+
+/**
+ * Mon propre profil.
+ *
+ * ⚠️ À ne pas confondre avec `fetchUserProfile(id)`, qui renvoie une vue GATED de quelqu'un
+ * d'autre (champs filtrés selon sa matrice de confidentialité). Ici rien n'est filtré : c'est
+ * mon compte. La réponse porte aussi `fcmToken` et les réglages de confidentialité, dont
+ * l'app web n'a pas l'usage — on ne type que ce qu'on affiche.
+ */
+export type Me = {
+  id: string;
+  name: string;
+  phone: string;
+  photoUrl: string | null;
+  language: string;
+  profile?: { bio: string | null } | null;
+};
+
+export const fetchMe = () => apiRequest<Me>('/users/me');

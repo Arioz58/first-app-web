@@ -1,8 +1,28 @@
 @import "tailwindcss";
 
+/**
+ * ⚠️ La variante `dark:` de Tailwind écoute `prefers-color-scheme` PAR DÉFAUT. On la
+ * redéfinit sur une classe : sans ça, le réglage « Clair » / « Sombre » du profil ne pourrait
+ * pas contredire celui du système — il ne resterait qu'à le subir.
+ *
+ * La classe est posée sur `<html>` par `lib/theme.ts`, et dès le premier octet par le script
+ * en tête de `layout.tsx` (voir le commentaire là-bas : c'est ce qui évite l'éclair blanc).
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+/**
+ * ⚠️ Le fond suit la CLASSE et non la media query, pour la même raison que la variante.
+ * Sans cette règle, forcer « Sombre » sur un système clair laisserait l'app sombre posée sur
+ * un fond de page blanc — visible au rebond de défilement.
+ */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +32,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }

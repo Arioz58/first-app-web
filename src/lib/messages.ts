@@ -309,3 +309,55 @@ export const fetchMediaCounts = (conversationId: string) =>
 /** Pièces jointes d'une catégorie, paginées (30 par page). */
 export const fetchMedia = (conversationId: string, category: string) =>
   apiRequest<Message[]>(`/conversations/${conversationId}/media?category=${category}`);
+
+// --- Modération ---
+
+/**
+ * Bloquer quelqu'un.
+ *
+ * ⚠️ Effets côté serveur : l'amitié est supprimée et les demandes en attente annulées. Ce
+ * n'est pas un simple masquage — d'où la confirmation avant d'appeler.
+ */
+export const blockUser = (userId: string) =>
+  apiRequest('/blocks', { method: 'POST', body: { userId } });
+
+export const unblockUser = (userId: string) =>
+  apiRequest(`/blocks/${userId}`, { method: 'DELETE' });
+
+export const fetchBlocked = () =>
+  apiRequest<{ id: string; name: string }[]>('/blocks');
+
+export type ReportCategory = 'spam' | 'impersonation' | 'inappropriate' | 'other';
+
+export const REPORT_CATEGORIES: { key: ReportCategory; label: string }[] = [
+  { key: 'spam', label: 'Spam' },
+  { key: 'impersonation', label: 'Usurpation d’identité' },
+  { key: 'inappropriate', label: 'Contenu inapproprié' },
+  { key: 'other', label: 'Autre' },
+];
+
+export const reportUser = (userId: string, category: ReportCategory) =>
+  apiRequest('/reports', { method: 'POST', body: { userId, category } });
+
+/** Messages épinglés de la conversation (niveau conversation : visibles par tous). */
+export const fetchPins = (conversationId: string) =>
+  apiRequest<{ message: Message }[]>(`/conversations/${conversationId}/pins`);
+
+/** Mes messages favoris dans cette conversation (personnel). */
+export const fetchStarred = (conversationId: string) =>
+  apiRequest<{ message: Message }[]>(`/conversations/${conversationId}/starred`);
+
+/** Durée des messages éphémères, en secondes. `null` désactive. */
+export const setEphemeral = (conversationId: string, duration: number | null) =>
+  apiRequest(`/conversations/${conversationId}/ephemeral`, {
+    method: 'PATCH',
+    body: { duration },
+  });
+
+const DAY = 24 * 3600;
+export const EPHEMERAL_OPTIONS: { label: string; value: number | null }[] = [
+  { label: '24 heures', value: DAY },
+  { label: '7 jours', value: 7 * DAY },
+  { label: '30 jours', value: 30 * DAY },
+  { label: 'Désactivé', value: null },
+];

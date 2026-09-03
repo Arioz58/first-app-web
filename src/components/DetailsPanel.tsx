@@ -2,14 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
-import { isMuted, MUTE_OPTIONS, muteConversation, type Conversation } from '@/lib/conversations';
 import {
+  favoriteConversation,
+  isMuted,
+  MUTE_OPTIONS,
+  muteConversation,
+  type Conversation,
+} from '@/lib/conversations';
+import {
+  blockUser,
+  EPHEMERAL_OPTIONS,
   fetchMedia,
   fetchMediaCounts,
+  fetchPins,
+  fetchStarred,
   fetchUserProfile,
+  REPORT_CATEGORIES,
+  reportUser,
+  setEphemeral,
+  unblockUser,
   type ConvMeta,
   type MediaCounts,
   type Message,
+  type ReportCategory,
   type UserProfile,
 } from '@/lib/messages';
 
@@ -32,6 +47,7 @@ export function DetailsPanel({
   onClose,
   onOpenMedia,
   onChanged,
+  onJumpTo,
 }: {
   open: boolean;
   meta: ConvMeta | null;
@@ -42,11 +58,19 @@ export function DetailsPanel({
   onOpenMedia: (url: string, kind: 'image' | 'video') => void;
   /** Prévient la liste qu'un réglage a changé, pour qu'elle se rafraîchisse. */
   onChanged: () => void;
+  /** Saut vers un message épinglé ou favori — le fil sait charger une fenêtre autour. */
+  onJumpTo: (messageId: string) => void;
 }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [counts, setCounts] = useState<MediaCounts | null>(null);
   const [gallery, setGallery] = useState<Message[]>([]);
   const [muteOpen, setMuteOpen] = useState(false);
+  const [ephemeralOpen, setEphemeralOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [pins, setPins] = useState<Message[]>([]);
+  const [starred, setStarred] = useState<Message[]>([]);
+  const [blocked, setBlocked] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const other = meta?.members.find((m) => m.userId !== meId);
   const isGroup = meta?.type === 'group';
@@ -64,8 +88,20 @@ export function DetailsPanel({
     void fetchMedia(meta.id, 'images')
       .then((m) => setGallery(m.slice(0, 6)))
       .catch(() => setGallery([]));
+    void fetchPins(meta.id)
+      .then((r) => setPins(r.map((x) => x.message)))
+      .catch(() => setPins([]));
+    void fetchStarred(meta.id)
+      .then((r) => setStarred(r.map((x) => x.message)))
+      .catch(() => setStarred([]));
     if (!isGroup && other) {
-      void fetchUserProfile(other.userId).then(setProfile).catch(() => setProfile(null));
+      void fetchUserProfile(other.userId)
+        .then((p) => {
+          setProfile(p);
+          // `relationStatus` porte le blocage : c'est lui qui décide du libellé de l'action.
+          setBlocked(p.relationStatus === 'blocked');
+        })
+        .catch(() => setProfile(null));
     }
   }, [open, meta, isGroup, other]);
 
@@ -126,6 +162,36 @@ export function DetailsPanel({
           )}
         </div>
 
+        {/* Actions rapides, comme en tête du panneau mobile. */}
+        {conversation && (
+          <div className="flex justify-center gap-2 px-4 pb-4">
+            <QuickAction
+              icon={conversation.favoritedAt ? '⭐' : '☆'}
+              label="Favori"
+              onClick={() =>
+                void favoriteConversation(meta.id, !conversation.favoritedAt)
+                  .then(onChanged)
+                  .catch(() => {})
+              }
+            />
+            <QuickAction
+              icon={isMuted(conversation) ? '🔕' : '🔔'}
+              label="Sourdine"
+              onClick={() => {
+                if (isMuted(conversation)) {
+                  void muteConversation(meta.id, null).then(onChanged).catch(() => {});
+                } else {
+                  setMuteOpen(true);
+                }
+              }}
+            />
+            {/* ⚠️ Les appels sont désactivés : ils arrivent au Mois 4 (Agora). Un bouton
+                grisé annonce la fonction sans mentir sur sa disponibilité. */}
+            <QuickAction icon="📞" label="Appel" disabled />
+            <QuickAction icon="🎥" label="Vidéo" disabled />
+          </div>
+        )}
+
         {/* Médias */}
         {counts && (
           <Section title="Médias, liens et documents">
@@ -171,6 +237,42 @@ export function DetailsPanel({
                 <span className="text-slate-400">Aucun média échangé.</span>
               )}
             </div>
+          </Section>
+        )}
+
+        {/* Épinglés — niveau conversation, visibles par tous les membres. */}
+        {pins.length > 0 && (
+          <Section title={`Épinglés · ${pins.length}`}>
+            <ul className="px-2">
+              {pins.map((m) => (
+                <li key={m.id}>
+                  <button
+                    onClick={() => onJumpTo(m.id)}
+                    className="w-full truncate rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    📌 {m.content || 'Pièce jointe'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {/* Favoris — PERSONNELS, contrairement aux épinglés. */}
+        {starred.length > 0 && (
+          <Section title={`Favoris · ${starred.length}`}>
+            <ul className="px-2">
+              {starred.map((m) => (
+                <li key={m.id}>
+                  <button
+                    onClick={() => onJumpTo(m.id)}
+                    className="w-full truncate rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    ⭐ {m.content || 'Pièce jointe'}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </Section>
         )}
 
@@ -230,14 +332,127 @@ export function DetailsPanel({
               )}
             </div>
           )}
-          {meta.ephemeralDuration ? (
-            <p className="px-6 pt-1 text-xs text-slate-400">
-              ⏱ Messages éphémères activés
-            </p>
-          ) : null}
+          <div className="px-4">
+            {ephemeralOpen ? (
+              EPHEMERAL_OPTIONS.map((o) => (
+                <button
+                  key={o.label}
+                  onClick={() => {
+                    setEphemeralOpen(false);
+                    void setEphemeral(meta.id, o.value).catch(() => {});
+                  }}
+                  className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  {o.label}
+                </button>
+              ))
+            ) : (
+              <button
+                onClick={() => setEphemeralOpen(true)}
+                className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                ⏱ Messages éphémères
+                <span className="ml-2 text-xs text-slate-400">
+                  {meta.ephemeralDuration
+                    ? `${Math.round(meta.ephemeralDuration / 86400)} j`
+                    : 'désactivés'}
+                </span>
+              </button>
+            )}
+          </div>
         </Section>
+
+        {/* Gestion — conversation directe seulement : bloquer un groupe n'a pas de sens. */}
+        {!isGroup && other && (
+          <Section title="Gestion">
+            <div className="px-4">
+              {reportOpen ? (
+                REPORT_CATEGORIES.map((c) => (
+                  <button
+                    key={c.key}
+                    disabled={busy}
+                    onClick={() => {
+                      setBusy(true);
+                      setReportOpen(false);
+                      void reportUser(other.userId, c.key as ReportCategory)
+                        .then(() => window.alert('Signalement envoyé.'))
+                        .catch((e) => window.alert(e.message))
+                        .finally(() => setBusy(false));
+                    }}
+                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    {c.label}
+                  </button>
+                ))
+              ) : (
+                <>
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      // ⚠️ Confirmation obligatoire : bloquer SUPPRIME l'amitié et annule les
+                      // demandes en attente côté serveur. Ce n'est pas un simple masquage,
+                      // et l'action ne se défait pas d'un clic.
+                      if (
+                        !blocked &&
+                        !window.confirm(
+                          `Bloquer ${profile?.name ?? 'ce contact'} ?\n\nVotre amitié sera supprimée et cette personne ne pourra plus vous contacter.`,
+                        )
+                      )
+                        return;
+                      setBusy(true);
+                      const call = blocked
+                        ? unblockUser(other.userId)
+                        : blockUser(other.userId);
+                      void call
+                        .then(() => {
+                          setBlocked(!blocked);
+                          onChanged();
+                        })
+                        .catch((e) => window.alert(e.message))
+                        .finally(() => setBusy(false));
+                    }}
+                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    {blocked ? '🔓 Débloquer' : '🚫 Bloquer'}
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => setReportOpen(true)}
+                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    🚩 Signaler
+                  </button>
+                </>
+              )}
+            </div>
+          </Section>
+        )}
       </div>
     </aside>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: string;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={disabled ? 'Disponible prochainement' : label}
+      className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-slate-200 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+    >
+      <span className="text-lg">{icon}</span>
+      {label}
+    </button>
   );
 }
 

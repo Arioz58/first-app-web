@@ -1118,6 +1118,13 @@ export default function ThreadPage() {
       onClose={() => setDetailsOpen(false)}
       onOpenMedia={(url, kind) => setViewer({ url, kind })}
       onChanged={loadConvSettings}
+      onJumpTo={(mid) => {
+        jumpTo(mid);
+        // Sur écran étroit le panneau couvre le fil : le refermer permet de VOIR le message
+        // qu'on vient de rejoindre. Sur grand écran il pourrait rester, mais un
+        // comportement unique se retient mieux qu'une règle qui dépend de la largeur.
+        setDetailsOpen(false);
+      }}
     />
 
     {/* ⚠️ Hors des colonnes : la visionneuse est plein écran et appartient à la PAGE.

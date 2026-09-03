@@ -23,7 +23,6 @@ import {
   IconPin,
   IconPlus,
   IconStar,
-  IconUser,
   IconVideo,
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
@@ -48,6 +47,7 @@ import {
   type LastMessage,
   type PreviewKind,
 } from '@/lib/conversations';
+import { fetchMe, type Me } from '@/lib/messages';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
@@ -100,6 +100,14 @@ export function ConversationList() {
   const [filter, setFilter] = useState<Filter>('all');
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  /**
+   * Mon profil, chargé ICI et passé au panneau.
+   *
+   * ⚠️ Une seule requête pour les deux : la vignette du pied de colonne et l'écran « Vous »
+   * montrent la même chose. Laisser chacun la faire en produirait deux, dont une à chaque
+   * ouverture du panneau.
+   */
+  const [me, setMe] = useState<Me | null>(null);
   /** Conversation dont le menu d'actions est ouvert. */
   /** Conversation dont le menu est ouvert, et où le poser (voir `FloatingMenu`). */
   const [menuFor, setMenuFor] = useState<{ id: string; at: MenuAnchor } | null>(null);
@@ -125,6 +133,9 @@ export function ConversationList() {
       return;
     }
     load();
+    // Profil affiché en pied de colonne. Un échec n'empêche rien : la vignette reste en
+    // squelette et la messagerie fonctionne.
+    void fetchMe().then(setMe).catch(() => {});
 
     const socket = connectSocket();
 
@@ -261,16 +272,7 @@ export function ConversationList() {
           >
             <IconPlus size={20} />
           </button>
-          {/* ⚠️ La déconnexion a DÉMÉNAGÉ dans « Vous » : à côté d'un bouton « nouvelle
-              conversation », elle était à un clic d'une action fréquente. */}
-          <button
-            onClick={() => setProfileOpen(true)}
-            title="Vous"
-            aria-label="Vous"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-          >
-            <IconUser size={19} />
-          </button>
+
         </div>
       </header>
 
@@ -528,7 +530,27 @@ export function ConversationList() {
         );
       })()}
 
-      {profileOpen && <ProfilePanel onClose={() => setProfileOpen(false)} />}
+      {/* ⚠️ Pied de colonne, HORS de la zone qui défile : la vignette doit rester
+          atteignable quelle que soit la position dans une longue liste. */}
+      <button
+        onClick={() => setProfileOpen(true)}
+        aria-label="Vous"
+        className="flex shrink-0 items-center gap-3 border-t border-slate-200 px-4 py-3 text-left hover:bg-slate-50 dark:border-zinc-800 dark:hover:bg-zinc-800/60"
+      >
+        {me ? (
+          <Avatar name={me.name} photoUrl={me.photoUrl} size={36} />
+        ) : (
+          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200 dark:bg-zinc-800" />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-slate-900 dark:text-zinc-100">
+            {me?.name ?? '\u00A0'}
+          </span>
+          <span className="block text-xs text-slate-400">Vous</span>
+        </span>
+      </button>
+
+      {profileOpen && <ProfilePanel me={me} onClose={() => setProfileOpen(false)} />}
 
       <NewChatDialog
         open={newChatOpen}

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/Avatar';
 import {
@@ -11,7 +10,7 @@ import {
   IconSystem,
 } from '@/components/icons';
 import { logout } from '@/lib/auth';
-import { fetchMe, type Me } from '@/lib/messages';
+import { type Me } from '@/lib/messages';
 import { disconnectSocket } from '@/lib/socket';
 import { setThemePref, THEME_OPTIONS, useThemePref, type ThemePref } from '@/lib/theme';
 
@@ -33,16 +32,16 @@ const THEME_ICON: Record<ThemePref, typeof IconLight> = {
  * restent sur le mobile — les porter demanderait de dupliquer des écrans entiers pour un
  * client qui n'est pas l'appareil principal.
  */
-export function ProfilePanel({ onClose }: { onClose: () => void }) {
-  const [me, setMe] = useState<Me | null>(null);
+export function ProfilePanel({
+  /** ⚠️ Fourni par la liste, qui l'a déjà chargé pour sa vignette — pas de seconde requête. */
+  me,
+  onClose,
+}: {
+  me: Me | null;
+  onClose: () => void;
+}) {
   const pref = useThemePref();
   const router = useRouter();
-
-  useEffect(() => {
-    void fetchMe()
-      .then(setMe)
-      .catch(() => setMe(null));
-  }, []);
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900">

@@ -40,6 +40,7 @@ export function MessageBubble({
   starred,
   canModerate,
   highlighted,
+  status,
   actions,
 }: {
   row: Row;
@@ -51,6 +52,8 @@ export function MessageBubble({
   starred: boolean;
   canModerate: boolean;
   highlighted: boolean;
+  /** État d'acheminement — présent sur ses propres messages seulement. */
+  status?: 'sent' | 'delivered' | 'read';
   actions: BubbleActions;
 }) {
   // ⚠️ Tous les hooks AVANT la sortie anticipée des messages système : leur ordre doit être
@@ -178,6 +181,20 @@ export function MessageBubble({
             <p className={`mt-0.5 text-right text-[11px] ${isMe ? 'text-white/70' : 'text-slate-400'}`}>
               {item.editedAt && <span className="mr-1 italic">modifié</span>}
               {formatTime(item.createdAt)}
+              {/* Une coche = envoyé, deux = remis, deux bleues = lu. Même échelle que le
+                  mobile, pour qu'un même message se lise pareil des deux côtés. */}
+              {/* Horloge tant que le serveur n'a pas répondu — l'envoi est en cours. */}
+              {item.pendingLocal && <span className="ml-1" title="Envoi…">🕐</span>}
+              {status && !item.pendingLocal && (
+                <span
+                  className={`ml-1 ${status === 'read' ? 'text-sky-300' : ''}`}
+                  title={
+                    status === 'read' ? 'Lu' : status === 'delivered' ? 'Remis' : 'Envoyé'
+                  }
+                >
+                  {status === 'sent' ? '✓' : '✓✓'}
+                </span>
+              )}
             </p>
           </div>
         )}

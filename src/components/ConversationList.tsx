@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
+import { NewChatDialog } from '@/components/NewChatDialog';
 import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession, logout } from '@/lib/auth';
 import {
@@ -48,6 +49,7 @@ export function ConversationList() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [newChatOpen, setNewChatOpen] = useState(false);
 
   const load = useCallback(() => {
     void (async () => {
@@ -111,6 +113,24 @@ export function ConversationList() {
     };
   }, [router, load, activeId]);
 
+  // Même règle que le rendu : la conversation ouverte ne compte pas, sinon l'en-tête
+  // annoncerait des non-lus que la liste affiche à zéro.
+  const unreadTotal = conversations.reduce(
+    (n, c) => n + (c.id === activeId ? 0 : c.unreadCount || 0),
+    0,
+  );
+
+  /**
+   * Titre de l'onglet : « (3) Nexa » quand des messages attendent.
+   *
+   * ⚠️ Posé ici et non dans le fil : cette liste est montée en permanence (elle vit dans le
+   * layout), donc le compte reste juste quel que soit l'écran ouvert. Dans une page, il
+   * disparaîtrait à chaque navigation.
+   */
+  useEffect(() => {
+    document.title = unreadTotal > 0 ? `(${unreadTotal}) Nexa` : 'Nexa';
+  }, [unreadTotal]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return conversations
@@ -137,12 +157,7 @@ export function ConversationList() {
       .filter((c) => !q || conversationName(c, meId).toLowerCase().includes(q));
   }, [conversations, filter, query, meId, activeId]);
 
-  // Même règle que ci-dessus : la conversation ouverte ne compte pas, sinon l'en-tête
-  // annoncerait des non-lus que la liste affiche à zéro.
-  const unreadTotal = conversations.reduce(
-    (n, c) => n + (c.id === activeId ? 0 : c.unreadCount || 0),
-    0,
-  );
+
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-r border-slate-200 bg-white md:w-[380px] dark:border-zinc-800 dark:bg-zinc-900">
@@ -155,18 +170,27 @@ export function ConversationList() {
             </span>
           )}
         </h1>
-        <button
-          onClick={() => {
-            // Le socket porte le jeton dans son handshake : le laisser ouvert maintiendrait
-            // la connexion au nom du compte qu'on vient de quitter.
-            disconnectSocket();
-            logout();
-            router.replace('/login');
-          }}
-          className="text-sm text-slate-500 hover:underline dark:text-zinc-400"
-        >
-          Déconnexion
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setNewChatOpen(true)}
+            title="Nouvelle conversation"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-[#1E40AF] hover:bg-slate-100 dark:hover:bg-zinc-800"
+          >
+            ✚
+          </button>
+          <button
+            onClick={() => {
+              // Le socket porte le jeton dans son handshake : le laisser ouvert maintiendrait
+              // la connexion au nom du compte qu'on vient de quitter.
+              disconnectSocket();
+              logout();
+              router.replace('/login');
+            }}
+            className="text-sm text-slate-500 hover:underline dark:text-zinc-400"
+          >
+            Déconnexion
+          </button>
+        </div>
       </header>
 
       <div className="px-4 pb-3">
@@ -209,9 +233,21 @@ export function ConversationList() {
             ))}
           </ul>
         ) : visible.length === 0 ? (
-          <p className="px-6 py-10 text-center text-sm text-slate-400">
-            {query ? 'Aucun résultat.' : 'Aucune conversation.'}
-          </p>
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-slate-400">
+              {query ? 'Aucun résultat.' : 'Aucune conversation.'}
+            </p>
+            {/* ⚠️ Sans ce bouton, une liste vide est un CUL-DE-SAC : un nouvel utilisateur
+                n'avait aucun moyen de démarrer une conversation depuis le web. */}
+            {!query && (
+              <button
+                onClick={() => setNewChatOpen(true)}
+                className="mt-4 rounded-xl bg-[#1E40AF] px-4 py-2 text-sm font-semibold text-white"
+              >
+                Démarrer une conversation
+              </button>
+            )}
+          </div>
         ) : (
           <ul className="px-2 pb-4">
             {visible.map((c) => {
@@ -270,6 +306,15 @@ export function ConversationList() {
           </ul>
         )}
       </div>
+      <NewChatDialog
+        open={newChatOpen}
+        onClose={() => setNewChatOpen(false)}
+        onOpened={(convId) => {
+          // La conversation peut être neuve : on recharge la liste pour qu'elle y figure.
+          load();
+          router.push(`/chat/${convId}`);
+        }}
+      />
     </aside>
   );
 }

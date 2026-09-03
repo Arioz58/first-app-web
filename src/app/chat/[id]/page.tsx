@@ -51,6 +51,21 @@ export default function ThreadPage() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [peerTyping, setPeerTyping] = useState(false);
+  /** Présence de l'interlocuteur — conversation directe seulement. */
+  const [presence, setPresence] = useState<{ online: boolean; lastSeenAt: string | null }>({
+    online: false,
+    lastSeenAt: null,
+  });
+  /**
+   * Accusés par membre, dont on déduit l'état d'acheminement de MES messages.
+   *
+   * ⚠️ Le détail PAR MEMBRE est indispensable : en groupe, un message n'est « lu » que
+   * lorsque TOUS les autres l'ont dépassé. Se contenter du dernier événement afficherait la
+   * double coche dès le premier destinataire servi.
+   */
+  const [receipts, setReceipts] = useState<
+    Record<string, { delivered?: string; read?: string }>
+  >({});
   const [atBottom, setAtBottom] = useState(true);
   const [hasOlder, setHasOlder] = useState(true);
   /** Message auquel la prochaine saisie répondra. */
@@ -61,6 +76,9 @@ export default function ThreadPage() {
   /** Message rejoint (citation, épinglé, recherche) : surligné brièvement. */
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** Index de l'épinglé affiché : chaque clic passe au suivant, en cyclant. */
+  const [pinIndex, setPinIndex] = useState(0);
+  const [pinBarHidden, setPinBarHidden] = useState(false);
   const [viewer, setViewer] = useState<{ url: string; kind: 'image' | 'video' } | null>(null);
   const [search, setSearch] = useState<{ term: string; results: string[]; index: number } | null>(
     null,
@@ -111,6 +129,17 @@ export default function ThreadPage() {
         if (cancelled) return;
         setMeta(m);
         setFlags(f);
+        // État initial des accusés : Prisma renvoie déjà les deux dates par membre.
+        setReceipts(
+          Object.fromEntries(
+            m.members
+              .filter((x) => x.userId !== meId)
+              .map((x) => [
+                x.userId,
+                { delivered: x.lastDeliveredAt ?? undefined, read: x.lastReadAt ?? undefined },
+              ]),
+          ),
+        );
         // L'API renvoie du plus récent au plus ancien : le fil s'affiche dans l'autre sens.
         setMessages(page.slice().reverse());
         setHasOlder(page.length >= 30);
@@ -125,6 +154,10 @@ export default function ThreadPage() {
     return () => {
       cancelled = true;
     };
+    // ⚠️ `meId` volontairement hors dépendances : il vient d'un initialiseur paresseux et ne
+    // change jamais pendant la vie de l'écran. L'ajouter n'apporterait rien, et relancerait
+    // le chargement si sa référence bougeait.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, router]);
 
   // Calage en bas à l'ouverture, une fois les messages rendus.
@@ -142,7 +175,26 @@ export default function ThreadPage() {
 
     const onNew = (msg: Message) => {
       if (msg.conversationId && msg.conversationId !== id) return;
-      setMessages((prev) => mergeMessages(prev, [msg], 'end'));
+      setMessages((prev) => {
+        /**
+         * ⚠️ L'écho de MON propre envoi remplace le brouillon EN PLACE, il ne s'ajoute pas :
+         * sinon le message apparaîtrait en double. L'appariement se fait sur le contenu et
+         * l'expéditeur — un message texte n'a ni URL ni identifiant commun sur lequel
+         * s'accrocher. Deux messages identiques d'affilée peuvent s'apparier dans le
+         * désordre, sans conséquence : les bulles sont identiques.
+         */
+        if (msg.sender?.id === meId) {
+          const i = prev.findIndex(
+            (m) => m.pendingLocal && m.content === msg.content && m.sender?.id === meId,
+          );
+          if (i !== -1) {
+            const next = [...prev];
+            next[i] = msg;
+            return next;
+          }
+        }
+        return mergeMessages(prev, [msg], 'end');
+      });
       // Lu à l'instant : la conversation est ouverte sous les yeux.
       void markConversationRead(id);
       // ⚠️ On ne suit le bas que si l'on y ÉTAIT : sinon on couperait la lecture de
@@ -177,6 +229,59 @@ export default function ThreadPage() {
       );
     };
 
+    const otherId = () => meta?.members.find((x) => x.userId !== meId)?.userId;
+
+    const onPresence = (d: { userId: string; online: boolean; lastSeenAt: string | null }) => {
+      if (d.userId !== otherId()) return;
+      setPresence({ online: d.online, lastSeenAt: d.lastSeenAt });
+    };
+
+    const onDelivered = (d: { conversationId: string; userId: string; at: string }) => {
+      if (d.conversationId !== id) return;
+      setReceipts((prev) => ({ ...prev, [d.userId]: { ...prev[d.userId], delivered: d.at } }));
+    };
+
+    const onRead = (d: { conversationId: string; userId: string; at: string }) => {
+      if (d.conversationId !== id) return;
+      // Lire implique avoir reçu : sans cela l'accusé de lecture sauterait par-dessus celui
+      // de réception, et la bulle passerait d'une coche à deux coches bleues.
+      setReceipts((prev) => ({
+        ...prev,
+        [d.userId]: { delivered: prev[d.userId]?.delivered ?? d.at, read: d.at },
+      }));
+    };
+
+    /** Aperçu de lien : résolu par le serveur APRÈS l'envoi, il arrive séparément. */
+    const onPreview = (d: {
+      conversationId: string;
+      messageId: string;
+      linkPreview: Message['linkPreview'];
+    }) => {
+      if (d.conversationId !== id) return;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === d.messageId ? { ...m, linkPreview: d.linkPreview } : m)),
+      );
+    };
+
+    const onEdited = (d: {
+      conversationId: string;
+      messageId: string;
+      content: string;
+      editedAt: string;
+    }) => {
+      if (d.conversationId !== id) return;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === d.messageId ? { ...m, content: d.content, editedAt: d.editedAt } : m,
+        ),
+      );
+    };
+
+    socket.on('presence_update', onPresence);
+    socket.on('conversation_delivered', onDelivered);
+    socket.on('conversation_read', onRead);
+    socket.on('message_preview', onPreview);
+    socket.on('message_edited', onEdited);
     socket.on('new_message', onNew);
     socket.on('peer_typing', onTyping);
     socket.on('message_deleted', onDeleted);
@@ -184,12 +289,17 @@ export default function ThreadPage() {
 
     return () => {
       socket.emit('leave_conversation', id);
+      socket.off('presence_update', onPresence);
+      socket.off('conversation_delivered', onDelivered);
+      socket.off('conversation_read', onRead);
+      socket.off('message_preview', onPreview);
+      socket.off('message_edited', onEdited);
       socket.off('new_message', onNew);
       socket.off('peer_typing', onTyping);
       socket.off('message_deleted', onDeleted);
       socket.off('message_reaction', onReaction);
     };
-  }, [id, meId, scrollToBottom]);
+  }, [id, meId, scrollToBottom, meta]);
 
   // Masquage automatique de l'indicateur de frappe, comme sur mobile (5 s).
   useEffect(() => {
@@ -234,7 +344,22 @@ export default function ThreadPage() {
   };
 
   // --- Envoi ---
-  const send = (e: React.FormEvent) => {
+  // ⚠️ Déclaré AVANT `send`, qui l'appelle : un `const` n'est pas remonté.
+  const stopTyping = () => {
+    if (typingStopRef.current) clearTimeout(typingStopRef.current);
+    if (typingSentRef.current) {
+      connectSocket().emit('typing', { conversationId: id, typing: false });
+      typingSentRef.current = false;
+    }
+  };
+
+  /**
+   * ⚠️ `useCallback` et non une fonction nue : `send` appelle `Date.now()`, et une fonction
+   * déclarée dans le corps du composant est vue par la règle « pas d'appel impur pendant le
+   * rendu » comme si elle s'y exécutait. Enveloppée, elle est reconnue pour ce qu'elle est —
+   * un gestionnaire d'événement, où l'heure courante est parfaitement légitime.
+   */
+  const send = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const content = text.trim();
 
@@ -262,21 +387,37 @@ export default function ThreadPage() {
 
     if (!content) return;
     const socket = connectSocket();
-    // La citation est consommée par CET envoi : on la vide tout de suite, sinon un second
-    // message partirait en citant encore le même.
+
+    /**
+     * Bulle OPTIMISTE : le message s'affiche avant l'écho du serveur.
+     *
+     * ⚠️ Sans elle, on tape, on valide, et rien ne bouge tant que le serveur n'a pas
+     * répondu — sur un réseau lent, l'impression que l'envoi a échoué.
+     *
+     * ⚠️ L'identifiant est LOCAL (`local-…`) : le vrai est attribué par le serveur. L'écho
+     * arrive ensuite par `new_message` et remplace ce brouillon, apparié sur le contenu et
+     * l'expéditeur — faute d'URL ou d'identifiant commun sur un message texte.
+     */
+    const draft: Message = {
+      id: `local-${Date.now()}`,
+      content,
+      createdAt: new Date().toISOString(),
+      sender: { id: meId ?? '', name: '' },
+      conversationId: id,
+      type: 'text',
+      replyTo,
+      pendingLocal: true,
+    };
+    setMessages((prev) => [...prev, draft]);
+    requestAnimationFrame(() => scrollToBottom(true));
+
     socket.emit('send_message', { conversationId: id, content, replyToId: replyTo?.id });
     setReplyTo(null);
     setText('');
     stopTyping();
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `stopTyping` est stable (refs)
+  }, [text, editing, messages, id, replyTo, meId, scrollToBottom]);
 
-  const stopTyping = () => {
-    if (typingStopRef.current) clearTimeout(typingStopRef.current);
-    if (typingSentRef.current) {
-      connectSocket().emit('typing', { conversationId: id, typing: false });
-      typingSentRef.current = false;
-    }
-  };
 
   const onType = (value: string) => {
     setText(value);
@@ -534,6 +675,75 @@ export default function ThreadPage() {
     [id],
   );
 
+  /**
+   * Bornes d'acheminement : le PLUS ANCIEN accusé parmi les autres membres.
+   *
+   * ⚠️ `null` dès qu'un seul membre n'a rien accusé — sans quoi un groupe passerait « lu »
+   * au premier destinataire servi. Un message est reçu (ou lu) quand TOUS l'ont dépassé.
+   */
+  const bounds = useMemo(() => {
+    const others = (meta?.members ?? []).filter((m) => m.userId !== meId);
+    if (!others.length) return { delivered: null as string | null, read: null as string | null };
+    const oldest = (key: 'delivered' | 'read') => {
+      let min: string | null = null;
+      for (const m of others) {
+        const v = receipts[m.userId]?.[key];
+        if (!v) return null;
+        if (!min || v < min) min = v;
+      }
+      return min;
+    };
+    return { delivered: oldest('delivered'), read: oldest('read') };
+  }, [meta, meId, receipts]);
+
+  /** État d'un de MES messages : envoyé → remis → lu. */
+  const statusAt = useCallback(
+    (createdAt: string): 'sent' | 'delivered' | 'read' => {
+      if (bounds.read && createdAt <= bounds.read) return 'read';
+      if (bounds.delivered && createdAt <= bounds.delivered) return 'delivered';
+      return 'sent';
+    },
+    [bounds],
+  );
+
+  /** Sous-titre : frappe > en ligne > vu le… — même priorité que le mobile. */
+  const subtitle = peerTyping
+    ? 'écrit…'
+    : meta?.type === 'group'
+      ? `${meta.members.length} membres`
+      : presence.online
+        ? 'en ligne'
+        : presence.lastSeenAt
+          ? `vu le ${new Date(presence.lastSeenAt).toLocaleDateString(undefined, {
+              day: '2-digit',
+              month: '2-digit',
+            })} à ${new Date(presence.lastSeenAt).toLocaleTimeString(undefined, {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}`
+          : '';
+
+  /**
+   * Épinglés présents dans le fil, du plus récent au plus ancien.
+   *
+   * ⚠️ Construit depuis `flags.pinned` ET les messages chargés : un épinglé hors mémoire n'a
+   * pas d'aperçu à montrer. Le saut, lui, sait aller le chercher (fenêtre centrée).
+   */
+  const pinnedRows = useMemo(
+    () =>
+      [...flags.pinned].sort((a, b) => {
+        const ta = messages.find((m) => m.id === a)?.createdAt ?? '';
+        const tb = messages.find((m) => m.id === b)?.createdAt ?? '';
+        return tb.localeCompare(ta);
+      }),
+    [flags.pinned, messages],
+  );
+
+  // L'index doit rester dans les bornes : désépingler pendant qu'on cycle le ferait sortir.
+  const safePinIndex = pinnedRows.length ? pinIndex % pinnedRows.length : 0;
+  const pinnedPreview =
+    messages.find((m) => m.id === pinnedRows[safePinIndex])?.content ?? 'Pièce jointe';
+
   const title =
     meta?.type === 'group'
       ? meta.name ?? ''
@@ -560,7 +770,15 @@ export default function ThreadPage() {
         <Avatar name={title} photoUrl={photo} size={40} group={meta?.type === 'group'} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
-          {peerTyping && <p className="text-xs text-[#1E40AF]">écrit…</p>}
+          {subtitle && (
+            <p
+              className={`truncate text-xs ${
+                peerTyping || presence.online ? 'text-[#1E40AF]' : 'text-slate-400'
+              }`}
+            >
+              {subtitle}
+            </p>
+          )}
         </div>
 
         {search ? (
@@ -633,6 +851,43 @@ export default function ThreadPage() {
         )}
       </header>
 
+      {!pinBarHidden && pinnedRows.length > 0 && (
+        <button
+          onClick={() => {
+            jumpTo(pinnedRows[safePinIndex]);
+            // On avance APRÈS avoir sauté : le prochain clic mène au suivant.
+            setPinIndex((i) => i + 1);
+          }}
+          className="flex w-full items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-left text-sm dark:border-zinc-800 dark:bg-zinc-800/60"
+        >
+          <span>📌</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-semibold text-[#1E40AF]">
+              {pinnedRows.length > 1
+                ? `Message épinglé ${safePinIndex + 1}/${pinnedRows.length}`
+                : 'Message épinglé'}
+            </span>
+            <span className="block truncate text-slate-600 dark:text-zinc-300">
+              {pinnedPreview}
+            </span>
+          </span>
+          {/* ⚠️ Ferme le bandeau, ne DÉSÉPINGLE pas : désépingler est partagé par tous les
+              membres, masquer un bandeau ne regarde que soi. */}
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPinBarHidden(true);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && setPinBarHidden(true)}
+            className="px-2 text-slate-400"
+          >
+            ✕
+          </span>
+        </button>
+      )}
+
       <div className="relative flex min-h-0 flex-1 flex-col">
       {!atBottom && (
         // ⚠️ Positionné par rapport à CETTE zone (`relative` ci-dessus) et non à la fenêtre :
@@ -696,6 +951,8 @@ export default function ThreadPage() {
                     starred={row.messages.some((m) => flags.starred.includes(m.id))}
                     canModerate={meta?.myRole === 'admin' || meta?.myRole === 'moderator'}
                     highlighted={row.messages.some((m) => m.id === highlightId)}
+                    // Uniquement sur MES messages : on n'accuse pas ceux des autres.
+                    status={first.sender?.id === meId ? statusAt(first.createdAt) : undefined}
                     actions={actions}
                   />
                 </div>

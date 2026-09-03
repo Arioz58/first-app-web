@@ -122,3 +122,29 @@ export const formatListDate = (iso: string): string => {
   }
   return d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: '2-digit' });
 };
+
+// --- Amis et création de conversations ---
+
+export type Friend = { id: string; name: string; photoUrl: string | null };
+
+/** Mes amis, avec recherche optionnelle par nom. */
+export const fetchFriends = (q?: string) =>
+  apiRequest<Friend[]>(`/friends${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+
+/**
+ * Ouvre (ou retrouve) la conversation directe avec quelqu'un.
+ *
+ * ⚠️ Idempotent côté serveur : rappeler avec la même personne renvoie la conversation
+ * EXISTANTE au lieu d'en créer une seconde. On peut donc appeler sans vérifier au préalable.
+ */
+export const startDirectConversation = (targetUserId: string) =>
+  apiRequest<{ id: string }>('/conversations/direct', {
+    method: 'POST',
+    body: { targetUserId },
+  });
+
+export const createGroup = (name: string, memberIds: string[]) =>
+  apiRequest<{ id: string }>('/conversations/group', {
+    method: 'POST',
+    body: { name, memberIds },
+  });

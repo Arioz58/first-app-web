@@ -49,4 +49,10 @@ navigateur et les appels partent vers `undefined`.
 | Recherche dans la conversation | ✅ | avec saut vers le message |
 | Transférer | ✅ | multi-destinataires, albums entiers |
 | Vocaux | ✅ | ⚠️ format selon le navigateur — voir `VoiceRecorder.tsx` |
-| Stories, appels, groupes (gestion) | ⏳ | hors périmètre V1 web |
+| Démarrer une conversation, créer un groupe | ✅ | depuis ses amis |
+| Présence (« en ligne » / « vu le… ») | ✅ | |
+| Accusés de réception et de lecture | ✅ | ✓ / ✓✓ / ✓✓ bleu |
+| Aperçus de liens en temps réel | ✅ | résolus par le serveur après l'envoi |
+| Bandeau des épinglés, titre d'onglet | ✅ | |
+| Archives, mute, épinglage de conversation | ⏳ | données présentes, pas d'interface |
+| Stories, appels, gestion des groupes | ⏳ | hors périmètre V1 web |

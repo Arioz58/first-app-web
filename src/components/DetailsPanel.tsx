@@ -26,6 +26,13 @@ import {
 } from '@/components/icons';
 import { AddMembersDialog } from '@/components/AddMembersDialog';
 import {
+  anchorFromEvent,
+  FloatingMenu,
+  MenuItem,
+  openOnRightClick,
+  type MenuAnchor,
+} from '@/components/FloatingMenu';
+import {
   canManageMembers,
   canRemoveMember,
   isGroupAdmin,
@@ -123,8 +130,14 @@ export function DetailsPanel({
   // --- Modération de groupe ---
   const [addOpen, setAddOpen] = useState(false);
   const [whoOpen, setWhoOpen] = useState(false);
-  /** Membre dont le menu d'actions est ouvert (un seul à la fois). */
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  /**
+   * Membre dont le menu d'actions est ouvert, et OÙ le poser.
+   *
+   * ⚠️ Les deux ensemble dans un seul état : ouvrir le menu d'un autre membre doit remplacer
+   * la cible ET le point d'ancrage d'un coup. Séparés, une frame les montrerait désaccordés
+   * — le menu du nouveau membre à l'ancienne position.
+   */
+  const [memberMenu, setMemberMenu] = useState<{ userId: string; at: MenuAnchor } | null>(null);
   /** Édition du nom + description : `null` = pas en cours. */
   const [edit, setEdit] = useState<{ name: string; description: string } | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -142,7 +155,7 @@ export function DetailsPanel({
       setProfile(null);
       setGallery([]);
       setMuteOpen(false);
-      setMenuFor(null);
+      setMemberMenu(null);
       setEdit(null);
       setWhoOpen(false);
     });
@@ -481,76 +494,33 @@ export function DetailsPanel({
                   // Un admin change les rôles ; jamais le sien (il se retirerait ses droits
                   // sans pouvoir les reprendre si personne d'autre n'est admin).
                   const roleChangeable = admin && !isMe;
-                  const open = menuFor === m.userId;
+                  const actionable = roleChangeable || removable;
+                  const openMenu = (at: MenuAnchor) => setMemberMenu({ userId: m.userId, at });
                   return (
-                    <li key={m.userId} className="relative">
-                      <div className="flex items-center gap-3 px-2 py-2">
-                        <Avatar name={m.user.name} photoUrl={m.user.photoUrl} size={36} />
-                        <span className="flex-1 truncate text-sm text-slate-900 dark:text-zinc-100">
-                          {isMe ? 'Vous' : m.user.name}
+                    <li
+                      key={m.userId}
+                      // Clic droit sur la ligne entière — seulement s'il y a des actions.
+                      onContextMenu={actionable ? openOnRightClick(openMenu) : undefined}
+                      className="flex items-center gap-3 px-2 py-2"
+                    >
+                      <Avatar name={m.user.name} photoUrl={m.user.photoUrl} size={36} />
+                      <span className="flex-1 truncate text-sm text-slate-900 dark:text-zinc-100">
+                        {isMe ? 'Vous' : m.user.name}
+                      </span>
+                      {m.role !== 'member' && (
+                        <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-[#1E40AF] dark:bg-blue-900/30">
+                          {m.role === 'admin' ? <IconAdmin size={11} /> : <IconModerator size={11} />}
+                          {ROLE_LABEL[m.role as Role]}
                         </span>
-                        {m.role !== 'member' && (
-                          <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-[#1E40AF] dark:bg-blue-900/30">
-                            {m.role === 'admin' ? (
-                              <IconAdmin size={11} />
-                            ) : (
-                              <IconModerator size={11} />
-                            )}
-                            {ROLE_LABEL[m.role as Role]}
-                          </span>
-                        )}
-                        {(roleChangeable || removable) && (
-                          <button
-                            onClick={() => setMenuFor(open ? null : m.userId)}
-                            aria-label={`Actions sur ${m.user.name}`}
-                            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
-                          >
-                            <IconMore size={16} />
-                          </button>
-                        )}
-                      </div>
-
-                      {open && (
-                        <div className="mb-2 ml-12 mr-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
-                          {roleChangeable &&
-                            (['admin', 'moderator', 'member'] as Role[])
-                              .filter((r) => r !== m.role)
-                              .map((r) => (
-                                <button
-                                  key={r}
-                                  disabled={busy}
-                                  onClick={() => {
-                                    setBusy(true);
-                                    setMenuFor(null);
-                                    void setMemberRole(meta.id, m.userId, r)
-                                      .then(onMetaChanged)
-                                      .catch((e) => window.alert(e.message))
-                                      .finally(() => setBusy(false));
-                                  }}
-                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                                >
-                                  Passer {r === 'member' ? 'simple membre' : ROLE_LABEL[r].toLowerCase()}
-                                </button>
-                              ))}
-                          {removable && (
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                if (!window.confirm(`Retirer ${m.user.name} du groupe ?`)) return;
-                                setBusy(true);
-                                setMenuFor(null);
-                                void removeMember(meta.id, m.userId)
-                                  .then(onMetaChanged)
-                                  .catch((e) => window.alert(e.message))
-                                  .finally(() => setBusy(false));
-                              }}
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <IconRemoveMember size={14} />
-                              Retirer du groupe
-                            </button>
-                          )}
-                        </div>
+                      )}
+                      {actionable && (
+                        <button
+                          onClick={(e) => openMenu(anchorFromEvent(e))}
+                          aria-label={`Actions sur ${m.user.name}`}
+                          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                        >
+                          <IconMore size={16} />
+                        </button>
                       )}
                     </li>
                   );
@@ -760,6 +730,57 @@ export function DetailsPanel({
           </Section>
         )}
       </div>
+      {/* ⚠️ UN SEUL menu pour toute la liste, monté hors du `<ul>` : un menu par ligne
+          rouvrirait le problème d'origine (découpé par le conteneur qui défile), et n'en
+          garderait pas moins un seul ouvert à la fois. */}
+      {(() => {
+        const m = meta.members.find((x) => x.userId === memberMenu?.userId);
+        if (!m || !memberMenu) return null;
+        const close = () => setMemberMenu(null);
+        return (
+          <FloatingMenu anchor={memberMenu.at} onClose={close} width={220}>
+            <p className="truncate border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-400 dark:border-zinc-700">
+              {m.user.name}
+            </p>
+            {admin &&
+              m.userId !== meId &&
+              (['admin', 'moderator', 'member'] as Role[])
+                .filter((r) => r !== m.role)
+                .map((r) => (
+                  <MenuItem
+                    key={r}
+                    icon={r === 'admin' ? IconAdmin : r === 'moderator' ? IconModerator : undefined}
+                    label={`Passer ${r === 'member' ? 'simple membre' : ROLE_LABEL[r].toLowerCase()}`}
+                    onClick={() => {
+                      close();
+                      setBusy(true);
+                      void setMemberRole(meta.id, m.userId, r)
+                        .then(onMetaChanged)
+                        .catch((e) => window.alert(e.message))
+                        .finally(() => setBusy(false));
+                    }}
+                  />
+                ))}
+            {canRemoveMember(myRole, m, meId) && (
+              <MenuItem
+                danger
+                icon={IconRemoveMember}
+                label="Retirer du groupe"
+                onClick={() => {
+                  close();
+                  if (!window.confirm(`Retirer ${m.user.name} du groupe ?`)) return;
+                  setBusy(true);
+                  void removeMember(meta.id, m.userId)
+                    .then(onMetaChanged)
+                    .catch((e) => window.alert(e.message))
+                    .finally(() => setBusy(false));
+                }}
+              />
+            )}
+          </FloatingMenu>
+        );
+      })()}
+
       {/* Le dialogue est en `fixed inset-0`, donc positionné par rapport à la FENÊTRE : il
           couvre toute la page bien qu'il soit rendu ici, dans une colonne étroite. */}
       {isGroup && (

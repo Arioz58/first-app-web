@@ -47,6 +47,8 @@ export {
   ArrowUp as IconUp,
   ArrowDown as IconDown,
   CornerUpRight as IconForward,
+  CornerUpLeft as IconReply,
+  Copy as IconCopy,
   Ban as IconBlock,
   LockOpen as IconUnblock,
   Flag as IconReport,

@@ -1,14 +1,25 @@
 'use client';
 
 import {
+  anchorFromEvent,
+  FloatingMenu,
+  MenuItem,
+  type MenuAnchor,
+} from '@/components/FloatingMenu';
+import {
   IconBlock,
   IconCheck,
   IconCheckDouble,
   IconClock,
+  IconCopy,
   IconDocument,
+  IconEdit,
   IconForward,
+  IconMore,
+  IconReply,
   IconPin,
   IconStar,
+  IconTrash,
 } from '@/components/icons';
 import { useState } from 'react';
 import { emojiCount, formatTime, QUICK_REACTIONS, type Message, type Row } from '@/lib/messages';
@@ -68,7 +79,8 @@ export function MessageBubble({
 }) {
   // ⚠️ Tous les hooks AVANT la sortie anticipée des messages système : leur ordre doit être
   // identique à chaque rendu.
-  const [menuOpen, setMenuOpen] = useState(false);
+  /** Point d'ancrage du menu (`null` = fermé) — voir `FloatingMenu`. */
+  const [menuAt, setMenuAt] = useState<MenuAnchor | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const item = row.messages[0];
   const isMe = item.sender?.id === meId;
@@ -102,7 +114,18 @@ export function MessageBubble({
       className={`group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} ${
         firstOfGroup ? 'mt-3' : 'mt-0.5'
       } ${highlighted ? 'rounded-xl bg-yellow-200/40 py-1 transition-colors' : ''}`}
-      onMouseLeave={() => setMenuOpen(false)}
+      /**
+       * ⚠️ Le clic droit ouvre le menu du message. Sur un message SUPPRIMÉ, on laisse celui
+       * du navigateur : il n'y a aucune action à proposer, et l'intercepter pour ne rien
+       * montrer donnerait l'impression d'un bug.
+       */
+      onContextMenu={(e) => {
+        if (item.deletedAt) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setCanEdit(canEditNow());
+        setMenuAt({ x: e.clientX, y: e.clientY });
+      }}
     >
       {!isMe && isGroup && firstOfGroup && (
         <p className="mb-1 pl-1 text-xs font-medium text-slate-400">{item.sender?.name}</p>
@@ -217,71 +240,103 @@ export function MessageBubble({
 
         {/* Actions au survol — pas de menu contextuel sur un message supprimé. */}
         {!item.deletedAt && (
-          <div className="relative opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="opacity-0 transition-opacity group-hover:opacity-100">
             <button
-              onClick={() => {
+              onClick={(e) => {
                 setCanEdit(canEditNow());
-                setMenuOpen((v) => !v);
+                setMenuAt(anchorFromEvent(e));
               }}
-              className="rounded-full px-1.5 py-0.5 text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700"
+              className="rounded-full p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700"
               aria-label="Actions"
             >
-              ⋯
+              <IconMore size={15} />
             </button>
 
-            {menuOpen && (
-              <div
-                className={`absolute bottom-full z-20 mb-1 w-52 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200 dark:bg-zinc-800 dark:ring-zinc-700 ${
-                  isMe ? 'right-0' : 'left-0'
-                }`}
-              >
-                <div className="flex justify-between border-b border-slate-100 px-2 py-1.5 dark:border-zinc-700">
-                  {QUICK_REACTIONS.map((e) => (
-                    <button
-                      key={e}
-                      onClick={() => {
-                        actions.onReact(item, e);
-                        setMenuOpen(false);
-                      }}
-                      className={`rounded-full px-1 text-lg hover:bg-slate-100 dark:hover:bg-zinc-700 ${
-                        myReaction === e ? 'bg-blue-100 dark:bg-blue-900/40' : ''
-                      }`}
-                    >
-                      {e}
-                    </button>
-                  ))}
-                </div>
-                <MenuItem label="Répondre" onClick={() => { actions.onReply(item); setMenuOpen(false); }} />
-                {item.content && (
-                  <MenuItem
-                    label="Copier"
+            <FloatingMenu anchor={menuAt} onClose={() => setMenuAt(null)} width={210}>
+              {/* ⚠️ Réactions rapides EN TÊTE du menu, comme sur mobile : c'est l'action la
+                  plus fréquente, et la reléguer sous six entrées de texte la rendrait plus
+                  lente qu'un double-clic. Ce sont des EMOJIS et non des icônes — la réaction
+                  est une donnée envoyée au serveur, pas de l'habillage. */}
+              <div className="flex justify-between border-b border-slate-100 px-2 py-1.5 dark:border-zinc-700">
+                {QUICK_REACTIONS.map((e) => (
+                  <button
+                    key={e}
                     onClick={() => {
-                      void navigator.clipboard.writeText(item.content ?? '');
-                      setMenuOpen(false);
+                      actions.onReact(item, e);
+                      setMenuAt(null);
                     }}
-                  />
-                )}
-                <MenuItem label="Transférer" onClick={() => { actions.onForward(item); setMenuOpen(false); }} />
-                {canEdit && (
-                  <MenuItem label="Modifier" onClick={() => { actions.onEdit(item); setMenuOpen(false); }} />
-                )}
-                <MenuItem
-                  label={pinned ? 'Désépingler' : 'Épingler'}
-                  onClick={() => { actions.onPin(item); setMenuOpen(false); }}
-                />
-                <MenuItem
-                  label={starred ? 'Retirer des favoris' : 'Mettre en favori'}
-                  onClick={() => { actions.onStar(item); setMenuOpen(false); }}
-                />
-                {(isMe || canModerate) && (
-                  <MenuItem
-                    label="Supprimer"
-                    danger
-                    onClick={() => { actions.onDelete(item); setMenuOpen(false); }}
-                  />
-                )}
+                    className={`rounded-full px-1 text-lg hover:bg-slate-100 dark:hover:bg-zinc-700 ${
+                      myReaction === e ? 'bg-blue-100 dark:bg-blue-900/40' : ''
+                    }`}
+                  >
+                    {e}
+                  </button>
+                ))}
               </div>
-            )}
+              <MenuItem
+                icon={IconReply}
+                label="Répondre"
+                onClick={() => {
+                  actions.onReply(item);
+                  setMenuAt(null);
+                }}
+              />
+              {item.content && (
+                <MenuItem
+                  icon={IconCopy}
+                  label="Copier"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(item.content ?? '');
+                    setMenuAt(null);
+                  }}
+                />
+              )}
+              <MenuItem
+                icon={IconForward}
+                label="Transférer"
+                onClick={() => {
+                  actions.onForward(item);
+                  setMenuAt(null);
+                }}
+              />
+              {canEdit && (
+                <MenuItem
+                  icon={IconEdit}
+                  label="Modifier"
+                  onClick={() => {
+                    actions.onEdit(item);
+                    setMenuAt(null);
+                  }}
+                />
+              )}
+              <MenuItem
+                icon={IconPin}
+                label={pinned ? 'Désépingler' : 'Épingler'}
+                onClick={() => {
+                  actions.onPin(item);
+                  setMenuAt(null);
+                }}
+              />
+              <MenuItem
+                icon={IconStar}
+                label={starred ? 'Retirer des favoris' : 'Mettre en favori'}
+                onClick={() => {
+                  actions.onStar(item);
+                  setMenuAt(null);
+                }}
+              />
+              {(isMe || canModerate) && (
+                <MenuItem
+                  danger
+                  icon={IconTrash}
+                  label="Supprimer"
+                  onClick={() => {
+                    actions.onDelete(item);
+                    setMenuAt(null);
+                  }}
+                />
+              )}
+            </FloatingMenu>
           </div>
         )}
       </div>
@@ -305,27 +360,6 @@ export function MessageBubble({
         </button>
       )}
     </div>
-  );
-}
-
-function MenuItem({
-  label,
-  onClick,
-  danger,
-}: {
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`block w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-zinc-700 ${
-        danger ? 'text-red-500' : 'text-slate-700 dark:text-zinc-200'
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

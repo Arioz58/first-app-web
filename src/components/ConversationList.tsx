@@ -4,12 +4,21 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
+  anchorFromEvent,
+  FloatingMenu,
+  MenuItem,
+  openOnRightClick,
+  type MenuAnchor,
+} from '@/components/FloatingMenu';
+import {
   IconArchive,
   IconBack,
+  IconBell,
   IconBellOff,
   IconDocument,
   IconLocation,
   IconMic,
+  IconMore,
   IconPhoto,
   IconPin,
   IconPlus,
@@ -89,7 +98,8 @@ export function ConversationList() {
   const [filter, setFilter] = useState<Filter>('all');
   const [newChatOpen, setNewChatOpen] = useState(false);
   /** Conversation dont le menu d'actions est ouvert. */
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** Conversation dont le menu est ouvert, et où le poser (voir `FloatingMenu`). */
+  const [menuFor, setMenuFor] = useState<{ id: string; at: MenuAnchor } | null>(null);
   /** Conversation pour laquelle on choisit une durée de sourdine. */
   const [muteFor, setMuteFor] = useState<string | null>(null);
 
@@ -352,7 +362,11 @@ export function ConversationList() {
               const unread = c.unreadCount > 0;
               const active = c.id === activeId;
               return (
-                <li key={c.id} className="group relative">
+                <li
+                  key={c.id}
+                  onContextMenu={openOnRightClick((at) => setMenuFor({ id: c.id, at }))}
+                  className="group relative"
+                >
                   <button
                     onClick={() => router.push(`/chat/${c.id}`)}
                     className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${
@@ -413,122 +427,106 @@ export function ConversationList() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setMenuFor(menuFor === c.id ? null : c.id);
+                      setMenuFor({ id: c.id, at: anchorFromEvent(e) });
                     }}
-                    className="absolute right-2 top-3 rounded-full px-2 py-0.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
+                    className="absolute right-2 top-3 rounded-full p-1 text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
                     aria-label="Actions"
                   >
-                    ⋯
+                    <IconMore size={16} />
                   </button>
-
-                  {menuFor === c.id && (
-                    <>
-                      {/* Fond transparent : un clic n'importe où referme le menu. */}
-                      <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
-                      <div className="absolute right-2 top-9 z-20 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200 dark:bg-zinc-800 dark:ring-zinc-700">
-                        {muteFor === c.id ? (
-                          MUTE_OPTIONS.map((o) => (
-                            <button
-                              key={o.label}
-                              onClick={() => {
-                                setMuteFor(null);
-                                apply(c.id, { mutedUntil: o.value }, () =>
-                                  muteConversation(c.id, o.value),
-                                );
-                              }}
-                              className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                            >
-                              {o.label}
-                            </button>
-                          ))
-                        ) : (
-                          <>
-                            <button
-                              onClick={() =>
-                                apply(
-                                  c.id,
-                                  {
-                                    pinnedAt: c.pinnedAt ? null : new Date().toISOString(),
-                                  },
-                                  () => pinConversation(c.id, !!c.pinnedAt),
-                                )
-                              }
-                              className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                            >
-                              {c.pinnedAt ? 'Désépingler' : 'Épingler'}
-                            </button>
-                            <button
-                              onClick={() =>
-                                apply(
-                                  c.id,
-                                  {
-                                    favoritedAt: c.favoritedAt ? null : new Date().toISOString(),
-                                  },
-                                  () => favoriteConversation(c.id, !c.favoritedAt),
-                                )
-                              }
-                              className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                            >
-                              {c.favoritedAt ? 'Retirer des favoris' : 'Mettre en favori'}
-                            </button>
-                            {isMuted(c) ? (
-                              <button
-                                onClick={() =>
-                                  apply(c.id, { mutedUntil: null }, () =>
-                                    muteConversation(c.id, null),
-                                  )
-                                }
-                                className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                              >
-                                Réactiver les notifications
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => setMuteFor(c.id)}
-                                className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                              >
-                                Mettre en sourdine…
-                              </button>
-                            )}
-                            {!c.archivedAt && !unread && (
-                              <button
-                                onClick={() =>
-                                  apply(c.id, { manualUnread: true }, () => markUnread(c.id))
-                                }
-                                className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                              >
-                                Marquer comme non lu
-                              </button>
-                            )}
-                            <button
-                              onClick={() =>
-                                apply(
-                                  c.id,
-                                  {
-                                    archivedAt: c.archivedAt ? null : new Date().toISOString(),
-                                    // ⚠️ Archiver retire l'épinglage, comme le serveur le
-                                    // fait : sans ça la liste et la base divergeraient
-                                    // jusqu'au prochain rechargement.
-                                    ...(c.archivedAt ? {} : { pinnedAt: null }),
-                                  },
-                                  () => archiveConversation(c.id, !c.archivedAt),
-                                )
-                              }
-                              className="block w-full border-t border-slate-100 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                            >
-                              {c.archivedAt ? 'Désarchiver' : 'Archiver'}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
                 </li>
               );
             })}
           </ul>
         )}
       </div>
+      {/* ⚠️ UN SEUL menu, monté hors de la liste qui défile — voir `FloatingMenu`.
+          La conversation est retrouvée par son identifiant : après une mise à jour
+          optimiste, lire l'objet capturé dans la boucle afficherait l'ancien état
+          (« Épingler » sur une conversation qu'on vient d'épingler). */}
+      {(() => {
+        const c = conversations.find((x) => x.id === menuFor?.id);
+        if (!c || !menuFor) return null;
+        const close = () => {
+          setMenuFor(null);
+          setMuteFor(null);
+        };
+        const act = (patch: Partial<Conversation>, call: () => Promise<unknown>) => {
+          close();
+          apply(c.id, patch, call);
+        };
+        const unread = c.unreadCount > 0 || c.manualUnread;
+        return (
+          <FloatingMenu anchor={menuFor.at} onClose={close} width={228}>
+            {muteFor === c.id ? (
+              MUTE_OPTIONS.map((o) => (
+                <MenuItem
+                  key={o.label}
+                  label={o.label}
+                  onClick={() => act({ mutedUntil: o.value }, () => muteConversation(c.id, o.value))}
+                />
+              ))
+            ) : (
+              <>
+                <MenuItem
+                  icon={IconPin}
+                  label={c.pinnedAt ? 'Désépingler' : 'Épingler'}
+                  onClick={() =>
+                    act({ pinnedAt: c.pinnedAt ? null : new Date().toISOString() }, () =>
+                      pinConversation(c.id, !c.pinnedAt),
+                    )
+                  }
+                />
+                <MenuItem
+                  icon={IconStar}
+                  label={c.favoritedAt ? 'Retirer des favoris' : 'Mettre en favori'}
+                  onClick={() =>
+                    act({ favoritedAt: c.favoritedAt ? null : new Date().toISOString() }, () =>
+                      favoriteConversation(c.id, !c.favoritedAt),
+                    )
+                  }
+                />
+                {isMuted(c) ? (
+                  <MenuItem
+                    icon={IconBell}
+                    label="Réactiver les notifications"
+                    onClick={() => act({ mutedUntil: null }, () => muteConversation(c.id, null))}
+                  />
+                ) : (
+                  <MenuItem
+                    icon={IconBellOff}
+                    label="Mettre en sourdine…"
+                    /* ⚠️ Ne ferme pas : on passe à la liste des durées DANS le même menu. */
+                    onClick={() => setMuteFor(c.id)}
+                  />
+                )}
+                {!c.archivedAt && !unread && (
+                  <MenuItem
+                    label="Marquer comme non lu"
+                    onClick={() => act({ manualUnread: true }, () => markUnread(c.id))}
+                  />
+                )}
+                <MenuItem
+                  icon={IconArchive}
+                  label={c.archivedAt ? 'Désarchiver' : 'Archiver'}
+                  onClick={() =>
+                    act(
+                      {
+                        archivedAt: c.archivedAt ? null : new Date().toISOString(),
+                        // ⚠️ Archiver retire l'épinglage, comme le serveur le fait : sans ça
+                        // la liste et la base divergeraient jusqu'au prochain rechargement.
+                        ...(c.archivedAt ? {} : { pinnedAt: null }),
+                      },
+                      () => archiveConversation(c.id, !c.archivedAt),
+                    )
+                  }
+                />
+              </>
+            )}
+          </FloatingMenu>
+        );
+      })()}
+
       <NewChatDialog
         open={newChatOpen}
         onClose={() => setNewChatOpen(false)}

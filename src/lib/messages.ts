@@ -339,13 +339,19 @@ export const REPORT_CATEGORIES: { key: ReportCategory; label: string }[] = [
 export const reportUser = (userId: string, category: ReportCategory) =>
   apiRequest('/reports', { method: 'POST', body: { userId, category } });
 
-/** Messages épinglés de la conversation (niveau conversation : visibles par tous). */
+/**
+ * Messages épinglés de la conversation (niveau conversation : visibles par tous).
+ *
+ * ⚠️ Le serveur renvoie les MESSAGES eux-mêmes, pas des objets `{ message }` : il déballe la
+ * table de jointure avant d'émettre (`stars.map(s => s.message)`). Vérifié dans le code du
+ * service et contre l'API — je l'avais d'abord supposé de travers, d'où un plantage.
+ */
 export const fetchPins = (conversationId: string) =>
-  apiRequest<{ message: Message }[]>(`/conversations/${conversationId}/pins`);
+  apiRequest<Message[]>(`/conversations/${conversationId}/pins`);
 
-/** Mes messages favoris dans cette conversation (personnel). */
+/** Mes messages favoris dans cette conversation (PERSONNEL, contrairement aux épinglés). */
 export const fetchStarred = (conversationId: string) =>
-  apiRequest<{ message: Message }[]>(`/conversations/${conversationId}/starred`);
+  apiRequest<Message[]>(`/conversations/${conversationId}/starred`);
 
 /** Durée des messages éphémères, en secondes. `null` désactive. */
 export const setEphemeral = (conversationId: string, duration: number | null) =>

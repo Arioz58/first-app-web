@@ -88,12 +88,8 @@ export function DetailsPanel({
     void fetchMedia(meta.id, 'images')
       .then((m) => setGallery(m.slice(0, 6)))
       .catch(() => setGallery([]));
-    void fetchPins(meta.id)
-      .then((r) => setPins(r.map((x) => x.message)))
-      .catch(() => setPins([]));
-    void fetchStarred(meta.id)
-      .then((r) => setStarred(r.map((x) => x.message)))
-      .catch(() => setStarred([]));
+    void fetchPins(meta.id).then(setPins).catch(() => setPins([]));
+    void fetchStarred(meta.id).then(setStarred).catch(() => setStarred([]));
     if (!isGroup && other) {
       void fetchUserProfile(other.userId)
         .then((p) => {

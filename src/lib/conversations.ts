@@ -69,34 +69,46 @@ export const conversationName = (conv: Conversation, meId: string | null): strin
 export const conversationPhoto = (conv: Conversation, meId: string | null): string | null =>
   conv.type === 'group' ? conv.photoUrl : otherMember(conv, meId)?.photoUrl ?? null;
 
-/** Aperçu du dernier message, typé comme sur mobile (une pièce jointe n'a pas de texte). */
-export const messagePreview = (msg: LastMessage | undefined): string => {
-  if (!msg) return '';
+/**
+ * Aperçu du dernier message, typé comme sur mobile (une pièce jointe n'a pas de texte).
+ *
+ * ⚠️ Renvoie un COUPLE `{ kind, text }` et non une chaîne : l'icône est un composant SVG que
+ * seul le rendu peut poser. Coller « 📷 » devant le texte, comme avant, laissait le dessin au
+ * système d'exploitation — donc différent sur macOS, Windows et Android, et sans rapport avec
+ * les icônes du reste de l'écran.
+ */
+export type PreviewKind = 'photo' | 'video' | 'audio' | 'document' | 'gif' | 'location' | null;
+
+export const messagePreview = (
+  msg: LastMessage | undefined,
+): { kind: PreviewKind; text: string } => {
+  const none = { kind: null, text: '' } as const;
+  if (!msg) return none;
   /**
    * ⚠️ Un bandeau système porte une CLÉ i18n en JSON (`{"k":"ephemeral_off","by":…}`), pas
    * du texte lisible : l'afficher tel quel montrerait `{"k":"ephemeral_off"…}` en aperçu.
    * Tant que la traduction des messages système n'est pas portée sur le web, on n'affiche
    * rien plutôt qu'un objet brut.
    */
-  if (msg.type === 'system') return '';
+  if (msg.type === 'system') return none;
   if (msg.mediaType) {
     switch (msg.mediaType) {
       case 'image':
-        return '📷 Photo';
+        return { kind: 'photo', text: 'Photo' };
       case 'video':
-        return '🎥 Vidéo';
+        return { kind: 'video', text: 'Vidéo' };
       case 'audio':
-        return '🎤 Message vocal';
+        return { kind: 'audio', text: 'Message vocal' };
       case 'document':
-        return '📄 Document';
+        return { kind: 'document', text: 'Document' };
       case 'gif':
-        return 'GIF';
+        return { kind: 'gif', text: 'GIF' };
       default:
         break;
     }
   }
-  if (msg.type === 'location') return '📍 Position';
-  return msg.content ?? '';
+  if (msg.type === 'location') return { kind: 'location', text: 'Position' };
+  return { kind: null, text: msg.content ?? '' };
 };
 
 /**

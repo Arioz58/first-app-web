@@ -1,5 +1,18 @@
 'use client';
 
+import {
+  IconBell,
+  IconBellOff,
+  IconBlock,
+  IconClose,
+  IconLocation,
+  IconPhone,
+  IconPin,
+  IconReport,
+  IconStar,
+  IconUnblock,
+  IconVideo,
+} from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
@@ -114,7 +127,7 @@ export function DetailsPanel({
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
           aria-label="Fermer"
         >
-          ✕
+          <IconClose size={18} />
         </button>
         <p className="font-semibold text-slate-900 dark:text-zinc-100">
           {isGroup ? 'Infos du groupe' : 'Infos du contact'}
@@ -142,8 +155,9 @@ export function DetailsPanel({
                   <p className="mt-1 text-sm text-slate-400">{profile.phone}</p>
                 )}
                 {profile.location && (
-                  <p className="mt-1 text-sm text-slate-400">
-                    📍 {profile.location.city}
+                  <p className="mt-1 flex items-center justify-center gap-1 text-sm text-slate-400">
+                    <IconLocation size={13} />
+                    {profile.location.city}
                     {profile.location.country ? `, ${profile.location.country}` : ''}
                   </p>
                 )}
@@ -162,7 +176,8 @@ export function DetailsPanel({
         {conversation && (
           <div className="flex justify-center gap-2 px-4 pb-4">
             <QuickAction
-              icon={conversation.favoritedAt ? '⭐' : '☆'}
+              icon={IconStar}
+              iconClassName={conversation.favoritedAt ? 'fill-current text-[#1E40AF]' : ''}
               label="Favori"
               onClick={() =>
                 void favoriteConversation(meta.id, !conversation.favoritedAt)
@@ -171,7 +186,7 @@ export function DetailsPanel({
               }
             />
             <QuickAction
-              icon={isMuted(conversation) ? '🔕' : '🔔'}
+              icon={isMuted(conversation) ? IconBellOff : IconBell}
               label="Sourdine"
               onClick={() => {
                 if (isMuted(conversation)) {
@@ -183,8 +198,8 @@ export function DetailsPanel({
             />
             {/* ⚠️ Les appels sont désactivés : ils arrivent au Mois 4 (Agora). Un bouton
                 grisé annonce la fonction sans mentir sur sa disponibilité. */}
-            <QuickAction icon="📞" label="Appel" disabled />
-            <QuickAction icon="🎥" label="Vidéo" disabled />
+            <QuickAction icon={IconPhone} label="Appel" disabled />
+            <QuickAction icon={IconVideo} label="Vidéo" disabled />
           </div>
         )}
 
@@ -246,7 +261,8 @@ export function DetailsPanel({
                     onClick={() => onJumpTo(m.id)}
                     className="w-full truncate rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   >
-                    📌 {m.content || 'Pièce jointe'}
+                    <IconPin size={13} className="mr-1.5 inline align-[-2px]" />
+                    {m.content || 'Pièce jointe'}
                   </button>
                 </li>
               ))}
@@ -264,7 +280,8 @@ export function DetailsPanel({
                     onClick={() => onJumpTo(m.id)}
                     className="w-full truncate rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   >
-                    ⭐ {m.content || 'Pièce jointe'}
+                    <IconStar size={13} className="mr-1.5 inline fill-current align-[-2px]" />
+                    {m.content || 'Pièce jointe'}
                   </button>
                 </li>
               ))}
@@ -319,11 +336,19 @@ export function DetailsPanel({
                       setMuteOpen(true);
                     }
                   }}
-                  className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  {isMuted(conversation)
-                    ? '🔔 Réactiver les notifications'
-                    : '🔕 Mettre en sourdine…'}
+                  {isMuted(conversation) ? (
+                    <>
+                      <IconBell size={15} />
+                      Réactiver les notifications
+                    </>
+                  ) : (
+                    <>
+                      <IconBellOff size={15} />
+                      Mettre en sourdine…
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -407,16 +432,18 @@ export function DetailsPanel({
                         .catch((e) => window.alert(e.message))
                         .finally(() => setBusy(false));
                     }}
-                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
-                    {blocked ? '🔓 Débloquer' : '🚫 Bloquer'}
+                    {blocked ? <IconUnblock size={15} /> : <IconBlock size={15} />}
+                    {blocked ? 'Débloquer' : 'Bloquer'}
                   </button>
                   <button
                     disabled={busy}
                     onClick={() => setReportOpen(true)}
-                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
-                    🚩 Signaler
+                    <IconReport size={15} />
+                    Signaler
                   </button>
                 </>
               )}
@@ -429,12 +456,16 @@ export function DetailsPanel({
 }
 
 function QuickAction({
-  icon,
+  icon: Icon,
+  iconClassName,
   label,
   onClick,
   disabled,
 }: {
-  icon: string;
+  /** ⚠️ Le COMPOSANT d'icône, pas une chaîne : c'est un SVG, il se rend, il ne s'écrit pas. */
+  icon: typeof IconStar;
+  /** Remplissage/teinte quand l'icône marque un état actif (favori posé, par exemple). */
+  iconClassName?: string;
   label: string;
   onClick?: () => void;
   disabled?: boolean;
@@ -446,7 +477,7 @@ function QuickAction({
       title={disabled ? 'Disponible prochainement' : label}
       className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-slate-200 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
     >
-      <span className="text-lg">{icon}</span>
+      <Icon size={18} className={iconClassName} />
       {label}
     </button>
   );

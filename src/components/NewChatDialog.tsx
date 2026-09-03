@@ -1,5 +1,6 @@
 'use client';
 
+import { IconCheck } from '@/components/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
@@ -163,7 +164,7 @@ export function NewChatDialog({
                           : 'border-slate-300 dark:border-zinc-600'
                       }`}
                     >
-                      {on ? '✓' : ''}
+                      {on && <IconCheck size={14} strokeWidth={3} />}
                     </span>
                   )}
                 </button>

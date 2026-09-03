@@ -1,5 +1,18 @@
 'use client';
 
+import {
+  IconAttach,
+  IconBack,
+  IconCheck,
+  IconClose,
+  IconDown,
+  IconMic,
+  IconPin,
+  IconSearch,
+  IconSend,
+  IconSpinner,
+  IconUp,
+} from '@/components/icons';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
@@ -794,7 +807,7 @@ export default function ThreadPage() {
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-zinc-800"
           aria-label="Retour"
         >
-          ←
+          <IconBack size={20} />
         </button>
         {/* ⚠️ Zone cliquable large (avatar + nom), comme sur mobile : viser un petit bouton
             « infos » serait moins direct, et l'en-tête est le repère naturel. */}
@@ -856,8 +869,9 @@ export default function ThreadPage() {
                     jumpTo(search.results[next]);
                   }}
                   className="px-1 text-slate-500"
+                  aria-label="Résultat précédent"
                 >
-                  ↑
+                  <IconUp size={16} />
                 </button>
                 <button
                   onClick={() => {
@@ -867,13 +881,18 @@ export default function ThreadPage() {
                     jumpTo(search.results[next]);
                   }}
                   className="px-1 text-slate-500"
+                  aria-label="Résultat suivant"
                 >
-                  ↓
+                  <IconDown size={16} />
                 </button>
               </>
             )}
-            <button onClick={() => setSearch(null)} className="px-1 text-slate-500">
-              ✕
+            <button
+              onClick={() => setSearch(null)}
+              className="px-1 text-slate-500"
+              aria-label="Fermer la recherche"
+            >
+              <IconClose size={16} />
             </button>
           </div>
         ) : (
@@ -882,7 +901,7 @@ export default function ThreadPage() {
             className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
             aria-label="Rechercher"
           >
-            🔍
+            <IconSearch size={18} />
           </button>
         )}
       </header>
@@ -896,7 +915,7 @@ export default function ThreadPage() {
           }}
           className="flex w-full items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-left text-sm dark:border-zinc-800 dark:bg-zinc-800/60"
         >
-          <span>📌</span>
+          <IconPin size={16} className="shrink-0 text-[#1E40AF]" />
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-semibold text-[#1E40AF]">
               {pinnedRows.length > 1
@@ -918,8 +937,9 @@ export default function ThreadPage() {
             }}
             onKeyDown={(e) => e.key === 'Enter' && setPinBarHidden(true)}
             className="px-2 text-slate-400"
+            aria-label="Masquer le bandeau"
           >
-            ✕
+            <IconClose size={16} />
           </span>
         </button>
       )}
@@ -930,10 +950,10 @@ export default function ThreadPage() {
         // en absolu sans conteneur positionné, il se plaçait au-dessus de la liste.
         <button
           onClick={() => scrollToBottom(true)}
-          className="absolute bottom-4 right-6 z-10 h-11 w-11 rounded-full bg-white text-lg shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
+          className="absolute bottom-4 right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
           aria-label="Revenir en bas"
         >
-          ↓
+          <IconDown size={20} />
         </button>
       )}
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4">
@@ -1022,8 +1042,9 @@ export default function ThreadPage() {
               setReplyTo(null);
             }}
             className="px-2 text-slate-400"
+            aria-label="Annuler"
           >
-            ✕
+            <IconClose size={16} />
           </button>
         </div>
       )}
@@ -1053,10 +1074,10 @@ export default function ThreadPage() {
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading || !!editing}
-          className="h-11 w-11 shrink-0 rounded-full text-xl text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
           aria-label="Joindre un fichier"
         >
-          {uploading ? '…' : '＋'}
+          {uploading ? <IconSpinner size={19} className="animate-spin" /> : <IconAttach size={19} />}
         </button>
         <textarea
           value={text}
@@ -1078,20 +1099,20 @@ export default function ThreadPage() {
           <button
             type="submit"
             disabled={!text.trim()}
-            className="h-11 w-11 shrink-0 rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
             aria-label={editing ? 'Valider' : 'Envoyer'}
           >
-            {editing ? '✓' : '➤'}
+            {editing ? <IconCheck size={20} /> : <IconSend size={19} />}
           </button>
         ) : (
           <button
             type="button"
             onClick={() => setRecording(true)}
             disabled={uploading}
-            className="h-11 w-11 shrink-0 rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
             aria-label="Enregistrer un message vocal"
           >
-            🎤
+            <IconMic size={19} />
           </button>
         )}
       </form>

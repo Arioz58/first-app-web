@@ -1,5 +1,15 @@
 'use client';
 
+import {
+  IconBlock,
+  IconCheck,
+  IconCheckDouble,
+  IconClock,
+  IconDocument,
+  IconForward,
+  IconPin,
+  IconStar,
+} from '@/components/icons';
 import { useState } from 'react';
 import { emojiCount, formatTime, QUICK_REACTIONS, type Message, type Row } from '@/lib/messages';
 import { formatFileSize } from '@/lib/upload';
@@ -100,16 +110,22 @@ export function MessageBubble({
 
       {(item.forwarded || pinned || starred) && (
         <p className="mb-0.5 flex gap-2 pl-1 text-xs text-slate-400">
-          {item.forwarded && <span className="italic">↪ Transféré</span>}
-          {pinned && <span>📌</span>}
-          {starred && <span>⭐</span>}
+          {item.forwarded && (
+            <span className="flex items-center gap-1 italic">
+              <IconForward size={12} />
+              Transféré
+            </span>
+          )}
+          {pinned && <IconPin size={12} aria-label="Épinglé" />}
+          {starred && <IconStar size={12} className="fill-current" aria-label="Favori" />}
         </p>
       )}
 
       <div className={`flex items-end gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
         {item.deletedAt ? (
-          <div className="rounded-2xl bg-slate-200 px-4 py-2.5 text-sm italic text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">
-            🚫 Ce message a été supprimé
+          <div className="flex items-center gap-1.5 rounded-2xl bg-slate-200 px-4 py-2.5 text-sm italic text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">
+            <IconBlock size={14} />
+            Ce message a été supprimé
           </div>
         ) : big ? (
           <p style={{ fontSize: BIG_EMOJI[emojis] }} className="px-1 leading-tight">
@@ -184,15 +200,15 @@ export function MessageBubble({
               {/* Une coche = envoyé, deux = remis, deux bleues = lu. Même échelle que le
                   mobile, pour qu'un même message se lise pareil des deux côtés. */}
               {/* Horloge tant que le serveur n'a pas répondu — l'envoi est en cours. */}
-              {item.pendingLocal && <span className="ml-1" title="Envoi…">🕐</span>}
+              {item.pendingLocal && (
+                <IconClock size={13} className="ml-1 inline align-[-2px]" aria-label="Envoi…" />
+              )}
               {status && !item.pendingLocal && (
                 <span
-                  className={`ml-1 ${status === 'read' ? 'text-sky-300' : ''}`}
-                  title={
-                    status === 'read' ? 'Lu' : status === 'delivered' ? 'Remis' : 'Envoyé'
-                  }
+                  className={`ml-1 inline-block align-[-2px] ${status === 'read' ? 'text-sky-300' : ''}`}
+                  title={status === 'read' ? 'Lu' : status === 'delivered' ? 'Remis' : 'Envoyé'}
                 >
-                  {status === 'sent' ? '✓' : '✓✓'}
+                  {status === 'sent' ? <IconCheck size={13} /> : <IconCheckDouble size={13} />}
                 </span>
               )}
             </p>
@@ -378,7 +394,7 @@ function MediaContent({
         isMe ? 'bg-white/15' : 'bg-black/5 dark:bg-white/10'
       }`}
     >
-      <span className="text-xl">📄</span>
+      <IconDocument size={20} className="shrink-0" />
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">
           {item.fileName ?? 'Document'}

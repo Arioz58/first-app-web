@@ -35,6 +35,15 @@ navigateur et les appels partent vers `undefined`.
 - `src/lib/api.ts` ne lance **qu'un seul** rafraîchissement à la fois, même quand plusieurs
   requêtes reçoivent un 401 simultanément — le serveur invalide l'ancien jeton à chaque
   usage, et des refresh concurrents déconnecteraient l'utilisateur.
+- **Les icônes viennent de `lucide-react`, via `src/components/icons.ts`** — jamais d'emoji
+  comme icône d'interface, et jamais d'import direct de lucide dans un composant. Le fichier
+  central nomme les concepts (`IconPin`, `IconCheckDouble`…) : une même idée garde le même
+  dessin partout, et changer de bibliothèque ne touche qu'un fichier. ⚠️ Un emoji n'est pas
+  une icône : son dessin appartient au système d'exploitation, donc « 📌 » n'a pas la même
+  allure sur macOS, Windows et Android, et ne s'accorde avec rien autour.
+  ⚠️ **Exception : `QUICK_REACTIONS`** (`src/lib/messages.ts`) et l'affichage des réactions
+  restent des emojis — ce sont des **données** envoyées au serveur et stockées en base, pas
+  de l'habillage. Une icône ne s'y substitue pas.
 
 ## État des fonctionnalités
 

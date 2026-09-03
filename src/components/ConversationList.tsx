@@ -3,6 +3,19 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
+import {
+  IconArchive,
+  IconBack,
+  IconBellOff,
+  IconDocument,
+  IconLocation,
+  IconMic,
+  IconPhoto,
+  IconPin,
+  IconPlus,
+  IconStar,
+  IconVideo,
+} from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession, logout } from '@/lib/auth';
@@ -22,11 +35,29 @@ import {
   sortConversations,
   type Conversation,
   type LastMessage,
+  type PreviewKind,
 } from '@/lib/conversations';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
 type Filter = 'all' | 'unread' | 'favorites' | 'groups' | 'archived';
+
+/**
+ * Icône d'aperçu selon le type de pièce jointe.
+ *
+ * ⚠️ Un GIF prend l'icône « photo » : lucide n'a pas de dessin dédié, et le mot « GIF »
+ * accolé suffit à lever l'ambiguïté. Mieux vaut ça qu'une icône approchante qui dirait faux.
+ */
+const PREVIEW_ICON: Record<Exclude<PreviewKind, null>, typeof IconPhoto> = {
+  photo: IconPhoto,
+  gif: IconPhoto,
+  video: IconVideo,
+  audio: IconMic,
+  document: IconDocument,
+  location: IconLocation,
+};
+
+
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'Toutes' },
@@ -213,9 +244,9 @@ export function ConversationList() {
           <button
             onClick={() => setNewChatOpen(true)}
             title="Nouvelle conversation"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-[#1E40AF] hover:bg-slate-100 dark:hover:bg-zinc-800"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[#1E40AF] hover:bg-slate-100 dark:hover:bg-zinc-800"
           >
-            ✚
+            <IconPlus size={20} />
           </button>
           <button
             onClick={() => {
@@ -266,7 +297,8 @@ export function ConversationList() {
           onClick={() => setFilter('archived')}
           className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
         >
-          🗄️ Archivées
+          <IconArchive size={16} />
+          Archivées
           <span className="ml-auto text-xs text-slate-400">
             {conversations.filter((c) => c.archivedAt).length}
           </span>
@@ -275,9 +307,10 @@ export function ConversationList() {
       {filter === 'archived' && (
         <button
           onClick={() => setFilter('all')}
-          className="mx-4 mb-2 rounded-xl bg-slate-100 px-3 py-2 text-left text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
+          className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-left text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
         >
-          ← Retour aux discussions
+          <IconBack size={16} />
+          Retour aux discussions
         </button>
       )}
 
@@ -314,6 +347,7 @@ export function ConversationList() {
           <ul className="px-2 pb-4">
             {visible.map((c) => {
               const last = c.messages[0];
+              const preview = messagePreview(last);
               const name = conversationName(c, meId);
               const unread = c.unreadCount > 0;
               const active = c.id === activeId;
@@ -338,8 +372,10 @@ export function ConversationList() {
                           {name}
                         </span>
                         <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
-                          {isMuted(c) && <span title="En sourdine">🔕</span>}
-                          {c.favoritedAt && <span title="Favori">⭐</span>}
+                          {isMuted(c) && <IconBellOff size={13} aria-label="En sourdine" />}
+                          {c.favoritedAt && (
+                            <IconStar size={13} className="fill-current" aria-label="Favori" />
+                          )}
                           {last ? formatListDate(last.createdAt) : ''}
                         </span>
                       </div>
@@ -351,8 +387,16 @@ export function ConversationList() {
                               : 'text-slate-400'
                           }`}
                         >
-                          {c.pinnedAt && '📌 '}
-                          {messagePreview(last)}
+                          {c.pinnedAt && (
+                            <IconPin size={12} className="mr-1 inline shrink-0 align-[-1px]" />
+                          )}
+                          {preview.kind &&
+                            /* L'icône est `inline` pour rester sur la ligne du texte tronqué. */
+                            (() => {
+                              const Icon = PREVIEW_ICON[preview.kind];
+                              return <Icon size={13} className="mr-1 inline shrink-0 align-[-2px]" />;
+                            })()}
+                          {preview.text}
                         </span>
                         {unread ? (
                           <span className="shrink-0 rounded-full bg-[#1E40AF] px-2 py-0.5 text-xs font-semibold text-white">

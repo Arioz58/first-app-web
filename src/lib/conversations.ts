@@ -148,3 +148,47 @@ export const createGroup = (name: string, memberIds: string[]) =>
     method: 'POST',
     body: { name, memberIds },
   });
+
+// --- Actions sur une conversation (toutes PAR MEMBRE : elles ne regardent que soi) ---
+
+/**
+ * ⚠️ Épingler, archiver, mettre en sourdine ou en favori sont des réglages PERSONNELS :
+ * épingler une conversation ne l'épingle pas chez l'autre. C'est `ConversationMember` qui
+ * les porte côté serveur, pas `Conversation`.
+ */
+export const pinConversation = (id: string, pinned: boolean) =>
+  apiRequest(`/conversations/${id}/pin`, { method: 'PATCH', body: { pinned } });
+
+export const favoriteConversation = (id: string, favorite: boolean) =>
+  apiRequest(`/conversations/${id}/favorite`, { method: 'PATCH', body: { favorite } });
+
+/** ⚠️ Archiver retire l'épinglage : une conversation rangée n'a rien à faire en tête de liste. */
+export const archiveConversation = (id: string, archived: boolean) =>
+  apiRequest(`/conversations/${id}/archive`, { method: 'PATCH', body: { archived } });
+
+/**
+ * Sourdine. `mutedUntil` est une date ISO, ou `null` pour réactiver.
+ *
+ * ⚠️ « Toujours » est une date lointaine (an 2999) et non une valeur spéciale : le serveur
+ * compare simplement à maintenant, et un sentinelle évite un troisième état à gérer partout.
+ */
+export const muteConversation = (id: string, mutedUntil: string | null) =>
+  apiRequest(`/conversations/${id}/mute`, { method: 'PATCH', body: { mutedUntil } });
+
+/** Remise en non lu à la main. Toute lecture la lève. */
+export const markUnread = (id: string) =>
+  apiRequest(`/conversations/${id}/unread`, { method: 'POST' });
+
+/** Sentinelle « toujours » — même valeur que le mobile (`MUTE_FOREVER`). */
+export const MUTE_FOREVER = new Date('2999-12-31T00:00:00Z').toISOString();
+
+/** Durées proposées, alignées sur le mobile. */
+export const MUTE_OPTIONS: { label: string; value: string }[] = [
+  { label: '8 heures', value: new Date(Date.now() + 8 * 3600 * 1000).toISOString() },
+  { label: '1 semaine', value: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() },
+  { label: 'Toujours', value: MUTE_FOREVER },
+];
+
+/** La conversation est-elle en sourdine à cet instant ? */
+export const isMuted = (conv: Conversation): boolean =>
+  !!conv.mutedUntil && new Date(conv.mutedUntil) > new Date();

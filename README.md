@@ -54,5 +54,5 @@ navigateur et les appels partent vers `undefined`.
 | Accusés de réception et de lecture | ✅ | ✓ / ✓✓ / ✓✓ bleu |
 | Aperçus de liens en temps réel | ✅ | résolus par le serveur après l'envoi |
 | Bandeau des épinglés, titre d'onglet | ✅ | |
-| Archives, mute, épinglage de conversation | ⏳ | données présentes, pas d'interface |
+| Archives, mute, épinglage, favori, non lu | ✅ | menu au survol d'une conversation |
 | Stories, appels, gestion des groupes | ⏳ | hors périmètre V1 web |

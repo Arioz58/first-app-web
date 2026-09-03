@@ -7,11 +7,18 @@ import { NewChatDialog } from '@/components/NewChatDialog';
 import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession, logout } from '@/lib/auth';
 import {
+  archiveConversation,
   conversationName,
   conversationPhoto,
+  favoriteConversation,
   fetchConversations,
   formatListDate,
+  isMuted,
+  markUnread,
   messagePreview,
+  muteConversation,
+  MUTE_OPTIONS,
+  pinConversation,
   sortConversations,
   type Conversation,
   type LastMessage,
@@ -19,7 +26,7 @@ import {
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
-type Filter = 'all' | 'unread' | 'favorites' | 'groups';
+type Filter = 'all' | 'unread' | 'favorites' | 'groups' | 'archived';
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'Toutes' },
@@ -50,6 +57,10 @@ export function ConversationList() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [newChatOpen, setNewChatOpen] = useState(false);
+  /** Conversation dont le menu d'actions est ouvert. */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** Conversation pour laquelle on choisit une durée de sourdine. */
+  const [muteFor, setMuteFor] = useState<string | null>(null);
 
   const load = useCallback(() => {
     void (async () => {
@@ -115,8 +126,15 @@ export function ConversationList() {
 
   // Même règle que le rendu : la conversation ouverte ne compte pas, sinon l'en-tête
   // annoncerait des non-lus que la liste affiche à zéro.
+  /**
+   * ⚠️ Les ARCHIVÉES sont exclues du total, comme sur mobile (décision du 5 août) : sans
+   * cela le titre d'onglet et la pastille annonceraient un nombre que rien ne fait
+   * redescendre dans la liste visible. Leur compte reste visible sur l'entrée « Archivées ».
+   *
+   * La conversation ouverte l'est aussi : elle est sous les yeux et le fil la marque lue.
+   */
   const unreadTotal = conversations.reduce(
-    (n, c) => n + (c.id === activeId ? 0 : c.unreadCount || 0),
+    (n, c) => n + (c.id === activeId || c.archivedAt ? 0 : c.unreadCount || 0),
     0,
   );
 
@@ -131,9 +149,30 @@ export function ConversationList() {
     document.title = unreadTotal > 0 ? `(${unreadTotal}) Nexa` : 'Nexa';
   }, [unreadTotal]);
 
+  /**
+   * Applique un changement localement puis appelle le serveur.
+   *
+   * ⚠️ Optimiste : la liste doit réagir au clic, pas après un aller-retour. En cas d'échec on
+   * RECHARGE plutôt que d'annuler à la main — le serveur fait foi, et deviner l'état
+   * antérieur d'un tri qui a peut-être bougé serait fragile.
+   */
+  const apply = useCallback(
+    (convId: string, patch: Partial<Conversation>, call: () => Promise<unknown>) => {
+      setMenuFor(null);
+      setConversations((prev) =>
+        sortConversations(prev.map((c) => (c.id === convId ? { ...c, ...patch } : c))),
+      );
+      void call().catch(() => load());
+    },
+    [load],
+  );
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return conversations
+      // ⚠️ Les archivées sont EXCLUES des autres vues et n'apparaissent que dans la leur :
+      // c'est tout l'objet de l'archivage.
+      .filter((c) => (filter === 'archived' ? !!c.archivedAt : !c.archivedAt))
       /**
        * ⚠️ La conversation OUVERTE n'affiche jamais de non-lus : elle est sous les yeux et
        * le fil la marque lue à chaque message.
@@ -147,8 +186,8 @@ export function ConversationList() {
           ? { ...c, unreadCount: 0, manualUnread: false }
           : c,
       )
-      .filter((c) => !c.archivedAt)
       .filter((c) => {
+        if (filter === 'archived') return true;
         if (filter === 'unread') return c.unreadCount > 0 || c.manualUnread;
         if (filter === 'favorites') return !!c.favoritedAt;
         if (filter === 'groups') return c.type === 'group';
@@ -219,6 +258,29 @@ export function ConversationList() {
         ))}
       </div>
 
+      {/* ⚠️ Visible uniquement sur « Toutes », comme sur mobile : sur un filtre, elle
+          prêterait à confusion avec le résultat filtré. Le compte annonce les non-lus
+          rangés, que rien ne fait redescendre dans la liste visible. */}
+      {filter === 'all' && conversations.some((c) => c.archivedAt) && (
+        <button
+          onClick={() => setFilter('archived')}
+          className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
+        >
+          🗄️ Archivées
+          <span className="ml-auto text-xs text-slate-400">
+            {conversations.filter((c) => c.archivedAt).length}
+          </span>
+        </button>
+      )}
+      {filter === 'archived' && (
+        <button
+          onClick={() => setFilter('all')}
+          className="mx-4 mb-2 rounded-xl bg-slate-100 px-3 py-2 text-left text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
+        >
+          ← Retour aux discussions
+        </button>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <ul className="space-y-1 px-2">
@@ -256,7 +318,7 @@ export function ConversationList() {
               const unread = c.unreadCount > 0;
               const active = c.id === activeId;
               return (
-                <li key={c.id}>
+                <li key={c.id} className="group relative">
                   <button
                     onClick={() => router.push(`/chat/${c.id}`)}
                     className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${
@@ -275,7 +337,9 @@ export function ConversationList() {
                         <span className="truncate font-semibold text-slate-900 dark:text-zinc-100">
                           {name}
                         </span>
-                        <span className="shrink-0 text-xs text-slate-400">
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
+                          {isMuted(c) && <span title="En sourdine">🔕</span>}
+                          {c.favoritedAt && <span title="Favori">⭐</span>}
                           {last ? formatListDate(last.createdAt) : ''}
                         </span>
                       </div>
@@ -300,6 +364,121 @@ export function ConversationList() {
                       </div>
                     </div>
                   </button>
+
+                  {/* Actions au survol — la ligne entière reste cliquable pour ouvrir. */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuFor(menuFor === c.id ? null : c.id);
+                    }}
+                    className="absolute right-2 top-3 rounded-full px-2 py-0.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
+                    aria-label="Actions"
+                  >
+                    ⋯
+                  </button>
+
+                  {menuFor === c.id && (
+                    <>
+                      {/* Fond transparent : un clic n'importe où referme le menu. */}
+                      <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+                      <div className="absolute right-2 top-9 z-20 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200 dark:bg-zinc-800 dark:ring-zinc-700">
+                        {muteFor === c.id ? (
+                          MUTE_OPTIONS.map((o) => (
+                            <button
+                              key={o.label}
+                              onClick={() => {
+                                setMuteFor(null);
+                                apply(c.id, { mutedUntil: o.value }, () =>
+                                  muteConversation(c.id, o.value),
+                                );
+                              }}
+                              className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              {o.label}
+                            </button>
+                          ))
+                        ) : (
+                          <>
+                            <button
+                              onClick={() =>
+                                apply(
+                                  c.id,
+                                  {
+                                    pinnedAt: c.pinnedAt ? null : new Date().toISOString(),
+                                  },
+                                  () => pinConversation(c.id, !!c.pinnedAt),
+                                )
+                              }
+                              className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              {c.pinnedAt ? 'Désépingler' : 'Épingler'}
+                            </button>
+                            <button
+                              onClick={() =>
+                                apply(
+                                  c.id,
+                                  {
+                                    favoritedAt: c.favoritedAt ? null : new Date().toISOString(),
+                                  },
+                                  () => favoriteConversation(c.id, !c.favoritedAt),
+                                )
+                              }
+                              className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              {c.favoritedAt ? 'Retirer des favoris' : 'Mettre en favori'}
+                            </button>
+                            {isMuted(c) ? (
+                              <button
+                                onClick={() =>
+                                  apply(c.id, { mutedUntil: null }, () =>
+                                    muteConversation(c.id, null),
+                                  )
+                                }
+                                className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                              >
+                                Réactiver les notifications
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setMuteFor(c.id)}
+                                className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                              >
+                                Mettre en sourdine…
+                              </button>
+                            )}
+                            {!c.archivedAt && !unread && (
+                              <button
+                                onClick={() =>
+                                  apply(c.id, { manualUnread: true }, () => markUnread(c.id))
+                                }
+                                className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                              >
+                                Marquer comme non lu
+                              </button>
+                            )}
+                            <button
+                              onClick={() =>
+                                apply(
+                                  c.id,
+                                  {
+                                    archivedAt: c.archivedAt ? null : new Date().toISOString(),
+                                    // ⚠️ Archiver retire l'épinglage, comme le serveur le
+                                    // fait : sans ça la liste et la base divergeraient
+                                    // jusqu'au prochain rechargement.
+                                    ...(c.archivedAt ? {} : { pinnedAt: null }),
+                                  },
+                                  () => archiveConversation(c.id, !c.archivedAt),
+                                )
+                              }
+                              className="block w-full border-t border-slate-100 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              {c.archivedAt ? 'Désarchiver' : 'Archiver'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </li>
               );
             })}

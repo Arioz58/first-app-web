@@ -15,6 +15,7 @@ import {
   IconDocument,
   IconEdit,
   IconForward,
+  IconLocation,
   IconMore,
   IconReply,
   IconPin,
@@ -376,6 +377,48 @@ function MediaContent({
   isMe: boolean;
 }) {
   const item = row.messages[0];
+
+  /**
+   * Position partagée.
+   *
+   * ⚠️ Traitée AVANT la sortie sur `mediaUrl` : un message de position n'a pas de pièce
+   * jointe, ses coordonnées sont dans ses propres colonnes. C'est pour cela qu'il ne
+   * s'affichait pas du tout — la fonction sortait avant de l'avoir regardé, sans rien
+   * signaler.
+   */
+  if (item.type === 'location' && item.latitude != null && item.longitude != null) {
+    const { latitude: lat, longitude: lon } = item;
+    /**
+     * ⚠️ PAS de carte embarquée, volontairement. Une tuile de carte est chargée depuis un
+     * service tiers : l'afficher révélerait à ce service l'adresse IP du DESTINATAIRE et les
+     * coordonnées qu'il consulte. C'est exactement le raisonnement qui a fait résoudre les
+     * aperçus de liens côté SERVEUR (`src/lib/unfurl.ts`). Le lien, lui, n'est suivi que si
+     * l'on clique — et c'est alors un choix.
+     */
+    return (
+      <a
+        href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={`mb-1 flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${
+          isMe ? 'bg-white/15' : 'bg-black/5 dark:bg-white/10'
+        }`}
+      >
+        <IconLocation size={22} className="shrink-0" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">
+            {/* `content` porte l'adresse lisible, calculée par l'app qui a partagé. */}
+            {item.content || 'Position partagée'}
+          </span>
+          <span className="block text-xs opacity-70">
+            {lat.toFixed(5)}, {lon.toFixed(5)} · ouvrir dans Maps
+          </span>
+        </span>
+      </a>
+    );
+  }
+
   if (!item.mediaUrl) return null;
 
   if (album) {

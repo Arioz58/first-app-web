@@ -6,6 +6,7 @@ import {
   IconBell,
   IconBellOff,
   IconBlock,
+  IconChevron,
   IconCamera,
   IconCheck,
   IconClose,
@@ -25,6 +26,7 @@ import {
   IconVideo,
 } from '@/components/icons';
 import { AddMembersDialog } from '@/components/AddMembersDialog';
+import { MediaGalleryView } from '@/components/MediaGalleryView';
 import {
   anchorFromEvent,
   FloatingMenu,
@@ -120,6 +122,7 @@ export function DetailsPanel({
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [counts, setCounts] = useState<MediaCounts | null>(null);
   const [gallery, setGallery] = useState<Message[]>([]);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -145,6 +148,10 @@ export function DetailsPanel({
 
   const other = meta?.members.find((m) => m.userId !== meId);
   const isGroup = meta?.type === 'group';
+  /** Total toutes catégories : ce qui décide d'afficher le lien vers la galerie. */
+  const totalMedia = counts
+    ? counts.images + counts.videos + counts.documents + counts.audio + counts.gifs + counts.links
+    : 0;
   const myRole = meta?.myRole as Role | undefined;
   const admin = isGroup && isGroupAdmin(myRole);
   const canManage = isGroup && canManageMembers(myRole);
@@ -156,6 +163,9 @@ export function DetailsPanel({
       setGallery([]);
       setMuteOpen(false);
       setMemberMenu(null);
+      // Le panneau revient toujours sur les infos : rouvrir une conversation ne doit pas
+      // atterrir dans la galerie de la précédente.
+      setGalleryOpen(false);
       setEdit(null);
       setWhoOpen(false);
     });
@@ -182,6 +192,24 @@ export function DetailsPanel({
 
   const title = isGroup ? meta.name ?? '' : other?.user.name ?? '';
   const photo = isGroup ? meta.photoUrl : other?.user.photoUrl;
+
+  /**
+   * ⚠️ La galerie REMPLACE le contenu du panneau, elle ne s'ajoute pas dessous : c'est la
+   * suite de « Médias, liens et documents », avec sa propre flèche de retour. L'empiler dans
+   * une fenêtre par-dessus ferait perdre le fil, visible à gauche.
+   */
+  if (galleryOpen && counts) {
+    return (
+      <aside className="flex w-full shrink-0 flex-col border-l border-slate-200 bg-white md:w-[340px] dark:border-zinc-800 dark:bg-zinc-900">
+        <MediaGalleryView
+          conversationId={meta.id}
+          counts={counts}
+          onBack={() => setGalleryOpen(false)}
+          onOpenMedia={onOpenMedia}
+        />
+      </aside>
+    );
+  }
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-l border-slate-200 bg-white md:w-[340px] dark:border-zinc-800 dark:bg-zinc-900">
@@ -379,18 +407,16 @@ export function DetailsPanel({
           </div>
         )}
 
-        {/* Médias */}
+        {/* Médias : un APERÇU, et un lien vers la galerie complète.
+            ⚠️ Les compteurs par catégorie ont quitté cette section : ils ne servaient qu'à
+            annoncer un contenu qu'on ne pouvait pas ouvrir. Ils sont désormais les onglets
+            de la galerie, où ils filtrent réellement. */}
         {counts && (
           <Section title="Médias, liens et documents">
             {gallery.length > 0 && (
               <div className="mb-2 grid grid-cols-3 gap-1 px-4">
                 {gallery.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() =>
-                      onOpenMedia(m)
-                    }
-                  >
+                  <button key={m.id} onClick={() => onOpenMedia(m)}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={m.mediaUrl ?? ''}
@@ -401,27 +427,20 @@ export function DetailsPanel({
                 ))}
               </div>
             )}
-            <div className="flex flex-wrap gap-2 px-4 text-xs text-slate-500 dark:text-zinc-400">
-              {(
-                [
-                  ['Photos', counts.images],
-                  ['Vidéos', counts.videos],
-                  ['Documents', counts.documents],
-                  ['Vocaux', counts.audio],
-                  ['Liens', counts.links],
-                ] as const
-              )
-                .filter(([, n]) => n > 0)
-                .map(([label, n]) => (
-                  <span
-                    key={label}
-                    className="rounded-full bg-slate-100 px-2.5 py-1 dark:bg-zinc-800"
-                  >
-                    {label} · {n}
+            <div className="px-4">
+              {totalMedia > 0 ? (
+                <button
+                  onClick={() => setGalleryOpen(true)}
+                  className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left text-sm text-[#1E40AF] hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-zinc-800"
+                >
+                  Voir tous les médias, liens et documents
+                  <span className="flex items-center gap-1 text-slate-400">
+                    {totalMedia}
+                    <IconChevron size={16} />
                   </span>
-                ))}
-              {Object.values(counts).every((n) => !n) && (
-                <span className="text-slate-400">Aucun média échangé.</span>
+                </button>
+              ) : (
+                <p className="px-2 py-2 text-sm text-slate-400">Aucun média échangé.</p>
               )}
             </div>
           </Section>

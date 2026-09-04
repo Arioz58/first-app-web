@@ -42,6 +42,7 @@ export {
   CheckCheck as IconCheckDouble,
   Clock as IconClock,
   // Actions
+  ChevronRight as IconChevron,
   X as IconClose,
   ArrowLeft as IconBack,
   ArrowUp as IconUp,

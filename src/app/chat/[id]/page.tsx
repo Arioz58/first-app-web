@@ -1,5 +1,6 @@
 'use client';
 
+import { MediaViewer } from '@/components/MediaViewer';
 import { canManageMembers, type Role } from '@/lib/groups';
 import {
   IconAttach,
@@ -121,7 +122,8 @@ export default function ThreadPage() {
    * métadonnées du fil — d'où cette lecture séparée.
    */
   const [convSettings, setConvSettings] = useState<Conversation | null>(null);
-  const [viewer, setViewer] = useState<{ url: string; kind: 'image' | 'video' } | null>(null);
+  /** Média ouvert en plein écran. La visionneuse parcourt ensuite toute la conversation. */
+  const [viewer, setViewer] = useState<Message | null>(null);
   const [search, setSearch] = useState<{ term: string; results: string[]; index: number } | null>(
     null,
   );
@@ -852,7 +854,7 @@ export default function ThreadPage() {
         setForwarding(group);
       },
       onJumpTo: jumpTo,
-      onOpenMedia: (url, kind) => setViewer({ url, kind }),
+      onOpenMedia: setViewer,
     }),
     [react, jumpTo, id, flags, meId, text, messages],
   );
@@ -1436,7 +1438,7 @@ export default function ThreadPage() {
       conversation={convSettings}
       meId={meId}
       onClose={() => setDetailsOpen(false)}
-      onOpenMedia={(url, kind) => setViewer({ url, kind })}
+      onOpenMedia={setViewer}
       onChanged={loadConvSettings}
       onMetaChanged={() => {
         void fetchConversationMeta(id).then(setMeta).catch(() => {});
@@ -1455,17 +1457,7 @@ export default function ThreadPage() {
         détails prend l'écran sur mobile — un média ouvert depuis le panneau ne s'affichait
         alors pas. */}
     {viewer && (
-      <div
-        onClick={() => setViewer(null)}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-8"
-      >
-        {viewer.kind === 'video' ? (
-          <video src={viewer.url} controls autoPlay className="max-h-full max-w-full" />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={viewer.url} alt="" className="max-h-full max-w-full object-contain" />
-        )}
-      </div>
+      <MediaViewer conversationId={id} initial={viewer} onClose={() => setViewer(null)} />
     )}
     </div>
   );

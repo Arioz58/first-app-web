@@ -39,7 +39,7 @@ export type BubbleActions = {
   onStar: (m: Message) => void;
   onForward: (m: Message) => void;
   onJumpTo: (messageId: string) => void;
-  onOpenMedia: (url: string, kind: 'image' | 'video') => void;
+  onOpenMedia: (message: Message) => void;
 };
 
 /** Fenêtre de modification, alignée sur le serveur (15 min). */
@@ -373,7 +373,11 @@ function MediaContent({
 }: {
   row: Row;
   album: Message[] | null;
-  onOpen: (url: string, kind: 'image' | 'video') => void;
+  /**
+   * ⚠️ Reçoit le MESSAGE et non son URL : la visionneuse doit retrouver ce média parmi tous
+   * ceux de la conversation, ce qu'une URL seule ne permet pas de faire de façon fiable.
+   */
+  onOpen: (message: Message) => void;
   isMe: boolean;
 }) {
   const item = row.messages[0];
@@ -427,7 +431,7 @@ function MediaContent({
         {album.slice(0, 4).map((m, i) => (
           <button
             key={m.id}
-            onClick={() => onOpen(m.mediaUrl!, m.mediaType === 'video' ? 'video' : 'image')}
+            onClick={() => onOpen(m)}
             className="relative"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -446,7 +450,7 @@ function MediaContent({
 
   if (item.mediaType === 'image' || item.mediaType === 'gif') {
     return (
-      <button onClick={() => onOpen(item.mediaUrl!, 'image')} className="mb-1 block">
+      <button onClick={() => onOpen(item)} className="mb-1 block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={item.mediaUrl} alt="" className="max-h-80 rounded-lg object-cover" />
       </button>
@@ -454,8 +458,14 @@ function MediaContent({
   }
 
   if (item.mediaType === 'video') {
-    // Lecteur natif : pas de contrôle personnalisé tant que l'essentiel n'est pas en place.
-    return <video src={item.mediaUrl} controls className="mb-1 max-h-80 rounded-lg" />;
+    return (
+      <button onClick={() => onOpen(item)} className="mb-1 block">
+        {/* ⚠️ Sans `controls` : la vidéo est une VIGNETTE ici, elle se lit dans la
+            visionneuse. Des contrôles sur la bulle captureraient le clic et l'on ne pourrait
+            plus l'ouvrir en grand ni passer aux médias suivants. */}
+        <video src={item.mediaUrl} className="max-h-80 rounded-lg" />
+      </button>
+    );
   }
 
   if (item.mediaType === 'audio') {

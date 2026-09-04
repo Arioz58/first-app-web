@@ -102,7 +102,7 @@ export function DetailsPanel({
   conversation: Conversation | null;
   meId: string | null;
   onClose: () => void;
-  onOpenMedia: (url: string, kind: 'image' | 'video') => void;
+  onOpenMedia: (message: Message) => void;
   /** Prévient la liste qu'un réglage a changé, pour qu'elle se rafraîchisse. */
   onChanged: () => void;
   /**
@@ -388,7 +388,7 @@ export function DetailsPanel({
                   <button
                     key={m.id}
                     onClick={() =>
-                      onOpenMedia(m.mediaUrl!, m.mediaType === 'video' ? 'video' : 'image')
+                      onOpenMedia(m)
                     }
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}

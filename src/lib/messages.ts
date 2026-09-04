@@ -325,8 +325,17 @@ export const fetchMediaCounts = (conversationId: string) =>
   apiRequest<MediaCounts>(`/conversations/${conversationId}/media-counts`);
 
 /** Pièces jointes d'une catégorie, paginées (30 par page). */
-export const fetchMedia = (conversationId: string, category: string) =>
-  apiRequest<Message[]>(`/conversations/${conversationId}/media?category=${category}`);
+/**
+ * Pièces jointes d'une conversation, par catégorie.
+ *
+ * ⚠️ PAGINÉ : 30 par page, du plus récent au plus ancien, curseur sur l'identifiant du
+ * dernier reçu. Sans `cursor`, on n'obtient que les 30 derniers — c'est ce qui oblige la
+ * visionneuse à remonter page par page jusqu'au média sur lequel on a cliqué.
+ */
+export const fetchMedia = (conversationId: string, category: string, cursor?: string) =>
+  apiRequest<Message[]>(
+    `/conversations/${conversationId}/media?category=${category}${cursor ? `&cursor=${cursor}` : ''}`,
+  );
 
 // --- Modération ---
 

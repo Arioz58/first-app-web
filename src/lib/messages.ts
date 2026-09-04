@@ -351,8 +351,12 @@ export const blockUser = (userId: string) =>
 export const unblockUser = (userId: string) =>
   apiRequest(`/blocks/${userId}`, { method: 'DELETE' });
 
+/**
+ * ⚠️ `photoUrl` est bien renvoyé par le serveur (`getBlockedUsers`) : l'omettre du type
+ * privait l'interface de l'avatar, et une liste de noms nus se reconnaît mal.
+ */
 export const fetchBlocked = () =>
-  apiRequest<{ id: string; name: string }[]>('/blocks');
+  apiRequest<{ id: string; name: string; photoUrl: string | null }[]>('/blocks');
 
 export type ReportCategory = 'spam' | 'impersonation' | 'inappropriate' | 'other';
 

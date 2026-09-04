@@ -393,7 +393,16 @@ export function ConversationList() {
                           {c.favoritedAt && (
                             <IconStar size={13} className="fill-current" aria-label="Favori" />
                           )}
-                          {last ? formatListDate(last.createdAt) : ''}
+                          {/* ⚠️ La date s'efface au survol : le bouton « … » est posé en
+                              ABSOLU juste au-dessus d'elle, et les deux se superposaient.
+                              On joue sur l'opacité et non sur l'affichage — retirer
+                              l'élément décalerait les icônes de sourdine et de favori au
+                              moment précis où l'on passe la souris. */}
+                          {last && (
+                            <span className="transition-opacity group-hover:opacity-0">
+                              {formatListDate(last.createdAt)}
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
@@ -432,7 +441,7 @@ export function ConversationList() {
                       e.stopPropagation();
                       setMenuFor({ id: c.id, at: anchorFromEvent(e) });
                     }}
-                    className="absolute right-2 top-3 rounded-full p-1 text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:hover:bg-zinc-700"
+                    className="absolute right-2 top-2.5 rounded-full p-1 text-slate-500 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:text-zinc-300 dark:hover:bg-zinc-700"
                     aria-label="Actions"
                   >
                     <IconMore size={16} />

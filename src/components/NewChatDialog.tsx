@@ -3,6 +3,7 @@
 import { IconCheck } from '@/components/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
+import { PhoneSearchPanel } from '@/components/PhoneSearchPanel';
 import {
   createGroup,
   fetchFriends,
@@ -10,7 +11,18 @@ import {
   type Friend,
 } from '@/lib/conversations';
 
-type Mode = 'direct' | 'group';
+/**
+ * ⚠️ « Par numéro » rejoint ici les deux autres plutôt que d'avoir sa propre entrée : c'est
+ * la structure du FAB mobile (nouvelle conversation / nouveau groupe / ajouter un contact),
+ * et le web n'a pas d'onglet Contacts où le loger.
+ */
+type Mode = 'direct' | 'group' | 'phone';
+
+const MODE_LABEL: Record<Mode, string> = {
+  direct: 'Conversation',
+  group: 'Nouveau groupe',
+  phone: 'Par numéro',
+};
 
 /**
  * Démarrer une conversation ou créer un groupe.
@@ -97,7 +109,7 @@ export function NewChatDialog({
       >
         <div className="px-5 pt-5">
           <div className="flex gap-2">
-            {(['direct', 'group'] as Mode[]).map((m) => (
+            {(['direct', 'group', 'phone'] as Mode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
@@ -107,10 +119,19 @@ export function NewChatDialog({
                     : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
                 }`}
               >
-                {m === 'direct' ? 'Conversation' : 'Nouveau groupe'}
+                {MODE_LABEL[m]}
               </button>
             ))}
           </div>
+
+          {mode === 'phone' && (
+            <PhoneSearchPanel
+              onOpened={(convId) => {
+                onOpened(convId);
+                onClose();
+              }}
+            />
+          )}
 
           {mode === 'group' && (
             <input
@@ -121,15 +142,17 @@ export function NewChatDialog({
             />
           )}
 
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un contact"
-            className="mt-3 w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
-          />
+          {mode !== 'phone' && (
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher un contact"
+              className="mt-3 w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          )}
         </div>
 
-        <div className="mt-3 flex-1 overflow-y-auto px-2">
+        <div className={`mt-3 flex-1 overflow-y-auto px-2 ${mode === 'phone' ? 'hidden' : ''}`}>
           {loading ? (
             <p className="py-8 text-center text-sm text-slate-400">Chargement…</p>
           ) : visible.length === 0 ? (

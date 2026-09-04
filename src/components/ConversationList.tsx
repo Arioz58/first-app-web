@@ -13,6 +13,7 @@ import {
 import {
   IconArchive,
   IconBack,
+  IconChat,
   IconBell,
   IconBellOff,
   IconDocument,
@@ -28,6 +29,7 @@ import {
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { FriendsPanel } from '@/components/FriendsPanel';
+import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
 import { fetchFriendRequests } from '@/lib/friends';
 import { ProfilePanel } from '@/components/ProfilePanel';
 import { setSessionExpiredHandler } from '@/lib/api';
@@ -38,6 +40,7 @@ import {
   conversationPhoto,
   favoriteConversation,
   fetchConversations,
+  fetchMessageRequests,
   formatListDate,
   isMuted,
   markUnread,
@@ -114,6 +117,14 @@ export function ConversationList() {
    * vient résoudre.
    */
   const [friendRequests, setFriendRequests] = useState(0);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  /**
+   * Demandes de messages en attente.
+   *
+   * ⚠️ Chargées par la LISTE : ces conversations ne déclenchent aucune notification push
+   * (choix serveur), la bannière est donc le seul signal qu'un inconnu a écrit.
+   */
+  const [messageRequests, setMessageRequests] = useState(0);
   /**
    * Mon profil, chargé ICI et passé au panneau.
    *
@@ -158,6 +169,9 @@ export function ConversationList() {
      */
     void fetchFriendRequests()
       .then(([received]) => setFriendRequests(received.length))
+      .catch(() => {});
+    void fetchMessageRequests()
+      .then((list) => setMessageRequests(list.length))
       .catch(() => {});
 
     const socket = connectSocket();
@@ -386,6 +400,21 @@ export function ConversationList() {
       {/* ⚠️ Visible uniquement sur « Toutes », comme sur mobile : sur un filtre, elle
           prêterait à confusion avec le résultat filtré. Le compte annonce les non-lus
           rangés, que rien ne fait redescendre dans la liste visible. */}
+      {/* ⚠️ Visible seulement sur « Toutes », comme l'entrée Archivées et comme sur mobile :
+          sur un filtre, elle prêterait à confusion avec le résultat filtré. */}
+      {filter === 'all' && messageRequests > 0 && (
+        <button
+          onClick={() => setRequestsOpen(true)}
+          className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm font-medium text-[#1E40AF] dark:bg-blue-950/60 dark:text-blue-300"
+        >
+          <IconChat size={16} />
+          {messageRequests === 1 ? 'Demande de message' : 'Demandes de messages'}
+          <span className="ml-auto rounded-full bg-[#1E40AF] px-2 py-0.5 text-xs font-bold text-white">
+            {messageRequests}
+          </span>
+        </button>
+      )}
+
       {filter === 'all' && conversations.some((c) => c.archivedAt) && (
         <button
           onClick={() => setFilter('archived')}
@@ -644,6 +673,19 @@ export function ConversationList() {
           <span className="block text-xs text-slate-400">Vous</span>
         </span>
       </button>
+
+      {requestsOpen && (
+        <MessageRequestsPanel
+          meId={meId}
+          onClose={() => setRequestsOpen(false)}
+          onOpenConversation={(convId) => {
+            // Acceptée, elle rejoint la liste normale : il faut la recharger pour l'y voir.
+            load();
+            router.push(`/chat/${convId}`);
+          }}
+          onCountChange={setMessageRequests}
+        />
+      )}
 
       {friendsOpen && (
         <FriendsPanel

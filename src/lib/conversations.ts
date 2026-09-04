@@ -204,3 +204,29 @@ export const MUTE_OPTIONS: { label: string; value: string }[] = [
 /** La conversation est-elle en sourdine à cet instant ? */
 export const isMuted = (conv: Conversation): boolean =>
   !!conv.mutedUntil && new Date(conv.mutedUntil) > new Date();
+
+// --- Demandes de messages ---
+
+/**
+ * Conversations en attente d'acceptation — pendant web d'`app/requests.tsx`.
+ *
+ * ⚠️ Un non-ami qui écrit pour la première fois n'apparaît PAS dans `/conversations` : la
+ * liste ne montre que les membres `accepted`. Sans cet écran, son message est invisible sur
+ * le web — il attend qu'on ouvre le téléphone.
+ *
+ * ⚠️ Ces conversations ne déclenchent AUCUNE notification push (choix serveur) : seul un
+ * badge les signale. Raison de plus pour que l'écran soit visible dans la liste.
+ */
+export const fetchMessageRequests = () => apiRequest<Conversation[]>('/conversations/requests');
+
+export const acceptMessageRequest = (id: string) =>
+  apiRequest(`/conversations/${id}/accept-request`, { method: 'POST' });
+
+/**
+ * Refuser une demande.
+ *
+ * ⚠️ Supprime la conversation POUR MOI. L'expéditeur n'est pas averti — ne rien laisser
+ * entendre d'autre dans l'interface.
+ */
+export const declineMessageRequest = (id: string) =>
+  apiRequest(`/conversations/${id}/request`, { method: 'DELETE' });

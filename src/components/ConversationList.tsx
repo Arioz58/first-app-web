@@ -104,6 +104,8 @@ export function ConversationList() {
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  /** Onglet sur lequel ouvrir le dialogue « + » — « Par numéro » quand on vient des Amis. */
+  const [newChatMode, setNewChatMode] = useState<'direct' | 'phone'>('direct');
   /**
    * Demandes d'ami reçues, pour la pastille de l'en-tête.
    *
@@ -342,7 +344,10 @@ export function ConversationList() {
             )}
           </button>
           <button
-            onClick={() => setNewChatOpen(true)}
+            onClick={() => {
+              setNewChatMode('direct');
+              setNewChatOpen(true);
+            }}
             title="Nouvelle conversation"
             className="flex h-9 w-9 items-center justify-center rounded-full text-[#1E40AF] hover:bg-slate-100 dark:hover:bg-zinc-800"
           >
@@ -648,6 +653,13 @@ export function ConversationList() {
             load();
             router.push(`/chat/${convId}`);
           }}
+          onFindPeople={() => {
+            // ⚠️ On referme le panneau AVANT d'ouvrir le dialogue : les deux se posent au
+            // même endroit, les laisser coexister empilerait deux couches sur la colonne.
+            setFriendsOpen(false);
+            setNewChatMode('phone');
+            setNewChatOpen(true);
+          }}
           onCountChange={setFriendRequests}
         />
       )}
@@ -656,6 +668,7 @@ export function ConversationList() {
 
       <NewChatDialog
         open={newChatOpen}
+        initialMode={newChatMode}
         onClose={() => setNewChatOpen(false)}
         onOpened={(convId) => {
           // La conversation peut être neuve : on recharge la liste pour qu'elle y figure.

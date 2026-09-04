@@ -35,8 +35,17 @@ export function NewChatDialog({
   open,
   onClose,
   onOpened,
+  initialMode = 'direct',
 }: {
   open: boolean;
+  /**
+   * Onglet ouvert d'emblée.
+   *
+   * ⚠️ Existe pour que le panneau Amis puisse mener DIRECTEMENT à la recherche par numéro :
+   * y arriver sur « Conversation » obligerait à comprendre qu'il faut encore changer
+   * d'onglet, juste après avoir cliqué sur un bouton qui promettait autre chose.
+   */
+  initialMode?: Mode;
   onClose: () => void;
   /** Reçoit l'identifiant de la conversation créée ou retrouvée. */
   onOpened: (conversationId: string) => void;
@@ -55,7 +64,7 @@ export function NewChatDialog({
     // ⚠️ Différé : posés directement dans l'effet, ces `setState` s'exécuteraient de façon
     // synchrone au montage — rendu en cascade, que React 19 signale comme une erreur.
     queueMicrotask(() => {
-      setMode('direct');
+      setMode(initialMode);
       setQuery('');
       setPicked([]);
       setGroupName('');
@@ -66,7 +75,10 @@ export function NewChatDialog({
       .then(setFriends)
       .catch(() => setFriends([]))
       .finally(() => setLoading(false));
-  }, [open]);
+    // ⚠️ `initialMode` inclus : il change TOUJOURS juste avant l'ouverture (même geste, donc
+    // même lot de rendu), l'effet ne se rejoue donc pas pour autant. L'omettre laisserait le
+    // dialogue s'ouvrir sur le mode précédent.
+  }, [open, initialMode]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();

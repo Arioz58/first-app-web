@@ -34,10 +34,19 @@ const TAB_LABEL: Record<Tab, string> = {
 export function FriendsPanel({
   onClose,
   onOpenConversation,
+  onFindPeople,
   onCountChange,
 }: {
   onClose: () => void;
   onOpenConversation: (conversationId: string) => void;
+  /**
+   * Mène à la recherche par numéro.
+   *
+   * ⚠️ C'est le SEUL moyen, sur le web, de trouver quelqu'un qu'on n'a pas déjà : pas de
+   * carnet d'adresses dans un navigateur. Sans ce relais, l'onglet « Envoyées » vide est un
+   * cul-de-sac — il constate qu'on n'a envoyé aucune demande sans dire par où en envoyer une.
+   */
+  onFindPeople: () => void;
   /** Remonte le nombre de demandes reçues, pour la pastille de l'en-tête. */
   onCountChange: (n: number) => void;
 }) {
@@ -135,6 +144,20 @@ export function FriendsPanel({
 
   const empty = (text: string) => (
     <p className="px-6 py-10 text-center text-sm text-slate-400">{text}</p>
+  );
+
+  /** Bouton d'appel vers la recherche par numéro. */
+  const findPeopleButton = (variant: 'primary' | 'discret') => (
+    <button
+      onClick={onFindPeople}
+      className={
+        variant === 'primary'
+          ? 'mt-4 rounded-xl bg-[#1E40AF] px-4 py-2 text-sm font-semibold text-white'
+          : 'mx-auto mt-2 mb-4 block rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800'
+      }
+    >
+      Ajouter quelqu&rsquo;un par son numéro
+    </button>
   );
 
   return (
@@ -240,7 +263,13 @@ export function FriendsPanel({
             </ul>
           )
         ) : sent.length === 0 ? (
-          empty('Aucune demande envoyée.')
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-slate-400">Vous n&rsquo;avez envoyé aucune demande.</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Cherchez quelqu&rsquo;un par son numéro pour l&rsquo;ajouter.
+            </p>
+            {findPeopleButton('primary')}
+          </div>
         ) : (
           <ul>
             {sent.map((r) =>
@@ -256,6 +285,9 @@ export function FriendsPanel({
                 `Envoyée le ${new Date(r.createdAt).toLocaleDateString()}`,
               ),
             )}
+            {/* ⚠️ Toujours proposé, pas seulement sur liste vide : sinon envoyer une première
+                demande ferait disparaître le seul chemin pour en envoyer une seconde. */}
+            {findPeopleButton('discret')}
           </ul>
         )}
       </div>

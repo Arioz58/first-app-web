@@ -103,6 +103,18 @@ export default function ThreadPage() {
    * centrée sur un message ancien.
    */
   const [hasNewer, setHasNewer] = useState(false);
+  /**
+   * Repère « N nouveaux messages » : identifiant du premier non lu et leur nombre.
+   *
+   * ⚠️ CALCULÉ PAR LE SERVEUR (`GET /conversations/:id`). Le déduire des messages chargés ne
+   * marcherait que si le premier non lu se trouve dans la dernière page — avec cent messages
+   * en attente, il est hors de portée.
+   *
+   * ⚠️ RETENU pour toute la visite, alors que `POST /read` l'efface côté serveur dès
+   * l'ouverture. Sans cela le repère disparaîtrait avant d'avoir été vu, ce qui revient à ne
+   * pas l'avoir.
+   */
+  const [unreadMark, setUnreadMark] = useState<{ id: string; count: number } | null>(null);
   /** Message auquel la prochaine saisie répondra. */
   const [replyTo, setReplyTo] = useState<Quote | null>(null);
   /** Message en cours de modification — le composeur bascule alors en édition. */
@@ -143,6 +155,15 @@ export default function ThreadPage() {
    * SANS défilement que le fil décroche.
    */
   const stickRef = useRef(true);
+  /**
+   * Position à RETENIR pendant que le contenu grandit, quand ce n'est pas le bas.
+   *
+   * ⚠️ L'observateur de taille ne savait que recoller au BAS. À l'ouverture sur un repère de
+   * reprise, la mise en page grandit ensuite (images, cartes d'aperçu) et le repère
+   * s'éloignait de sa place — mesuré à 581 px de dérive, exactement le défaut corrigé pour
+   * l'ouverture en bas. Cette fonction dit à l'observateur quoi retenir d'autre.
+   */
+  const holdRef = useRef<(() => void) | null>(null);
   /**
    * Le fil est en cours de POSITIONNEMENT par le code (ouverture, saut, retour au présent).
    *
@@ -282,8 +303,36 @@ export default function ThreadPage() {
           ),
         );
         // L'API renvoie du plus récent au plus ancien : le fil s'affiche dans l'autre sens.
-        setMessages(page.slice().reverse());
-        setHasOlder(page.length >= 30);
+        const mark = m.firstUnreadId && (m.unreadCount ?? 0) > 0
+          ? { id: m.firstUnreadId, count: m.unreadCount ?? 0 }
+          : null;
+        setUnreadMark(mark);
+
+        /**
+         * ⚠️ Le premier non lu peut être HORS de la dernière page. On charge alors une
+         * fenêtre centrée sur lui, comme le fait un saut vers un épinglé : on ne peut pas
+         * défiler vers une ligne absente du fil, et remonter page par page serait
+         * interminable.
+         */
+        if (mark && !page.some((x) => x.id === mark.id)) {
+          const win = await fetchAround(id, mark.id).catch(() => null);
+          if (win && !cancelled) {
+            setMessages(win.messages.slice().reverse());
+            setHasOlder(win.hasOlder);
+            setHasNewer(win.hasNewer);
+            // On n'est plus au présent : le bouton de retour doit être proposé.
+            if (win.hasNewer) {
+              setAtBottom(false);
+              stickRef.current = false;
+            }
+          } else {
+            setMessages(page.slice().reverse());
+            setHasOlder(page.length >= 30);
+          }
+        } else {
+          setMessages(page.slice().reverse());
+          setHasOlder(page.length >= 30);
+        }
         void markConversationRead(id);
       } catch {
         // Session expirée : le handler a déjà redirigé.
@@ -319,18 +368,49 @@ export default function ThreadPage() {
     const inner = el?.firstElementChild;
     if (!el || !inner) return;
     const ro = new ResizeObserver(() => {
-      if (stickRef.current) el.scrollTo({ top: el.scrollHeight });
+      // Une position retenue l'emporte sur le suivi du bas : elle a été demandée.
+      if (holdRef.current) holdRef.current();
+      else if (stickRef.current) el.scrollTo({ top: el.scrollHeight });
     });
     ro.observe(inner);
     return () => ro.disconnect();
   }, [loading]);
 
-  // Calage en bas à l'ouverture, une fois les messages rendus.
+  /**
+   * Calage à l'ouverture : sur le repère de reprise s'il y en a un, en bas sinon.
+   *
+   * ⚠️ Le repère est amené EN HAUT de l'écran et non centré : ce qu'on veut lire, ce sont
+   * les messages qui le SUIVENT. Centré, la moitié de la place serait donnée à ce qu'on a
+   * déjà lu.
+   */
   useEffect(() => {
     if (loading || !openingRef.current || !messages.length) return;
     openingRef.current = false;
-    settle(() => scrollToBottom(false));
-  }, [loading, messages.length, scrollToBottom, settle]);
+    const anchor = unreadMark
+      ? document.getElementById(`unread-${unreadMark.id}`)
+      : null;
+    if (anchor) {
+      const toMark = () =>
+        document
+          .getElementById(`unread-${unreadMark!.id}`)
+          ?.scrollIntoView({ behavior: 'auto', block: 'start' });
+      settle(toMark);
+      /**
+       * ⚠️ Retenu AU-DELÀ du calage : les images se chargent sur plusieurs secondes, bien
+       * après que la hauteur se soit stabilisée deux images de suite. Sans cela le repère
+       * dérivait à mesure qu'elles arrivaient.
+       */
+      holdRef.current = toMark;
+      // ⚠️ Pas collé au bas : on vient d'y placer volontairement autre chose.
+      stickRef.current = false;
+      // ⚠️ Différé : posé directement dans l'effet, ce `setState` serait synchrone au montage
+      // — rendu en cascade, que React 19 signale comme une erreur. Même motif que
+      // `NewChatDialog`. La ref, elle, n'est pas un état et peut être écrite ici.
+      queueMicrotask(() => setAtBottom(false));
+    } else {
+      settle(() => scrollToBottom(false));
+    }
+  }, [loading, messages.length, scrollToBottom, settle, unreadMark]);
 
   // --- Temps réel ---
   useEffect(() => {
@@ -583,7 +663,13 @@ export default function ThreadPage() {
      * observe sont ceux qu'on provoque soi-même. En tirer une intention est exactement la
      * faute que le fil mobile avait dû corriger (`lib/threadScroll.ts`).
      */
+    /**
+     * ⚠️ Le premier défilement VOLONTAIRE libère la position retenue : à partir de là, c'est
+     * l'utilisateur qui décide où se trouve le fil. `positioningRef` garantit qu'on ne prend
+     * pas nos propres mouvements pour les siens.
+     */
     if (positioningRef.current) return;
+    holdRef.current = null;
     const nearBottom = distanceToBottom < AT_BOTTOM_PX;
     setAtBottom(nearBottom && !hasNewer);
     // Remonter dans l'historique, c'est renoncer au suivi ; redescendre, le reprendre.
@@ -1281,8 +1367,29 @@ export default function ThreadPage() {
                 !prevMsg ||
                 new Date(prevMsg.createdAt).toDateString() !==
                   new Date(first.createdAt).toDateString();
+              /**
+               * ⚠️ Le repère se pose sur la LIGNE qui contient le premier non lu, pas sur le
+               * message : dans un album, seule la ligne existe dans le DOM — même règle que
+               * le saut vers un message (`rowAnchorId`).
+               */
+              const showUnread =
+                !!unreadMark && row.messages.some((m) => m.id === unreadMark.id);
               return (
                 <div key={row.key}>
+                  {showUnread && (
+                    <div
+                      id={`unread-${unreadMark!.id}`}
+                      className="my-3 flex items-center gap-3 px-1"
+                    >
+                      <span className="h-px flex-1 bg-[#1E40AF]/40" />
+                      <span className="rounded-full bg-[#1E40AF] px-3 py-1 text-xs font-semibold text-white">
+                        {unreadMark!.count === 1
+                          ? '1 nouveau message'
+                          : `${unreadMark!.count} nouveaux messages`}
+                      </span>
+                      <span className="h-px flex-1 bg-[#1E40AF]/40" />
+                    </div>
+                  )}
                   {newDay && (
                     <div className="my-3 flex justify-center">
                       <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:bg-zinc-800/85 dark:text-zinc-300">

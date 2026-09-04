@@ -92,9 +92,25 @@ export type ConvMeta = {
 };
 
 /** Page d'historique : du plus RÉCENT au plus ancien (contrat commun à tous les endpoints). */
-export const fetchMessages = (conversationId: string, cursor?: string) =>
+/**
+ * Page d'historique.
+ *
+ * ⚠️ `cursor` remonte vers le PASSÉ, `newerCursor` redescend vers le PRÉSENT. Le second sert
+ * quand le fil a été ouvert au MILIEU de l'historique — sur un message épinglé, un résultat
+ * de recherche — et doit pouvoir rejoindre le bas.
+ */
+export const fetchMessages = (
+  conversationId: string,
+  opts: { cursor?: string; newerCursor?: string } = {},
+) =>
   apiRequest<Message[]>(
-    `/conversations/${conversationId}/messages${cursor ? `?cursor=${cursor}` : ''}`,
+    `/conversations/${conversationId}/messages${
+      opts.newerCursor
+        ? `?newerCursor=${opts.newerCursor}`
+        : opts.cursor
+          ? `?cursor=${opts.cursor}`
+          : ''
+    }`,
   );
 
 export const fetchConversationMeta = (conversationId: string) =>

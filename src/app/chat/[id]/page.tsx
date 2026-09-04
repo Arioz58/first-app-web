@@ -84,6 +84,14 @@ export default function ThreadPage() {
   >({});
   const [atBottom, setAtBottom] = useState(true);
   const [hasOlder, setHasOlder] = useState(true);
+  /**
+   * Reste-t-il des messages PLUS RÉCENTS que ceux affichés ?
+   *
+   * ⚠️ Faux tant qu'on n'a pas sauté ailleurs : le fil s'ouvre sur les derniers messages,
+   * il n'y a rien de plus récent. Il ne passe à vrai qu'après un saut vers une fenêtre
+   * centrée sur un message ancien.
+   */
+  const [hasNewer, setHasNewer] = useState(false);
   /** Message auquel la prochaine saisie répondra. */
   const [replyTo, setReplyTo] = useState<Quote | null>(null);
   /** Message en cours de modification — le composeur bascule alors en édition. */
@@ -114,6 +122,20 @@ export default function ThreadPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadingOlderRef = useRef(false);
+  const loadingNewerRef = useRef(false);
+  /**
+   * Le fil doit-il RESTER collé au bas quand son contenu grandit ?
+   *
+   * ⚠️ Une intention, pas une mesure. Se contenter de `atBottom` ne suffirait pas : cet état
+   * est déduit d'un événement de défilement, or c'est justement quand le contenu grandit
+   * SANS défilement que le fil décroche.
+   */
+  const stickRef = useRef(true);
+  /**
+   * ⚠️ Miroir de `hasNewer` pour l'écouteur socket : celui-ci est posé UNE fois et ne verrait
+   * jamais la valeur d'état changer. Même motif que `otherUserIdRef` sur mobile.
+   */
+  const hasNewerRef = useRef(false);
   const typingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingSentRef = useRef(false);
   /** Vrai tant que l'ouverture n'a pas calé le fil : le premier scroll ne doit pas s'animer. */
@@ -133,6 +155,51 @@ export default function ThreadPage() {
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
   }, []);
+
+  /**
+   * Retour au PRÉSENT depuis le bouton flottant.
+   *
+   * ⚠️ Défiler ne suffit pas quand on a sauté dans le passé : le bas de la fenêtre chargée
+   * n'est pas le bas de la conversation. On RECHARGE donc la dernière page, plutôt que de
+   * remonter le fil page par page — ce qui prendrait autant d'allers-retours qu'il y a de
+   * messages entre les deux.
+   */
+  const goToPresent = useCallback(() => {
+    if (!hasNewer) {
+      scrollToBottom(true);
+      return;
+    }
+    void (async () => {
+      try {
+        const page = await fetchMessages(id);
+        setMessages(page.slice().reverse());
+        setHasNewer(false);
+        // La page fraîche ne contient que les derniers messages : tout le reste est de
+        // nouveau « plus ancien », y compris ce qu'on avait déjà chargé.
+        setHasOlder(true);
+        setAtBottom(true);
+        stickRef.current = true;
+        /**
+         * ⚠️ DEUX images successives. La première laisse React poser le DOM, la seconde
+         * mesure une fois les hauteurs stabilisées — images et cartes d'aperçu grandissent
+         * après leur premier rendu. Avec une seule, le fil s'arrêtait à ~120 px du bas et le
+         * bouton de retour restait affiché alors qu'on venait de l'utiliser.
+         */
+        requestAnimationFrame(() => {
+          scrollToBottom(false);
+          requestAnimationFrame(() => scrollToBottom(false));
+        });
+      } catch {
+        // Réseau : on laisse le fil tel quel, le bouton reste disponible.
+      }
+    })();
+  }, [hasNewer, id, scrollToBottom]);
+
+  // ⚠️ Synchronisé dans un EFFET et non pendant le rendu : React 19 interdit d'écrire une
+  // ref au rendu (la valeur pourrait être celle d'un rendu abandonné).
+  useEffect(() => {
+    hasNewerRef.current = hasNewer;
+  }, [hasNewer]);
 
   // --- Chargement initial ---
   useEffect(() => {
@@ -184,6 +251,30 @@ export default function ThreadPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, router]);
 
+  /**
+   * Maintien au bas pendant que le contenu grandit.
+   *
+   * ⚠️ Indispensable, et pas seulement pour le retour au présent : les images et les cartes
+   * d'aperçu n'ont pas de hauteur tant qu'elles ne sont pas chargées. Le fil se calait donc
+   * sur une hauteur provisoire, puis le contenu grandissait sous lui — à l'ouverture, le
+   * dernier message se retrouvait près d'un écran plus bas que la zone visible, mesuré à
+   * 565 px sur une conversation avec huit images.
+   *
+   * ⚠️ Un `ResizeObserver` sur le CONTENU et non un minuteur : on ne peut pas deviner quand
+   * la dernière image aura fini de charger, et re-caler en boucle « au cas où » arracherait
+   * le fil à qui est en train de lire.
+   */
+  useEffect(() => {
+    const el = scrollRef.current;
+    const inner = el?.firstElementChild;
+    if (!el || !inner) return;
+    const ro = new ResizeObserver(() => {
+      if (stickRef.current) el.scrollTo({ top: el.scrollHeight });
+    });
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [loading]);
+
   // Calage en bas à l'ouverture, une fois les messages rendus.
   useEffect(() => {
     if (loading || !openingRef.current || !messages.length) return;
@@ -217,6 +308,12 @@ export default function ThreadPage() {
             return next;
           }
         }
+        /**
+         * ⚠️ Le fil est ouvert au MILIEU de l'historique : ce message n'y appartient pas à la
+         * suite. L'ajouter le collerait derrière un message d'il y a un mois, en sautant tout
+         * ce qui les sépare. Il sera récupéré au retour vers le présent.
+         */
+        if (hasNewerRef.current) return prev;
         return mergeMessages(prev, [msg], 'end');
       });
       // Lu à l'instant : la conversation est ouverte sous les yeux.
@@ -376,7 +473,7 @@ export default function ThreadPage() {
 
     void (async () => {
       try {
-        const page = await fetchMessages(id, messages[0].id);
+        const page = await fetchMessages(id, { cursor: messages[0].id });
         if (page.length < 30) setHasOlder(false);
         if (page.length) {
           setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'start'));
@@ -393,11 +490,50 @@ export default function ThreadPage() {
     })();
   }, [hasOlder, id, messages]);
 
+  /**
+   * Pagination vers le BAS — le retour vers le présent.
+   *
+   * ⚠️ Indispensable dès qu'on ouvre le fil au MILIEU de l'historique (un épinglé, un
+   * résultat de recherche) : la fenêtre chargée s'arrête à ce message, et sans ce chemin le
+   * bas du fil était une impasse — les messages récents avaient disparu de la liste et rien
+   * n'allait les rechercher.
+   *
+   * ⚠️ Aucune compensation de défilement ici, contrairement à `loadOlder` : ajouter à la FIN
+   * ne déplace pas ce qui est déjà à l'écran. C'est l'insertion en tête qui pousse le
+   * contenu.
+   */
+  const loadNewer = useCallback(() => {
+    if (loadingNewerRef.current || !hasNewer || !messages.length) return;
+    loadingNewerRef.current = true;
+
+    void (async () => {
+      try {
+        const page = await fetchMessages(id, { newerCursor: messages[messages.length - 1].id });
+        if (page.length < 30) setHasNewer(false);
+        if (page.length) setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'end'));
+      } catch {
+        // Réseau : `hasNewer` reste vrai, le prochain passage réessaiera.
+      } finally {
+        loadingNewerRef.current = false;
+      }
+    })();
+  }, [hasNewer, id, messages]);
+
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < AT_BOTTOM_PX);
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    /**
+     * ⚠️ « En bas » ne suffit plus à dire « à jour » : après un saut, on peut toucher le bas
+     * d'une fenêtre qui s'arrête un mois en arrière. Tant qu'il reste des messages plus
+     * récents à charger, le bouton de retour au présent doit rester visible.
+     */
+    const nearBottom = distanceToBottom < AT_BOTTOM_PX;
+    setAtBottom(nearBottom && !hasNewer);
+    // Remonter dans l'historique, c'est renoncer au suivi ; redescendre, le reprendre.
+    stickRef.current = nearBottom && !hasNewer;
     if (el.scrollTop < LOAD_OLDER_PX) loadOlder();
+    if (distanceToBottom < LOAD_OLDER_PX) loadNewer();
   };
 
   // --- Envoi ---
@@ -512,6 +648,21 @@ export default function ThreadPage() {
           const win = await fetchAround(id, messageId);
           setMessages(win.messages.slice().reverse());
           setHasOlder(win.hasOlder);
+          // ⚠️ C'est CE drapeau qui rend le bas du fil de nouveau atteignable : sans lui, la
+          // fenêtre centrée devenait un cul-de-sac.
+          setHasNewer(win.hasNewer);
+          /**
+           * ⚠️ Posé À LA MAIN, sans attendre un événement de défilement : si la cible tombe
+           * à la position déjà occupée, `scrollIntoView` ne déplace rien, aucun `scroll`
+           * n'est émis, et l'état gardait sa valeur d'avant le saut — le bouton de retour au
+           * présent ne s'affichait donc pas.
+           */
+          if (win.hasNewer) {
+            setAtBottom(false);
+            // ⚠️ Sinon l'observateur ramènerait au bas dès la première image chargée, en
+            // annulant le saut qu'on vient de faire.
+            stickRef.current = false;
+          }
           // Le DOM n'a pas encore rendu la fenêtre : on vise à l'image suivante.
           requestAnimationFrame(() => requestAnimationFrame(scrollToIt));
         } catch {
@@ -994,7 +1145,7 @@ export default function ThreadPage() {
         // ⚠️ Positionné par rapport à CETTE zone (`relative` ci-dessus) et non à la fenêtre :
         // en absolu sans conteneur positionné, il se plaçait au-dessus de la liste.
         <button
-          onClick={() => scrollToBottom(true)}
+          onClick={goToPresent}
           className="absolute bottom-4 right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
           aria-label="Revenir en bas"
         >

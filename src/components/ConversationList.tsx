@@ -222,6 +222,36 @@ export function ConversationList() {
     [load],
   );
 
+  /**
+   * Le compte n'a-t-il vraiment AUCUNE conversation ?
+   *
+   * ⚠️ À ne pas confondre avec « la liste affichée est vide » : un filtre sans résultat, une
+   * recherche infructueuse ou des archives vides laissent une liste vide sur un compte bien
+   * fourni.
+   */
+  const hasNoConversations = conversations.length === 0;
+
+  /**
+   * Pourquoi la liste est vide.
+   *
+   * ⚠️ « Aucune conversation » sur un filtre sans resultat est faux et inquietant : la
+   * personne en a, elles sont juste ailleurs. Le message doit nommer la cause pour que le
+   * reflexe soit de changer de filtre, pas de croire a une perte de donnees.
+   */
+  const emptyMessage = query
+    ? 'Aucun résultat.'
+    : hasNoConversations
+      ? 'Aucune conversation.'
+      : filter === 'archived'
+        ? 'Aucune conversation archivée.'
+        : filter === 'unread'
+          ? 'Aucune conversation non lue.'
+          : filter === 'favorites'
+            ? 'Aucun favori.'
+            : filter === 'groups'
+              ? 'Aucun groupe.'
+              : 'Aucune conversation.';
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return conversations
@@ -342,12 +372,17 @@ export function ConversationList() {
           </ul>
         ) : visible.length === 0 ? (
           <div className="px-6 py-10 text-center">
-            <p className="text-sm text-slate-400">
-              {query ? 'Aucun résultat.' : 'Aucune conversation.'}
-            </p>
-            {/* ⚠️ Sans ce bouton, une liste vide est un CUL-DE-SAC : un nouvel utilisateur
-                n'avait aucun moyen de démarrer une conversation depuis le web. */}
-            {!query && (
+            <p className="text-sm text-slate-400">{emptyMessage}</p>
+            {/*
+              ⚠️ Le bouton n'apparaît QUE si le compte n'a aucune conversation.
+              Une liste vide parce qu'un FILTRE ne renvoie rien n'est pas un compte vide :
+              proposer « Démarrer une conversation » à quelqu'un qui en a dix, simplement
+              parce qu'aucune n'est non lue, laisse croire qu'il les a perdues — et le bouton
+              est à portée de doigt là où il n'a rien à faire.
+              ⚠️ Il reste indispensable dans le cas vrai : sans lui, un nouvel utilisateur
+              n'a aucun moyen de démarrer une conversation depuis le web.
+            */}
+            {hasNoConversations && !query && (
               <button
                 onClick={() => setNewChatOpen(true)}
                 className="mt-4 rounded-xl bg-[#1E40AF] px-4 py-2 text-sm font-semibold text-white"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Enregistrement d'un message vocal dans le navigateur.
@@ -38,6 +39,7 @@ export function VoiceRecorder({
   onSend: (file: File, durationMs: number) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState('');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -86,7 +88,7 @@ export function VoiceRecorder({
         };
         rec.start();
       } catch {
-        fail("Micro indisponible. Autorisez l'accès dans votre navigateur.");
+        fail(t('voice.mic_denied'));
       }
     })();
 
@@ -96,7 +98,9 @@ export function VoiceRecorder({
       if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
       stream?.getTracks().forEach((t) => t.stop());
     };
-  }, [onSend, onCancel]);
+    // ⚠️ `t` dans les dépendances : le message d'erreur doit suivre un changement de langue,
+    // et l'omettre figerait le texte dans celle du montage.
+  }, [onSend, onCancel, t]);
 
   // Chronomètre.
   useEffect(() => {
@@ -115,7 +119,7 @@ export function VoiceRecorder({
       <div className="flex flex-1 items-center gap-3 px-2">
         <p className="flex-1 text-sm text-red-500">{error}</p>
         <button onClick={onCancel} className="text-sm text-slate-500">
-          Fermer
+          {t('common.close')}
         </button>
       </div>
     );
@@ -125,18 +129,18 @@ export function VoiceRecorder({
     <div className="flex flex-1 items-center gap-3 px-2">
       <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
       <span className="font-mono text-sm text-slate-600 dark:text-zinc-300">{fmt(seconds)}</span>
-      <span className="flex-1 text-sm text-slate-400">Enregistrement…</span>
+      <span className="flex-1 text-sm text-slate-400">{t('voice.recording')}</span>
       <button
         onClick={() => stop(true)}
         className="rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
       >
-        Annuler
+        {t('cancel')}
       </button>
       <button
         onClick={() => stop(false)}
         className="rounded-full bg-[#1E40AF] px-4 py-1.5 text-sm font-semibold text-white"
       >
-        Envoyer
+        {t('voice.send')}
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import QRCode from 'qrcode';
+import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createWebSession, waitForApproval } from '@/lib/webSession';
 import type { AuthUser } from '@/lib/auth';
@@ -15,6 +16,7 @@ const RENEW_MARGIN_MS = 5000;
 
 /** Connexion par QR : le mobile scanne, le navigateur reçoit ses jetons par socket. */
 export function QrLogin({ onConnected }: { onConnected: (user: AuthUser) => void }) {
+  const { t } = useTranslation();
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   /** Compte à rebours affiché — sinon un QR qui se renouvelle paraît clignoter sans raison. */
@@ -30,7 +32,8 @@ export function QrLogin({ onConnected }: { onConnected: (user: AuthUser) => void
   const onConnectedRef = useRef(onConnected);
   useEffect(() => {
     onConnectedRef.current = onConnected;
-  }, [onConnected]);
+    // ⚠️ `t` inclus : le message d'erreur doit suivre un changement de langue.
+  }, [onConnected, t]);
 
   /**
    * ⚠️ La fonction se rappelle elle-même pour le renouvellement : elle passe donc par une
@@ -70,10 +73,11 @@ export function QrLogin({ onConnected }: { onConnected: (user: AuthUser) => void
           Math.max(5000, remaining - RENEW_MARGIN_MS),
         );
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Impossible de générer le code');
+        setError(e instanceof Error ? e.message : t('login.qr_failed'));
       }
     })();
-  }, []);
+    // ⚠️ `t` inclus : le message d'erreur doit suivre un changement de langue.
+  }, [t]);
 
   useEffect(() => {
     startRef.current = start;
@@ -96,7 +100,7 @@ export function QrLogin({ onConnected }: { onConnected: (user: AuthUser) => void
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:ring-zinc-700">
         {dataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- image générée en data URL
-          <img src={dataUrl} alt="Code à scanner" width={240} height={240} />
+          <img src={dataUrl} alt={t('login.qr_title')} width={240} height={240} />
         ) : (
           <div className="h-[240px] w-[240px] animate-pulse rounded-xl bg-slate-100" />
         )}

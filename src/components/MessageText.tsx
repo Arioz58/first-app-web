@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Texte d'un message : liens cliquables et formatage `*gras*` / `_italique_` / `~barré~`.
@@ -43,6 +44,7 @@ function parseMarks(text: string, key: string): ReactNode[] {
 }
 
 export function MessageText({ content, isMe }: { content: string; isMe: boolean }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
   /**
@@ -144,7 +146,7 @@ export function MessageText({ content, isMe }: { content: string; isMe: boolean 
             isMe ? 'text-white/90 hover:text-white' : 'text-[#1E40AF] dark:text-blue-400'
           }`}
         >
-          {expanded ? 'Voir moins' : 'Voir plus'}
+          {t(expanded ? 'chat.show_less' : 'chat.show_more')}
         </button>
       )}
     </>

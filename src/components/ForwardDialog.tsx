@@ -1,6 +1,7 @@
 'use client';
 
 import { IconCheck } from '@/components/icons';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
@@ -31,6 +32,7 @@ export function ForwardDialog({
   onClose: () => void;
   onConfirm: (conversationIds: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -78,21 +80,21 @@ export function ForwardDialog({
       >
         <div className="px-5 pt-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">
-            {count > 1 ? `Transférer ${count} messages à` : 'Transférer à'}
+            {count > 1 ? `Transférer ${count} messages à` : t('chat.forward_to')}
           </h2>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher"
+            placeholder={t('search.placeholder')}
             className="mt-3 w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
           />
         </div>
 
         <div className="mt-3 flex-1 overflow-y-auto px-2">
           {loading ? (
-            <p className="py-8 text-center text-sm text-slate-400">Chargement…</p>
+            <p className="py-8 text-center text-sm text-slate-400">{t('common.loading')}</p>
           ) : visible.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">Aucune conversation.</p>
+            <p className="py-8 text-center text-sm text-slate-400">{t('chat.no_conversations')}</p>
           ) : (
             visible.map((c) => {
               const on = picked.includes(c.id);

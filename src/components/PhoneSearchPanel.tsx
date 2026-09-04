@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/components/Avatar';
 import { IconSearch } from '@/components/icons';
 import { COUNTRIES, defaultCountry, type Country } from '@/lib/countries';
@@ -28,11 +29,12 @@ import { startDirectConversation } from '@/lib/conversations';
  * d'atteindre quelqu'un qu'on n'a pas déjà en ami.
  */
 
-const RELATION_LABEL: Record<RelationStatus, string> = {
-  self: 'Vous',
-  friends: 'Déjà dans vos contacts',
-  request_sent: 'Demande envoyée',
-  request_received: 'Vous a envoyé une demande',
+/** ⚠️ Clés i18n et non libellés : traduites à l'affichage. */
+const RELATION_KEY: Record<RelationStatus, string> = {
+  self: 'list.you',
+  friends: 'phone.already_contact',
+  request_sent: 'phone.request_sent',
+  request_received: 'relation.request_received',
   none: '',
 };
 
@@ -40,6 +42,7 @@ const RELATION_LABEL: Record<RelationStatus, string> = {
 const DEBOUNCE_MS = 400;
 
 export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: string) => void }) {
+  const { t } = useTranslation();
   const [country, setCountry] = useState<Country>(defaultCountry);
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,7 +92,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
       return;
     }
     if (digits.length > 15) {
-      setError('Numéro invalide.');
+      setError(t('phone.invalid'));
       setLoading(false);
       return;
     }
@@ -105,11 +108,11 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
         const res = await searchByPhone(full);
         if (id !== reqId.current) return;
         if (!res.found) {
-          setError('Aucun compte Nexa avec ce numéro.');
+          setError(t('phone.not_found'));
         } else if (res.self) {
           setResult(res.user);
           setIsSelf(true);
-          setError("C'est votre propre numéro.");
+          setError(t('phone.own_number'));
         } else {
           setResult(res.user);
           setRecent(
@@ -123,7 +126,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
         }
       } catch (e) {
         // Le rate limit remonte ici : le message du serveur est plus utile qu'un générique.
-        if (id === reqId.current) setError((e as Error).message || 'Recherche impossible.');
+        if (id === reqId.current) setError((e as Error).message || t('phone.failed'));
       } finally {
         if (id === reqId.current) setLoading(false);
       }
@@ -147,7 +150,8 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
   };
 
   const card = (c: PhoneCard, showActions: boolean) => {
-    const label = sentTo === c.id ? 'Demande envoyée' : RELATION_LABEL[c.relationStatus];
+    const key = RELATION_KEY[c.relationStatus];
+    const label = sentTo === c.id ? t('phone.request_sent') : key ? t(key) : '';
     return (
       <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-700">
         <div className="flex items-center gap-3">
@@ -169,7 +173,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
                 onClick={() => addFriend(c.id)}
                 className="flex-1 rounded-xl border border-[#1E40AF] py-2 text-sm font-semibold text-[#1E40AF] disabled:opacity-40 dark:text-blue-400"
               >
-                Ajouter en ami
+                {t('phone.add_friend')}
               </button>
             )}
             <button
@@ -177,7 +181,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
               onClick={() => message(c.id)}
               className="flex-1 rounded-xl bg-[#1E40AF] py-2 text-sm font-semibold text-white disabled:opacity-40"
             >
-              Envoyer un message
+              {t('phone.send_message')}
             </button>
           </div>
         )}
@@ -199,7 +203,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
             // Changer d'indicatif change le numéro complet : on relance.
             runSearch(phone, next);
           }}
-          aria-label="Indicatif du pays"
+          aria-label={t('phone.country')}
           className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
         >
           {COUNTRIES.map((c) => (
@@ -218,7 +222,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
             }}
             inputMode="tel"
             autoComplete="off"
-            placeholder={country.example ?? 'Numéro de téléphone'}
+            placeholder={country.example ?? t('phone.placeholder')}
             className="w-full bg-transparent py-2 text-sm outline-none dark:text-zinc-100"
           />
         </div>
@@ -226,7 +230,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
 
       <div className="mt-3 min-h-[120px]">
         {loading ? (
-          <p className="py-6 text-center text-sm text-slate-400">Recherche…</p>
+          <p className="py-6 text-center text-sm text-slate-400">{t('phone.searching')}</p>
         ) : result ? (
           card(result, !isSelf)
         ) : error ? (
@@ -235,7 +239,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
           <>
             <div className="flex items-center justify-between px-1 pb-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Recherches récentes
+                {t('phone.recent')}
               </span>
               <button
                 onClick={() => {
@@ -244,7 +248,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
                 }}
                 className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
               >
-                Effacer
+                {t('phone.clear_recent')}
               </button>
             </div>
             {recent.map((r) => (
@@ -266,7 +270,7 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
           </>
         ) : (
           <p className="py-6 text-center text-sm text-slate-400">
-            Saisissez un numéro pour trouver quelqu&rsquo;un sur Nexa.
+            {t('phone.hint')}
           </p>
         )}
       </div>

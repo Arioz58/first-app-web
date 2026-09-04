@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconBack, IconClose } from '@/components/icons';
 import { fetchMedia, type Message } from '@/lib/messages';
 
@@ -32,6 +33,7 @@ export function MediaViewer({
   initial: Message;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   /**
    * ⚠️ La liste démarre avec le SEUL média cliqué : l'image doit apparaître au clic, pas
    * après un aller-retour réseau. Les autres viennent ensuite s'insérer autour.
@@ -138,7 +140,7 @@ export function MediaViewer({
           {index + 1} / {items.length}
           {!exhausted && ' +'}
         </span>
-        <button onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 hover:bg-white/10">
+        <button onClick={onClose} aria-label={t('common.close')} className="rounded-lg p-2 hover:bg-white/10">
           <IconClose size={22} />
         </button>
       </div>
@@ -150,7 +152,7 @@ export function MediaViewer({
               e.stopPropagation();
               go(-1);
             }}
-            aria-label="Précédent"
+            aria-label={t('gallery.previous')}
             className="absolute left-4 z-10 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
           >
             <IconBack size={22} />
@@ -183,7 +185,7 @@ export function MediaViewer({
               e.stopPropagation();
               go(1);
             }}
-            aria-label="Suivant"
+            aria-label={t('gallery.next')}
             className="absolute right-4 z-10 rotate-180 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
           >
             <IconBack size={22} />

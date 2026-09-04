@@ -23,6 +23,7 @@ import {
   IconTrash,
 } from '@/components/icons';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { emojiCount, formatTime, QUICK_REACTIONS, type Message, type Row } from '@/lib/messages';
 import { formatFileSize } from '@/lib/upload';
 import { MessageText } from '@/components/MessageText';
@@ -78,6 +79,7 @@ export function MessageBubble({
   status?: 'sent' | 'delivered' | 'read';
   actions: BubbleActions;
 }) {
+  const { t } = useTranslation();
   // ⚠️ Tous les hooks AVANT la sortie anticipée des messages système : leur ordre doit être
   // identique à chaque rendu.
   /** Point d'ancrage du menu (`null` = fermé) — voir `FloatingMenu`. */
@@ -137,11 +139,11 @@ export function MessageBubble({
           {item.forwarded && (
             <span className="flex items-center gap-1 italic">
               <IconForward size={12} />
-              Transféré
+              {t('thread.forwarded')}
             </span>
           )}
-          {pinned && <IconPin size={12} aria-label="Épinglé" />}
-          {starred && <IconStar size={12} className="fill-current" aria-label="Favori" />}
+          {pinned && <IconPin size={12} aria-label={t('thread.pinned')} />}
+          {starred && <IconStar size={12} className="fill-current" aria-label={t('details.favorite')} />}
         </p>
       )}
 
@@ -149,7 +151,7 @@ export function MessageBubble({
         {item.deletedAt ? (
           <div className="flex items-center gap-1.5 rounded-2xl bg-slate-200 px-4 py-2.5 text-sm italic text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">
             <IconBlock size={14} />
-            Ce message a été supprimé
+            {t('thread.deleted')}
           </div>
         ) : big ? (
           <p style={{ fontSize: BIG_EMOJI[emojis] }} className="px-1 leading-tight">
@@ -177,8 +179,8 @@ export function MessageBubble({
                 </span>
                 <span className={`block truncate ${isMe ? 'text-white/80' : 'text-slate-500'}`}>
                   {item.replyTo.expired
-                    ? 'Message expiré'
-                    : item.replyTo.content ?? 'Pièce jointe'}
+                    ? t('thread.expired')
+                    : item.replyTo.content ?? t('details.attachment')}
                 </span>
               </button>
             )}
@@ -219,18 +221,18 @@ export function MessageBubble({
             {item.content && <MessageText content={item.content} isMe={isMe} />}
 
             <p className={`mt-0.5 text-right text-[11px] ${isMe ? 'text-white/70' : 'text-slate-400'}`}>
-              {item.editedAt && <span className="mr-1 italic">modifié</span>}
+              {item.editedAt && <span className="mr-1 italic">{t('thread.edited')}</span>}
               {formatTime(item.createdAt)}
               {/* Une coche = envoyé, deux = remis, deux bleues = lu. Même échelle que le
                   mobile, pour qu'un même message se lise pareil des deux côtés. */}
               {/* Horloge tant que le serveur n'a pas répondu — l'envoi est en cours. */}
               {item.pendingLocal && (
-                <IconClock size={13} className="ml-1 inline align-[-2px]" aria-label="Envoi…" />
+                <IconClock size={13} className="ml-1 inline align-[-2px]" aria-label={t('thread.sending')} />
               )}
               {status && !item.pendingLocal && (
                 <span
                   className={`ml-1 inline-block align-[-2px] ${status === 'read' ? 'text-sky-300' : ''}`}
-                  title={status === 'read' ? 'Lu' : status === 'delivered' ? 'Remis' : 'Envoyé'}
+                  title={t(status === 'read' ? 'thread.read' : status === 'delivered' ? 'thread.delivered' : 'thread.sent')}
                 >
                   {status === 'sent' ? <IconCheck size={13} /> : <IconCheckDouble size={13} />}
                 </span>
@@ -248,7 +250,7 @@ export function MessageBubble({
                 setMenuAt(anchorFromEvent(e));
               }}
               className="rounded-full p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700"
-              aria-label="Actions"
+              aria-label={t('list.actions')}
             >
               <IconMore size={15} />
             </button>
@@ -276,7 +278,7 @@ export function MessageBubble({
               </div>
               <MenuItem
                 icon={IconReply}
-                label="Répondre"
+                label={t('chat.reply')}
                 onClick={() => {
                   actions.onReply(item);
                   setMenuAt(null);
@@ -285,7 +287,7 @@ export function MessageBubble({
               {item.content && (
                 <MenuItem
                   icon={IconCopy}
-                  label="Copier"
+                  label={t('chat.copy')}
                   onClick={() => {
                     void navigator.clipboard.writeText(item.content ?? '');
                     setMenuAt(null);
@@ -294,7 +296,7 @@ export function MessageBubble({
               )}
               <MenuItem
                 icon={IconForward}
-                label="Transférer"
+                label={t('chat.forward')}
                 onClick={() => {
                   actions.onForward(item);
                   setMenuAt(null);
@@ -303,7 +305,7 @@ export function MessageBubble({
               {canEdit && (
                 <MenuItem
                   icon={IconEdit}
-                  label="Modifier"
+                  label={t('chat.edit')}
                   onClick={() => {
                     actions.onEdit(item);
                     setMenuAt(null);
@@ -312,7 +314,7 @@ export function MessageBubble({
               )}
               <MenuItem
                 icon={IconPin}
-                label={pinned ? 'Désépingler' : 'Épingler'}
+                label={t(pinned ? 'chat.unpin' : 'chat.pin')}
                 onClick={() => {
                   actions.onPin(item);
                   setMenuAt(null);
@@ -320,7 +322,7 @@ export function MessageBubble({
               />
               <MenuItem
                 icon={IconStar}
-                label={starred ? 'Retirer des favoris' : 'Mettre en favori'}
+                label={t(starred ? 'chat.unstar' : 'chat.star')}
                 onClick={() => {
                   actions.onStar(item);
                   setMenuAt(null);
@@ -330,7 +332,7 @@ export function MessageBubble({
                 <MenuItem
                   danger
                   icon={IconTrash}
-                  label="Supprimer"
+                  label={t('chat.delete')}
                   onClick={() => {
                     actions.onDelete(item);
                     setMenuAt(null);
@@ -347,7 +349,7 @@ export function MessageBubble({
         <button
           onClick={() => myReaction && actions.onReact(item, myReaction)}
           className="-mt-1 flex gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-800"
-          title={myReaction ? 'Retirer ma réaction' : undefined}
+          title={myReaction ? t('thread.remove_reaction') : undefined}
         >
           {Array.from(new Set(item.reactions.map((r) => r.emoji))).map((e) => {
             const n = item.reactions!.filter((r) => r.emoji === e).length;
@@ -380,6 +382,7 @@ function MediaContent({
   onOpen: (message: Message) => void;
   isMe: boolean;
 }) {
+  const { t } = useTranslation();
   const item = row.messages[0];
 
   /**
@@ -413,10 +416,10 @@ function MediaContent({
         <span className="min-w-0">
           <span className="block truncate text-sm font-medium">
             {/* `content` porte l'adresse lisible, calculée par l'app qui a partagé. */}
-            {item.content || 'Position partagée'}
+            {item.content || t('thread.shared_location')}
           </span>
           <span className="block text-xs opacity-70">
-            {lat.toFixed(5)}, {lon.toFixed(5)} · ouvrir dans Maps
+            {lat.toFixed(5)}, {lon.toFixed(5)} · {t('thread.open_in_maps')}
           </span>
         </span>
       </a>
@@ -484,7 +487,7 @@ function MediaContent({
       <IconDocument size={20} className="shrink-0" />
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">
-          {item.fileName ?? 'Document'}
+          {item.fileName ?? t('thread.document')}
         </span>
         <span className="block text-xs opacity-70">{formatFileSize(item.fileSize)}</span>
       </span>

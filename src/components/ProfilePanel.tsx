@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/Avatar';
@@ -45,6 +47,7 @@ export function ProfilePanel({
   me: Me | null;
   onClose: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [blocked, setBlocked] = useState<{ id: string; name: string; photoUrl: string | null }[]>(
     [],
@@ -77,25 +80,24 @@ export function ProfilePanel({
         <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
           <button
             onClick={() => setBlockedOpen(false)}
-            aria-label="Retour au profil"
+            aria-label={t('profile.back')}
             className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
           >
             <IconBack size={20} />
           </button>
           <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">
-            Utilisateurs bloques
+            {t('profile.blocked')}
           </h1>
         </header>
 
         <p className="px-4 py-3 text-sm text-slate-400">
-          Ces personnes ne peuvent pas vous ecrire ni voir votre profil. Elles n&rsquo;en sont
-          pas informees.
+          {t('profile.blocked_hint')}
         </p>
 
         <div className="flex-1 overflow-y-auto">
           {blocked.length === 0 ? (
             <p className="px-6 py-10 text-center text-sm text-slate-400">
-              Vous n&rsquo;avez bloque personne.
+              {t('profile.blocked_none')}
             </p>
           ) : (
             <ul>
@@ -116,7 +118,7 @@ export function ProfilePanel({
                     }}
                     className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-[#1E40AF] hover:bg-slate-100 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-zinc-800"
                   >
-                    Debloquer
+                    {t('moderation.unblock')}
                   </button>
                 </li>
               ))}
@@ -132,12 +134,12 @@ export function ProfilePanel({
       <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
         <button
           onClick={onClose}
-          aria-label="Retour aux discussions"
+          aria-label={t('list.back_to_chats')}
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
         >
           <IconBack size={20} />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">Vous</h1>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">{t('list.you')}</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto">
@@ -167,7 +169,7 @@ export function ProfilePanel({
 
         <section className="border-t border-slate-100 px-4 py-4 dark:border-zinc-800">
           <h3 className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Apparence
+            {t('profile.appearance')}
           </h3>
           <div className="flex gap-2">
             {THEME_OPTIONS.map((o) => {
@@ -185,15 +187,40 @@ export function ProfilePanel({
                   }`}
                 >
                   <Icon size={18} />
-                  {o.label}
+                  {t(`profile.${o.value}`)}
                 </button>
               );
             })}
           </div>
           <p className="px-2 pt-2 text-xs text-slate-400">
-            «&nbsp;Système&nbsp;» suit le réglage de votre ordinateur, et le suit encore s&rsquo;il
-            change.
+            {t('profile.system_hint')}
           </p>
+
+          {/* ⚠️ La langue est un réglage de COMPTE au même titre que l'apparence, et le
+              sélecteur vit ici pour la même raison : c'est le seul écran de préférences du
+              web. Changer de langue réécrit le cookie et bascule l'interface sans recharger. */}
+          <h3 className="px-2 pb-2 pt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {t('profile.language')}
+          </h3>
+          <div className="flex gap-2">
+            {LANGUAGES.map((l) => {
+              const on = i18n.language === l.code;
+              return (
+                <button
+                  key={l.code}
+                  onClick={() => setLanguage(l.code as Language)}
+                  aria-pressed={on}
+                  className={`flex-1 rounded-xl border py-2.5 text-sm transition ${
+                    on
+                      ? 'border-[#1E40AF] bg-blue-50 font-semibold text-[#1E40AF] dark:bg-blue-900/30'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section className="border-t border-slate-100 px-4 py-4 dark:border-zinc-800">
@@ -205,7 +232,7 @@ export function ProfilePanel({
             className="mb-2 flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             <IconBlock size={16} />
-            Utilisateurs bloques
+            {t('profile.blocked')}
             <span className="ml-auto flex items-center gap-1 text-slate-400">
               {blocked.length > 0 && blocked.length}
               <IconChevron size={16} />
@@ -226,7 +253,7 @@ export function ProfilePanel({
             className="flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
             <IconLeave size={16} />
-            Déconnexion
+            {t('common.logout')}
           </button>
         </section>
       </div>

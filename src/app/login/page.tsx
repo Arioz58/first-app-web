@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { hasSession, sendCode, verifyCode } from '@/lib/auth';
 import { QrLogin } from '@/components/QrLogin';
@@ -11,6 +12,7 @@ const CODE_LENGTH = 6;
 const RESEND_COOLDOWN = 45;
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   /**
    * QR en principal, numéro en REPLI — décision du 2 sept.
@@ -52,7 +54,7 @@ export default function LoginPage() {
       // cliquer pour continuer casse le rythme.
       setTimeout(() => codeRef.current?.focus(), 50);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur');
+      setError(err instanceof Error ? err.message : t('error'));
     } finally {
       setBusy(false);
     }
@@ -66,7 +68,7 @@ export default function LoginPage() {
       await verifyCode(phone.trim(), code.trim(), name.trim() || undefined);
       router.replace('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Code invalide');
+      setError(err instanceof Error ? err.message : t('login.invalid_code'));
       setBusy(false);
     }
   };
@@ -77,9 +79,9 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold text-[#1E40AF] dark:text-blue-400">Nexa</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
           {mode === 'qr'
-            ? 'Scannez ce code avec votre téléphone.'
+            ? t('login.qr_scan_hint')
             : step === 'phone'
-              ? 'Entrez votre numéro pour recevoir un code.'
+              ? t('login.phone_hint')
               : `Code envoyé au ${phone}.`}
         </p>
 
@@ -113,7 +115,7 @@ export default function LoginPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Prénom (si nouveau compte)"
+              placeholder={t('login.first_name')}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-[#1E40AF] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
             <button
@@ -121,7 +123,7 @@ export default function LoginPage() {
               disabled={busy || !phone.trim()}
               className="w-full rounded-xl bg-[#1E40AF] py-3 font-semibold text-white disabled:opacity-50"
             >
-              {busy ? 'Envoi…' : 'Recevoir un code'}
+              {busy ? t('login.sending') : t('login.get_code')}
             </button>
           </form>
         ) : (
@@ -142,7 +144,7 @@ export default function LoginPage() {
               disabled={busy || code.length < CODE_LENGTH}
               className="w-full rounded-xl bg-[#1E40AF] py-3 font-semibold text-white disabled:opacity-50"
             >
-              {busy ? 'Vérification…' : 'Se connecter'}
+              {busy ? t('login.verifying') : t('login.sign_in')}
             </button>
             <div className="flex items-center justify-between text-sm">
               <button
@@ -165,7 +167,7 @@ export default function LoginPage() {
                 }}
                 className="text-[#1E40AF] disabled:text-slate-400 hover:underline dark:text-blue-400"
               >
-                {cooldown > 0 ? `Renvoyer (${cooldown}s)` : 'Renvoyer le code'}
+                {cooldown > 0 ? `Renvoyer (${cooldown}s)` : t('login.resend')}
               </button>
             </div>
           </form>

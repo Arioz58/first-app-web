@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
@@ -76,11 +77,12 @@ const PREVIEW_ICON: Record<Exclude<PreviewKind, null>, typeof IconPhoto> = {
 
 
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Toutes' },
-  { key: 'unread', label: 'Non lues' },
-  { key: 'favorites', label: 'Favoris' },
-  { key: 'groups', label: 'Groupes' },
+/** ⚠️ Clés i18n et non libellés : traduits à l'affichage. */
+const FILTERS: { key: Filter; labelKey: string }[] = [
+  { key: 'all', labelKey: 'filters.all' },
+  { key: 'unread', labelKey: 'filters.unread' },
+  { key: 'favorites', labelKey: 'filters.favorites' },
+  { key: 'groups', labelKey: 'filters.groups' },
 ];
 
 /**
@@ -92,6 +94,7 @@ const FILTERS: { key: Filter; label: string }[] = [
  * sinon détaché et rattaché à chaque clic.
  */
 export function ConversationList() {
+  const { t } = useTranslation();
   const router = useRouter();
   // Conversation ouverte, pour la marquer comme active. `useParams` est vide sur /chat.
   const params = useParams<{ id?: string }>();
@@ -288,18 +291,18 @@ export function ConversationList() {
    * reflexe soit de changer de filtre, pas de croire a une perte de donnees.
    */
   const emptyMessage = query
-    ? 'Aucun résultat.'
+    ? t('common.no_results')
     : hasNoConversations
-      ? 'Aucune conversation.'
+      ? t('chat.no_conversations')
       : filter === 'archived'
-        ? 'Aucune conversation archivée.'
+        ? t('list.empty_archived')
         : filter === 'unread'
-          ? 'Aucune conversation non lue.'
+          ? t('list.empty_unread')
           : filter === 'favorites'
-            ? 'Aucun favori.'
+            ? t('list.empty_favorites')
             : filter === 'groups'
-              ? 'Aucun groupe.'
-              : 'Aucune conversation.';
+              ? t('list.empty_groups')
+              : t('chat.no_conversations');
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -336,7 +339,7 @@ export function ConversationList() {
     <aside className="relative flex w-full shrink-0 flex-col border-r border-slate-200 bg-white md:w-[380px] dark:border-zinc-800 dark:bg-zinc-900">
       <header className="flex items-center justify-between px-4 py-4">
         <h1 className="text-2xl font-bold text-[#1E40AF] dark:text-blue-400">
-          Discussions
+          {t('list.title')}
           {unreadTotal > 0 && (
             <span className="ml-2 align-middle rounded-full bg-[#1E40AF] px-2 py-0.5 text-xs text-white">
               {unreadTotal}
@@ -362,7 +365,7 @@ export function ConversationList() {
               setNewChatMode('direct');
               setNewChatOpen(true);
             }}
-            title="Nouvelle conversation"
+            title={t('fab.new_chat')}
             className="flex h-9 w-9 items-center justify-center rounded-full text-[#1E40AF] hover:bg-slate-100 dark:hover:bg-zinc-800"
           >
             <IconPlus size={20} />
@@ -375,7 +378,7 @@ export function ConversationList() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher"
+          placeholder={t('search.placeholder')}
           className="w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
         />
       </div>
@@ -391,7 +394,7 @@ export function ConversationList() {
                 : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
             }`}
           >
-            {f.label}
+            {t(f.labelKey)}
             {f.key === 'unread' && unreadTotal > 0 ? ` (${unreadTotal})` : ''}
           </button>
         ))}
@@ -408,7 +411,7 @@ export function ConversationList() {
           className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm font-medium text-[#1E40AF] dark:bg-blue-950/60 dark:text-blue-300"
         >
           <IconChat size={16} />
-          {messageRequests === 1 ? 'Demande de message' : 'Demandes de messages'}
+          {t(messageRequests === 1 ? 'requests.banner_one' : 'requests.banner_other')}
           <span className="ml-auto rounded-full bg-[#1E40AF] px-2 py-0.5 text-xs font-bold text-white">
             {messageRequests}
           </span>
@@ -421,7 +424,7 @@ export function ConversationList() {
           className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
         >
           <IconArchive size={16} />
-          Archivées
+          {t('list.archived')}
           <span className="ml-auto text-xs text-slate-400">
             {conversations.filter((c) => c.archivedAt).length}
           </span>
@@ -433,7 +436,7 @@ export function ConversationList() {
           className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-left text-sm text-slate-600 dark:bg-zinc-800 dark:text-zinc-300"
         >
           <IconBack size={16} />
-          Retour aux discussions
+          {t('list.back_to_chats')}
         </button>
       )}
 
@@ -467,7 +470,7 @@ export function ConversationList() {
                 onClick={() => setNewChatOpen(true)}
                 className="mt-4 rounded-xl bg-[#1E40AF] px-4 py-2 text-sm font-semibold text-white"
               >
-                Démarrer une conversation
+                {t('list.start_chat')}
               </button>
             )}
           </div>
@@ -504,9 +507,9 @@ export function ConversationList() {
                           {name}
                         </span>
                         <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
-                          {isMuted(c) && <IconBellOff size={13} aria-label="En sourdine" />}
+                          {isMuted(c) && <IconBellOff size={13} aria-label={t('details.muted')} />}
                           {c.favoritedAt && (
-                            <IconStar size={13} className="fill-current" aria-label="Favori" />
+                            <IconStar size={13} className="fill-current" aria-label={t('details.favorite')} />
                           )}
                           {/* ⚠️ La date s'efface au survol : le bouton « … » est posé en
                               ABSOLU juste au-dessus d'elle, et les deux se superposaient.
@@ -557,7 +560,7 @@ export function ConversationList() {
                       setMenuFor({ id: c.id, at: anchorFromEvent(e) });
                     }}
                     className="absolute right-2 top-2.5 rounded-full p-1 text-slate-500 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    aria-label="Actions"
+                    aria-label={t('list.actions')}
                   >
                     <IconMore size={16} />
                   </button>
@@ -597,7 +600,7 @@ export function ConversationList() {
               <>
                 <MenuItem
                   icon={IconPin}
-                  label={c.pinnedAt ? 'Désépingler' : 'Épingler'}
+                  label={t(c.pinnedAt ? 'conv_actions.unpin' : 'conv_actions.pin')}
                   onClick={() =>
                     act({ pinnedAt: c.pinnedAt ? null : new Date().toISOString() }, () =>
                       pinConversation(c.id, !c.pinnedAt),
@@ -606,7 +609,7 @@ export function ConversationList() {
                 />
                 <MenuItem
                   icon={IconStar}
-                  label={c.favoritedAt ? 'Retirer des favoris' : 'Mettre en favori'}
+                  label={t(c.favoritedAt ? 'conv_actions.unfavorite' : 'conv_actions.favorite')}
                   onClick={() =>
                     act({ favoritedAt: c.favoritedAt ? null : new Date().toISOString() }, () =>
                       favoriteConversation(c.id, !c.favoritedAt),
@@ -616,26 +619,26 @@ export function ConversationList() {
                 {isMuted(c) ? (
                   <MenuItem
                     icon={IconBell}
-                    label="Réactiver les notifications"
+                    label={t('details.reactivate_notifs')}
                     onClick={() => act({ mutedUntil: null }, () => muteConversation(c.id, null))}
                   />
                 ) : (
                   <MenuItem
                     icon={IconBellOff}
-                    label="Mettre en sourdine…"
+                    label={t('details.mute_for')}
                     /* ⚠️ Ne ferme pas : on passe à la liste des durées DANS le même menu. */
                     onClick={() => setMuteFor(c.id)}
                   />
                 )}
                 {!c.archivedAt && !unread && (
                   <MenuItem
-                    label="Marquer comme non lu"
+                    label={t('conv_actions.mark_unread')}
                     onClick={() => act({ manualUnread: true }, () => markUnread(c.id))}
                   />
                 )}
                 <MenuItem
                   icon={IconArchive}
-                  label={c.archivedAt ? 'Désarchiver' : 'Archiver'}
+                  label={t(c.archivedAt ? 'conv_actions.unarchive' : 'conv_actions.archive')}
                   onClick={() =>
                     act(
                       {

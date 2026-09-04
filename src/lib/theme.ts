@@ -18,10 +18,15 @@ export type ThemePref = 'system' | 'light' | 'dark';
 
 const KEY = 'nexa.theme';
 
-export const THEME_OPTIONS: { value: ThemePref; label: string }[] = [
-  { value: 'light', label: 'Clair' },
-  { value: 'dark', label: 'Sombre' },
-  { value: 'system', label: 'Système' },
+/**
+ * ⚠️ Plus de `label` ici : le libellé est traduit à l'affichage (`profile.light`,
+ * `profile.dark`, `profile.system`). Un texte figé dans ce module aurait échappé à l'i18n,
+ * et ce module n'est pas un composant — il ne peut pas appeler `t`.
+ */
+export const THEME_OPTIONS: { value: ThemePref }[] = [
+  { value: 'light' },
+  { value: 'dark' },
+  { value: 'system' },
 ];
 
 export const getThemePref = (): ThemePref => {

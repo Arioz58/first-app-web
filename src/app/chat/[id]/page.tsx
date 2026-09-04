@@ -1,6 +1,7 @@
 'use client';
 
 import { MediaViewer } from '@/components/MediaViewer';
+import { useTranslation } from 'react-i18next';
 import { canManageMembers, type Role } from '@/lib/groups';
 import {
   IconAttach,
@@ -67,6 +68,7 @@ const AT_BOTTOM_PX = 120;
 const LOAD_OLDER_PX = 300;
 
 export default function ThreadPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [meId] = useState<string | null>(() =>
@@ -902,7 +904,7 @@ export default function ThreadPage() {
         const recent = Date.now() - new Date(m.createdAt).getTime() < 2 * 24 * 3600 * 1000;
         const canAll = mine && recent;
         const scope: 'me' | 'all' =
-          canAll && window.confirm('Supprimer pour tout le monde ?\n\nAnnuler = supprimer pour moi seulement.')
+          canAll && window.confirm(t('thread.delete_all'))
             ? 'all'
             : 'me';
         void deleteMessage(id, m.id, scope)
@@ -942,7 +944,8 @@ export default function ThreadPage() {
       onJumpTo: jumpTo,
       onOpenMedia: setViewer,
     }),
-    [react, jumpTo, id, flags, meId, text, messages],
+    // ⚠️ `t` inclus : les libellés du menu doivent suivre un changement de langue.
+    [react, jumpTo, id, flags, meId, text, messages, t],
   );
 
   /**
@@ -1144,7 +1147,7 @@ export default function ThreadPage() {
   // L'index doit rester dans les bornes : désépingler pendant qu'on cycle le ferait sortir.
   const safePinIndex = pinnedRows.length ? pinIndex % pinnedRows.length : 0;
   const pinnedPreview =
-    messages.find((m) => m.id === pinnedRows[safePinIndex])?.content ?? 'Pièce jointe';
+    messages.find((m) => m.id === pinnedRows[safePinIndex])?.content ?? t('details.attachment');
 
   const loadConvSettings = useCallback(() => {
     void fetchConversations()
@@ -1184,7 +1187,7 @@ export default function ThreadPage() {
         <button
           onClick={() => router.push('/chat')}
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-zinc-800"
-          aria-label="Retour"
+          aria-label={t('common.back')}
         >
           <IconBack size={20} />
         </button>
@@ -1231,7 +1234,7 @@ export default function ThreadPage() {
                   )
                   .catch(() => {});
               }}
-              placeholder="Rechercher…"
+              placeholder={t('thread.search_ph')}
               className="w-48 rounded-lg bg-slate-100 px-3 py-1.5 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
             />
             {search.results.length > 0 && (
@@ -1248,7 +1251,7 @@ export default function ThreadPage() {
                     jumpTo(search.results[next]);
                   }}
                   className="px-1 text-slate-500"
-                  aria-label="Résultat précédent"
+                  aria-label={t('thread.prev_result')}
                 >
                   <IconUp size={16} />
                 </button>
@@ -1260,7 +1263,7 @@ export default function ThreadPage() {
                     jumpTo(search.results[next]);
                   }}
                   className="px-1 text-slate-500"
-                  aria-label="Résultat suivant"
+                  aria-label={t('thread.next_result')}
                 >
                   <IconDown size={16} />
                 </button>
@@ -1269,7 +1272,7 @@ export default function ThreadPage() {
             <button
               onClick={() => setSearch(null)}
               className="px-1 text-slate-500"
-              aria-label="Fermer la recherche"
+              aria-label={t('thread.close_search')}
             >
               <IconClose size={16} />
             </button>
@@ -1278,7 +1281,7 @@ export default function ThreadPage() {
           <button
             onClick={() => setSearch({ term: '', results: [], index: 0 })}
             className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
-            aria-label="Rechercher"
+            aria-label={t('search.placeholder')}
           >
             <IconSearch size={18} />
           </button>
@@ -1298,8 +1301,8 @@ export default function ThreadPage() {
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-semibold text-[#1E40AF]">
               {pinnedRows.length > 1
-                ? `Message épinglé ${safePinIndex + 1}/${pinnedRows.length}`
-                : 'Message épinglé'}
+                ? t('thread.pinned_message_n', { index: safePinIndex + 1, total: pinnedRows.length })
+                : t('thread.pinned_message')}
             </span>
             <span className="block truncate text-slate-600 dark:text-zinc-300">
               {pinnedPreview}
@@ -1316,7 +1319,7 @@ export default function ThreadPage() {
             }}
             onKeyDown={(e) => e.key === 'Enter' && setPinBarHidden(true)}
             className="px-2 text-slate-400"
-            aria-label="Masquer le bandeau"
+            aria-label={t('thread.hide_banner')}
           >
             <IconClose size={16} />
           </span>
@@ -1330,7 +1333,7 @@ export default function ThreadPage() {
         <button
           onClick={goToPresent}
           className="absolute bottom-4 right-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
-          aria-label="Revenir en bas"
+          aria-label={t('thread.back_to_bottom')}
         >
           <IconDown size={20} />
         </button>
@@ -1426,11 +1429,11 @@ export default function ThreadPage() {
         <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-800/60">
           <div className="min-w-0 flex-1 border-l-[3px] border-[#1E40AF] pl-2">
             <p className="font-semibold text-[#1E40AF]">
-              {editing ? 'Modification du message' : replyTo?.sender?.name}
+              {editing ? t('thread.edit_banner') : replyTo?.sender?.name}
             </p>
             {replyTo && !editing && (
               <p className="truncate text-slate-500">
-                {replyTo.content ?? 'Pièce jointe'}
+                {replyTo.content ?? t('details.attachment')}
               </p>
             )}
           </div>
@@ -1442,7 +1445,7 @@ export default function ThreadPage() {
               setReplyTo(null);
             }}
             className="px-2 text-slate-400"
-            aria-label="Annuler"
+            aria-label={t('cancel')}
           >
             <IconClose size={16} />
           </button>
@@ -1455,7 +1458,7 @@ export default function ThreadPage() {
           l'autorise (`canManage`). */}
       {readOnly ? (
         <div className="border-t border-slate-200 bg-white px-4 py-4 text-center text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-900">
-          Seuls les admins peuvent envoyer des messages dans ce groupe.
+          {t('details.read_only')}
         </div>
       ) : recording ? (
         <div className="flex items-center border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -1483,7 +1486,7 @@ export default function ThreadPage() {
           onClick={() => fileRef.current?.click()}
           disabled={uploading || !!editing}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
-          aria-label="Joindre un fichier"
+          aria-label={t('thread.attach')}
         >
           {uploading ? <IconSpinner size={19} className="animate-spin" /> : <IconAttach size={19} />}
         </button>
@@ -1498,7 +1501,7 @@ export default function ThreadPage() {
             }
           }}
           rows={1}
-          placeholder="Écrire un message"
+          placeholder={t('chat.message_placeholder')}
           className="max-h-32 flex-1 resize-none rounded-2xl bg-slate-100 px-4 py-2.5 text-base outline-none dark:bg-zinc-800 dark:text-zinc-100"
         />
         {/* ⚠️ Micro quand le champ est vide, envoi sinon — et jamais de micro en mode
@@ -1508,7 +1511,7 @@ export default function ThreadPage() {
             type="submit"
             disabled={!text.trim()}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-            aria-label={editing ? 'Valider' : 'Envoyer'}
+            aria-label={t(editing ? 'thread.validate' : 'thread.send')}
           >
             {editing ? <IconCheck size={20} /> : <IconSend size={19} />}
           </button>
@@ -1518,7 +1521,7 @@ export default function ThreadPage() {
             onClick={() => setRecording(true)}
             disabled={uploading}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-            aria-label="Enregistrer un message vocal"
+            aria-label={t('thread.record')}
           >
             <IconMic size={19} />
           </button>

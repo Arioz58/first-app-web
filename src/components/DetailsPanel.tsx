@@ -26,6 +26,7 @@ import {
   IconVideo,
 } from '@/components/icons';
 import { AddMembersDialog } from '@/components/AddMembersDialog';
+import { useTranslation } from 'react-i18next';
 import { MediaGalleryView } from '@/components/MediaGalleryView';
 import {
   anchorFromEvent,
@@ -119,6 +120,7 @@ export function DetailsPanel({
   /** Saut vers un message épinglé ou favori — le fil sait charger une fenêtre autour. */
   onJumpTo: (messageId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [counts, setCounts] = useState<MediaCounts | null>(null);
   const [gallery, setGallery] = useState<Message[]>([]);
@@ -217,12 +219,12 @@ export function DetailsPanel({
         <button
           onClick={onClose}
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
-          aria-label="Fermer"
+          aria-label={t('common.close')}
         >
           <IconClose size={18} />
         </button>
         <p className="font-semibold text-slate-900 dark:text-zinc-100">
-          {isGroup ? 'Infos du groupe' : 'Infos du contact'}
+          {t(isGroup ? 'details.group_info' : 'details.contact_info')}
         </p>
       </header>
 
@@ -253,7 +255,7 @@ export function DetailsPanel({
                 />
                 <label
                   htmlFor="group-photo"
-                  title="Changer la photo du groupe"
+                  title={t('details.change_photo')}
                   className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#1E40AF] text-white shadow-md"
                 >
                   {photoBusy ? (
@@ -274,13 +276,13 @@ export function DetailsPanel({
               <input
                 value={edit.name}
                 onChange={(e) => setEdit({ ...edit, name: e.target.value })}
-                placeholder="Nom du groupe"
+                placeholder={t('details.group_name')}
                 className="w-full rounded-xl bg-slate-100 px-3 py-2 text-center text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
               />
               <textarea
                 value={edit.description}
                 onChange={(e) => setEdit({ ...edit, description: e.target.value })}
-                placeholder="Description"
+                placeholder={t('details.description')}
                 rows={2}
                 className="mt-2 w-full resize-none rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
               />
@@ -289,7 +291,7 @@ export function DetailsPanel({
                   onClick={() => setEdit(null)}
                   className="px-3 py-1.5 text-sm text-slate-500"
                 >
-                  Annuler
+                  {t('cancel')}
                 </button>
                 <button
                   disabled={busy || !edit.name.trim()}
@@ -312,7 +314,7 @@ export function DetailsPanel({
                   className="flex items-center gap-1 rounded-xl bg-[#1E40AF] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
                 >
                   <IconCheck size={14} />
-                  Enregistrer
+                  {t('details.save')}
                 </button>
               </div>
             </div>
@@ -324,7 +326,7 @@ export function DetailsPanel({
                   onClick={() =>
                     setEdit({ name: meta.name ?? '', description: meta.description ?? '' })
                   }
-                  aria-label="Modifier le nom et la description"
+                  aria-label={t('details.edit_name')}
                   className="text-slate-400 hover:text-[#1E40AF]"
                 >
                   <IconEdit size={15} />
@@ -382,7 +384,8 @@ export function DetailsPanel({
             <QuickAction
               icon={IconStar}
               iconClassName={conversation.favoritedAt ? 'fill-current text-[#1E40AF]' : ''}
-              label="Favori"
+              label={t('details.favorite')}
+              soonLabel={t('details.soon')}
               onClick={() =>
                 void favoriteConversation(meta.id, !conversation.favoritedAt)
                   .then(onChanged)
@@ -391,7 +394,8 @@ export function DetailsPanel({
             />
             <QuickAction
               icon={isMuted(conversation) ? IconBellOff : IconBell}
-              label="Sourdine"
+              label={t('details.mute_short')}
+              soonLabel={t('details.soon')}
               onClick={() => {
                 if (isMuted(conversation)) {
                   void muteConversation(meta.id, null).then(onChanged).catch(() => {});
@@ -402,8 +406,8 @@ export function DetailsPanel({
             />
             {/* ⚠️ Les appels sont désactivés : ils arrivent au Mois 4 (Agora). Un bouton
                 grisé annonce la fonction sans mentir sur sa disponibilité. */}
-            <QuickAction icon={IconPhone} label="Appel" disabled />
-            <QuickAction icon={IconVideo} label="Vidéo" disabled />
+            <QuickAction icon={IconPhone} label={t('details.call')} soonLabel={t('details.soon')} disabled />
+            <QuickAction icon={IconVideo} label={t('details.video')} soonLabel={t('details.soon')} disabled />
           </div>
         )}
 
@@ -412,7 +416,7 @@ export function DetailsPanel({
             annoncer un contenu qu'on ne pouvait pas ouvrir. Ils sont désormais les onglets
             de la galerie, où ils filtrent réellement. */}
         {counts && (
-          <Section title="Médias, liens et documents">
+          <Section title={t('details.media_section')}>
             {gallery.length > 0 && (
               <div className="mb-2 grid grid-cols-3 gap-1 px-4">
                 {gallery.map((m) => (
@@ -433,14 +437,14 @@ export function DetailsPanel({
                   onClick={() => setGalleryOpen(true)}
                   className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left text-sm text-[#1E40AF] hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-zinc-800"
                 >
-                  Voir tous les médias, liens et documents
+                  {t('details.see_all_media')}
                   <span className="flex items-center gap-1 text-slate-400">
                     {totalMedia}
                     <IconChevron size={16} />
                   </span>
                 </button>
               ) : (
-                <p className="px-2 py-2 text-sm text-slate-400">Aucun média échangé.</p>
+                <p className="px-2 py-2 text-sm text-slate-400">{t('details.no_media')}</p>
               )}
             </div>
           </Section>
@@ -457,7 +461,7 @@ export function DetailsPanel({
                     className="w-full truncate rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   >
                     <IconPin size={13} className="mr-1.5 inline align-[-2px]" />
-                    {m.content || 'Pièce jointe'}
+                    {m.content || t('details.attachment')}
                   </button>
                 </li>
               ))}
@@ -476,7 +480,7 @@ export function DetailsPanel({
                     className="w-full truncate rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   >
                     <IconStar size={13} className="mr-1.5 inline fill-current align-[-2px]" />
-                    {m.content || 'Pièce jointe'}
+                    {m.content || t('details.attachment')}
                   </button>
                 </li>
               ))}
@@ -549,7 +553,7 @@ export function DetailsPanel({
         )}
 
         {/* Réglages personnels */}
-        <Section title="Réglages">
+        <Section title={t('details.settings')}>
           {conversation && (
             <div className="px-4">
               {muteOpen ? (
@@ -579,12 +583,12 @@ export function DetailsPanel({
                   {isMuted(conversation) ? (
                     <>
                       <IconBell size={15} />
-                      Réactiver les notifications
+                      {t('details.reactivate_notifs')}
                     </>
                   ) : (
                     <>
                       <IconBellOff size={15} />
-                      Mettre en sourdine…
+                      {t('details.mute_for')}
                     </>
                   )}
                 </button>
@@ -624,7 +628,7 @@ export function DetailsPanel({
 
         {/* Gestion du groupe : réglage partagé (admin) + sortie (tout le monde). */}
         {isGroup && (
-          <Section title="Gestion du groupe">
+          <Section title={t('details.group_management')}>
             <div className="px-4">
               {admin &&
                 (whoOpen ? (
@@ -639,7 +643,7 @@ export function DetailsPanel({
                       }}
                       className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
-                      {v === 'all' ? 'Tout le monde' : 'Les admins uniquement'}
+                      {t(v === 'all' ? 'details.everyone' : 'details.admins_only')}
                     </button>
                   ))
                 ) : (
@@ -648,7 +652,7 @@ export function DetailsPanel({
                     className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   >
                     <IconEdit size={15} className="mr-2 inline align-[-3px]" />
-                    Qui peut envoyer des messages
+                    {t('details.who_can_send')}
                     <span className="ml-2 text-xs text-slate-400">
                       {meta.whoCanSend === 'admins' ? 'admins' : 'tout le monde'}
                     </span>
@@ -660,7 +664,7 @@ export function DetailsPanel({
               <button
                 disabled={busy}
                 onClick={() => {
-                  if (!window.confirm('Quitter ce groupe ?')) return;
+                  if (!window.confirm(t('details.leave_group_confirm'))) return;
                   setBusy(true);
                   void leaveGroup(meta.id)
                     .then(() => {
@@ -675,7 +679,7 @@ export function DetailsPanel({
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <IconLeave size={15} />
-                Quitter le groupe
+                {t('details.leave_group')}
               </button>
             </div>
           </Section>
@@ -683,7 +687,7 @@ export function DetailsPanel({
 
         {/* Gestion — conversation directe seulement : bloquer un groupe n'a pas de sens. */}
         {!isGroup && other && (
-          <Section title="Gestion">
+          <Section title={t('details.management')}>
             <div className="px-4">
               {reportOpen ? (
                 REPORT_CATEGORIES.map((c) => (
@@ -694,7 +698,7 @@ export function DetailsPanel({
                       setBusy(true);
                       setReportOpen(false);
                       void reportUser(other.userId, c.key as ReportCategory)
-                        .then(() => window.alert('Signalement envoyé.'))
+                        .then(() => window.alert(t('details.report_sent')))
                         .catch((e) => window.alert(e.message))
                         .finally(() => setBusy(false));
                     }}
@@ -733,7 +737,7 @@ export function DetailsPanel({
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     {blocked ? <IconUnblock size={15} /> : <IconBlock size={15} />}
-                    {blocked ? 'Débloquer' : 'Bloquer'}
+                    {t(blocked ? 'moderation.unblock' : 'moderation.block')}
                   </button>
                   <button
                     disabled={busy}
@@ -741,7 +745,7 @@ export function DetailsPanel({
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <IconReport size={15} />
-                    Signaler
+                    {t('moderation.report')}
                   </button>
                 </>
               )}
@@ -784,10 +788,11 @@ export function DetailsPanel({
               <MenuItem
                 danger
                 icon={IconRemoveMember}
-                label="Retirer du groupe"
+                label={t('details.remove_member')}
                 onClick={() => {
                   close();
-                  if (!window.confirm(`Retirer ${m.user.name} du groupe ?`)) return;
+                  if (!window.confirm(t('details.remove_member_confirm', { name: m.user.name })))
+                    return;
                   setBusy(true);
                   void removeMember(meta.id, m.userId)
                     .then(onMetaChanged)
@@ -819,6 +824,7 @@ function QuickAction({
   icon: Icon,
   iconClassName,
   label,
+  soonLabel,
   onClick,
   disabled,
 }: {
@@ -826,6 +832,11 @@ function QuickAction({
   icon: typeof IconStar;
   /** Remplissage/teinte quand l'icône marque un état actif (favori posé, par exemple). */
   iconClassName?: string;
+  /**
+   * ⚠️ Passé par l'appelant plutôt que traduit ici : ce sous-composant n'appelle pas `t`, et
+   * lui ajouter un hook pour une seule infobulle ne se justifie pas.
+   */
+  soonLabel: string;
   label: string;
   onClick?: () => void;
   disabled?: boolean;
@@ -834,7 +845,7 @@ function QuickAction({
     <button
       onClick={onClick}
       disabled={disabled}
-      title={disabled ? 'Disponible prochainement' : label}
+      title={disabled ? soonLabel : label}
       className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-slate-200 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
     >
       <Icon size={18} className={iconClassName} />

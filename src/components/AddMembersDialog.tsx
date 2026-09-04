@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/components/Avatar';
 import { IconCheck } from '@/components/icons';
 import { fetchFriends, type Friend } from '@/lib/conversations';
@@ -30,6 +31,7 @@ export function AddMembersDialog({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { t } = useTranslation();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -84,21 +86,21 @@ export function AddMembersDialog({
         className="flex max-h-[75vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
       >
         <div className="px-5 pt-5">
-          <h2 className="font-semibold text-slate-900 dark:text-zinc-100">Ajouter des membres</h2>
+          <h2 className="font-semibold text-slate-900 dark:text-zinc-100">{t('newchat.add_members')}</h2>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un contact"
+            placeholder={t('newchat.search_contact')}
             className="mt-3 w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
           />
         </div>
 
         <div className="mt-3 flex-1 overflow-y-auto px-2">
           {loading ? (
-            <p className="py-8 text-center text-sm text-slate-400">Chargement…</p>
+            <p className="py-8 text-center text-sm text-slate-400">{t('common.loading')}</p>
           ) : visible.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-slate-400">
-              {query ? 'Aucun contact trouvé.' : 'Tous vos contacts sont déjà dans ce groupe.'}
+              {query ? t('newchat.no_contact_found') : t('newchat.all_in_group')}
             </p>
           ) : (
             visible.map((f) => {
@@ -132,14 +134,14 @@ export function AddMembersDialog({
 
         <div className="flex justify-end gap-2 px-5 py-4">
           <button onClick={onClose} className="px-3 py-2 text-sm text-slate-500">
-            Annuler
+            {t('cancel')}
           </button>
           <button
             onClick={submit}
             disabled={busy || !picked.length}
             className="rounded-xl bg-[#1E40AF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
           >
-            Ajouter{picked.length ? ` (${picked.length})` : ''}
+            {t('newchat.add')}{picked.length ? ` (${picked.length})` : ''}
           </button>
         </div>
       </div>

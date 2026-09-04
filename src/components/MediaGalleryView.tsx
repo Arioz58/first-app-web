@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   IconBack,
   IconDocument,
@@ -26,12 +27,13 @@ import { formatFileSize } from '@/lib/upload';
  * `media` réunit images ET vidéos, `images` et `videos` les séparent. C'est `media` qu'on
  * ouvre par défaut, parce que c'est ce que l'on cherche le plus souvent.
  */
-const CATEGORIES: { key: string; label: string; count: (c: MediaCounts) => number }[] = [
-  { key: 'media', label: 'Médias', count: (c) => c.images + c.videos },
-  { key: 'documents', label: 'Documents', count: (c) => c.documents },
-  { key: 'audio', label: 'Vocaux', count: (c) => c.audio },
-  { key: 'gifs', label: 'GIFs', count: (c) => c.gifs },
-  { key: 'links', label: 'Liens', count: (c) => c.links },
+/** ⚠️ Clés i18n et non libellés : traduits à l'affichage. */
+const CATEGORIES: { key: string; labelKey: string; count: (c: MediaCounts) => number }[] = [
+  { key: 'media', labelKey: 'gallery.media', count: (c) => c.images + c.videos },
+  { key: 'documents', labelKey: 'gallery.documents', count: (c) => c.documents },
+  { key: 'audio', labelKey: 'gallery.audio', count: (c) => c.audio },
+  { key: 'gifs', labelKey: 'gallery.gifs', count: (c) => c.gifs },
+  { key: 'links', labelKey: 'gallery.links', count: (c) => c.links },
 ];
 
 /** Une grille pour ce qui se regarde, une liste pour ce qui se lit. */
@@ -50,6 +52,7 @@ export function MediaGalleryView({
   onBack: () => void;
   onOpenMedia: (message: Message) => void;
 }) {
+  const { t } = useTranslation();
   const [category, setCategory] = useState('media');
   const [items, setItems] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,13 +112,13 @@ export function MediaGalleryView({
       <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
         <button
           onClick={onBack}
-          aria-label="Retour aux infos"
+          aria-label={t('gallery.back_to_info')}
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
         >
           <IconBack size={20} />
         </button>
         <p className="font-semibold text-slate-900 dark:text-zinc-100">
-          Médias, liens et documents
+          {t('details.media_section')}
         </p>
       </header>
 
@@ -141,17 +144,17 @@ export function MediaGalleryView({
                 : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
             }`}
           >
-            {c.label} · {c.count(counts)}
+            {t(c.labelKey)} · {c.count(counts)}
           </button>
         ))}
       </div>
 
       <div onScroll={onScroll} className="flex-1 overflow-y-auto px-4 pb-4">
         {loading ? (
-          <p className="py-10 text-center text-sm text-slate-400">Chargement…</p>
+          <p className="py-10 text-center text-sm text-slate-400">{t('common.loading')}</p>
         ) : items.length === 0 ? (
           <p className="py-10 text-center text-sm text-slate-400">
-            Rien dans « {active?.label ?? category} ».
+            {t('gallery.empty', { category: active ? t(active.labelKey) : category })}
           </p>
         ) : isGrid(category) ? (
           <div className="grid grid-cols-3 gap-1">
@@ -198,7 +201,7 @@ export function MediaGalleryView({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-slate-900 dark:text-zinc-100">
-                      {labelOf(m, category)}
+                      {labelOf(m, category, t)}
                     </span>
                     <span className="block text-xs text-slate-400">
                       {new Date(m.createdAt).toLocaleDateString()}
@@ -225,8 +228,14 @@ export function MediaGalleryView({
 const firstUrlOf = (text?: string | null): string | null =>
   text?.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/i)?.[0] ?? null;
 
-const labelOf = (m: Message, category: string): string => {
-  if (category === 'links') return firstUrlOf(m.content) ?? m.content ?? 'Lien';
-  if (category === 'audio') return 'Message vocal';
-  return m.fileName ?? 'Document';
+/**
+ * Libellé d'une ligne.
+ *
+ * ⚠️ `t` est passé en argument : cette fonction vit hors du composant et ne peut pas appeler
+ * de hook. La déplacer dedans la recréerait à chaque rendu pour rien.
+ */
+const labelOf = (m: Message, category: string, t: (k: string) => string): string => {
+  if (category === 'links') return firstUrlOf(m.content) ?? m.content ?? t('gallery.link');
+  if (category === 'audio') return t('gallery.voice_note');
+  return m.fileName ?? t('thread.document');
 };

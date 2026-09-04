@@ -1,6 +1,7 @@
 'use client';
 
 import { IconCheck } from '@/components/icons';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import { PhoneSearchPanel } from '@/components/PhoneSearchPanel';
@@ -18,10 +19,11 @@ import {
  */
 type Mode = 'direct' | 'group' | 'phone';
 
-const MODE_LABEL: Record<Mode, string> = {
-  direct: 'Conversation',
-  group: 'Nouveau groupe',
-  phone: 'Par numéro',
+/** ⚠️ Clés i18n et non libellés : traduits à l'affichage. */
+const MODE_KEY: Record<Mode, string> = {
+  direct: 'newchat.chat',
+  group: 'fab.new_group',
+  phone: 'phone.tab',
 };
 
 /**
@@ -50,6 +52,7 @@ export function NewChatDialog({
   /** Reçoit l'identifiant de la conversation créée ou retrouvée. */
   onOpened: (conversationId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('direct');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,7 +134,7 @@ export function NewChatDialog({
                     : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
                 }`}
               >
-                {MODE_LABEL[m]}
+                {t(MODE_KEY[m])}
               </button>
             ))}
           </div>
@@ -149,7 +152,7 @@ export function NewChatDialog({
             <input
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
-              placeholder="Nom du groupe"
+              placeholder={t('details.group_name')}
               className="mt-3 w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
             />
           )}
@@ -158,7 +161,7 @@ export function NewChatDialog({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher un contact"
+              placeholder={t('newchat.search_contact')}
               className="mt-3 w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
             />
           )}
@@ -166,12 +169,12 @@ export function NewChatDialog({
 
         <div className={`mt-3 flex-1 overflow-y-auto px-2 ${mode === 'phone' ? 'hidden' : ''}`}>
           {loading ? (
-            <p className="py-8 text-center text-sm text-slate-400">Chargement…</p>
+            <p className="py-8 text-center text-sm text-slate-400">{t('common.loading')}</p>
           ) : visible.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-slate-400">
               {query
-                ? 'Aucun contact trouvé.'
-                : 'Aucun contact. Ajoutez des amis depuis l’application mobile.'}
+                ? t('newchat.no_contact_found')
+                : t('newchat.no_contacts')}
             </p>
           ) : (
             visible.map((f) => {
@@ -215,7 +218,7 @@ export function NewChatDialog({
             onClick={onClose}
             className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm dark:border-zinc-700 dark:text-zinc-200"
           >
-            Annuler
+            {t('cancel')}
           </button>
           {mode === 'group' && (
             <button
@@ -223,7 +226,7 @@ export function NewChatDialog({
               onClick={submitGroup}
               className="flex-1 rounded-xl bg-[#1E40AF] py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
-              Créer{picked.length ? ` (${picked.length})` : ''}
+              {t('newchat.create')}{picked.length ? ` (${picked.length})` : ''}
             </button>
           )}
         </div>

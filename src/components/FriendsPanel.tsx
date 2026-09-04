@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/components/Avatar';
 import { IconBack } from '@/components/icons';
 import { fetchFriends, startDirectConversation, type Friend } from '@/lib/conversations';
@@ -15,10 +16,11 @@ import {
 
 type Tab = 'friends' | 'received' | 'sent';
 
-const TAB_LABEL: Record<Tab, string> = {
-  friends: 'Mes amis',
-  received: 'Reçues',
-  sent: 'Envoyées',
+/** ⚠️ Clés i18n et non libellés : traduits à l'affichage. */
+const TAB_KEY: Record<Tab, string> = {
+  friends: 'friends.my_friends',
+  received: 'friends.received',
+  sent: 'friends.sent',
 };
 
 /**
@@ -50,6 +52,12 @@ export function FriendsPanel({
   /** Remonte le nombre de demandes reçues, pour la pastille de l'en-tête. */
   onCountChange: (n: number) => void;
 }) {
+  /**
+   * ⚠️ Renommée `tr` : ce composant utilise déjà `t` comme variable de boucle sur les onglets
+   * (`(['friends', ...] as Tab[]).map((t) => …)`). Garder le nom habituel masquerait l'un par
+   * l'autre à l'intérieur de la boucle, là où les deux servent.
+   */
+  const { t: tr } = useTranslation();
   const [tab, setTab] = useState<Tab>('friends');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [received, setReceived] = useState<FriendRequest[]>([]);
@@ -156,7 +164,7 @@ export function FriendsPanel({
           : 'mx-auto mt-2 mb-4 block rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800'
       }
     >
-      Ajouter quelqu&rsquo;un par son numéro
+      {tr('friends.find_by_phone')}
     </button>
   );
 
@@ -165,12 +173,12 @@ export function FriendsPanel({
       <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
         <button
           onClick={onClose}
-          aria-label="Retour aux discussions"
+          aria-label={tr('list.back_to_chats')}
           className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
         >
           <IconBack size={20} />
         </button>
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">Amis</h1>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">{tr('friends.title')}</h1>
       </header>
 
       <div className="flex gap-2 px-4 py-3">
@@ -184,7 +192,7 @@ export function FriendsPanel({
                 : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
             }`}
           >
-            {TAB_LABEL[t]}
+            {tr(TAB_KEY[t])}
             {/* Pastille sur « Reçues » : c'est le seul onglet qui appelle une action. */}
             {t === 'received' && received.length > 0 && (
               <span
@@ -204,7 +212,7 @@ export function FriendsPanel({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher"
+            placeholder={tr('search.placeholder')}
             className="w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
           />
         </div>
@@ -214,20 +222,20 @@ export function FriendsPanel({
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          empty('Chargement…')
+          empty(tr('common.loading'))
         ) : tab === 'friends' ? (
           visibleFriends.length === 0 ? (
-            empty(query ? 'Aucun résultat.' : "Vous n'avez pas encore d'amis.")
+            empty(query ? tr('common.no_results') : tr('friends.none'))
           ) : (
             <ul>
               {visibleFriends.map((f) =>
                 row(f, [
-                  { label: 'Message', onClick: () => openChat(f.id), kind: 'primary' },
+                  { label: tr('friends.message'), onClick: () => openChat(f.id), kind: 'primary' },
                   {
-                    label: 'Retirer',
+                    label: tr('friends.remove'),
                     kind: 'danger',
                     onClick: () => {
-                      if (!window.confirm(`Retirer ${f.name} de vos amis ?`)) return;
+                      if (!window.confirm(tr('friends.remove_confirm', { name: f.name }))) return;
                       run(`remove:${f.id}`, () => removeFriend(f.id));
                     },
                   },
@@ -237,7 +245,7 @@ export function FriendsPanel({
           )
         ) : tab === 'received' ? (
           received.length === 0 ? (
-            empty('Aucune demande reçue.')
+            empty(tr('friends.none_received'))
           ) : (
             <ul>
               {received.map((r) =>
@@ -245,13 +253,13 @@ export function FriendsPanel({
                   r.user,
                   [
                     {
-                      label: 'Accepter',
+                      label: tr('friends.accept'),
                       kind: 'primary',
                       onClick: () =>
                         run(`accept:${r.requestId}`, () => acceptFriendRequest(r.requestId)),
                     },
                     {
-                      label: 'Refuser',
+                      label: tr('friends.refuse'),
                       kind: 'danger',
                       onClick: () =>
                         run(`refuse:${r.requestId}`, () => refuseFriendRequest(r.requestId)),
@@ -264,9 +272,9 @@ export function FriendsPanel({
           )
         ) : sent.length === 0 ? (
           <div className="px-6 py-10 text-center">
-            <p className="text-sm text-slate-400">Vous n&rsquo;avez envoyé aucune demande.</p>
+            <p className="text-sm text-slate-400">{tr('friends.none_sent')}</p>
             <p className="mt-1 text-sm text-slate-400">
-              Cherchez quelqu&rsquo;un par son numéro pour l&rsquo;ajouter.
+              {tr('friends.none_sent_hint')}
             </p>
             {findPeopleButton('primary')}
           </div>
@@ -277,12 +285,12 @@ export function FriendsPanel({
                 r.user,
                 [
                   {
-                    label: 'Annuler',
+                    label: tr('friends.cancel_request'),
                     onClick: () =>
                       run(`cancel:${r.requestId}`, () => cancelFriendRequest(r.requestId)),
                   },
                 ],
-                `Envoyée le ${new Date(r.createdAt).toLocaleDateString()}`,
+                tr('friends.sent_on', { date: new Date(r.createdAt).toLocaleDateString() }),
               ),
             )}
             {/* ⚠️ Toujours proposé, pas seulement sur liste vide : sinon envoyer une première

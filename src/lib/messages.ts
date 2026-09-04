@@ -404,3 +404,20 @@ export type Me = {
 };
 
 export const fetchMe = () => apiRequest<Me>('/users/me');
+
+/**
+ * Identifiant de la LIGNE qui affiche un message donné.
+ *
+ * ⚠️ Un album est plusieurs messages mais UNE ligne, ancrée sur le premier du lot. Chercher
+ * un message par son identifiant dans le DOM échoue donc silencieusement dès qu'il s'agit du
+ * 2ᵉ, 3ᵉ… média d'un envoi groupé : rien n'est trouvé, rien ne bouge, et le saut paraît
+ * capricieux — il marche sur un message texte et pas sur celui d'à côté.
+ *
+ * Renvoie `null` si le message n'est affiché nulle part (bandeau système, message écarté).
+ */
+export const rowAnchorId = (messages: Message[], messageId: string): string | null => {
+  for (const row of buildRows(messages)) {
+    if (row.messages.some((m) => m.id === messageId)) return row.messages[0].id;
+  }
+  return null;
+};

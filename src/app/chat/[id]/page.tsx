@@ -22,6 +22,7 @@ import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession } from '@/lib/auth';
 import {
   buildRows,
+  rowAnchorId,
   dayLabel,
   deleteMessage,
   editMessage,
@@ -51,6 +52,15 @@ import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
 /** Distance au bas en deçà de laquelle on considère l'utilisateur « en bas ». */
+/**
+ * Durée maximale de calage d'un saut.
+ *
+ * ⚠️ Un plafond, pas une durée d'animation : on s'arrête normalement dès que la hauteur
+ * cesse de bouger. Il n'existe que pour le cas où une image ne charge jamais — sans lui, on
+ * re-viserait indéfiniment et le fil serait impossible à faire défiler à la main.
+ */
+const JUMP_SETTLE_MS = 1200;
+
 const AT_BOTTOM_PX = 120;
 /** Déclenchement du chargement d'historique, en pixels depuis le haut. */
 const LOAD_OLDER_PX = 300;
@@ -132,6 +142,15 @@ export default function ThreadPage() {
    */
   const stickRef = useRef(true);
   /**
+   * Le fil est en cours de POSITIONNEMENT par le code (ouverture, saut, retour au présent).
+   *
+   * ⚠️ Tant qu'il est levé, `onScroll` ne déduit rien : les mouvements observés sont ceux
+   * qu'on provoque soi-même. En tirer une intention est exactement la faute que le fil
+   * mobile avait dû corriger (`lib/threadScroll.ts` : « pendant `opening` et `jumping`,
+   * `onScroll` ne déduit rien »).
+   */
+  const positioningRef = useRef(false);
+  /**
    * ⚠️ Miroir de `hasNewer` pour l'écouteur socket : celui-ci est posé UNE fois et ne verrait
    * jamais la valeur d'état changer. Même motif que `otherUserIdRef` sur mobile.
    */
@@ -154,6 +173,38 @@ export default function ThreadPage() {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  }, []);
+
+  /**
+   * Applique une position et la TIENT pendant que la mise en page se stabilise.
+   *
+   * ⚠️ Une seule tentative ne suffit jamais : les images et les cartes d'aperçu n'ont pas
+   * leur hauteur au premier rendu, et la position calculée dérive dès que l'une d'elles se
+   * charge. On ré-applique donc à chaque image, et on s'arrête dès que la hauteur totale
+   * cesse de bouger — pas au bout d'un délai fixe, qu'on aurait choisi au hasard.
+   *
+   * ⚠️ `onScroll` est neutralisé pendant toute l'opération (`positioningRef`).
+   */
+  const settle = useCallback((apply: () => void) => {
+    positioningRef.current = true;
+    const startedAt = Date.now();
+    let lastHeight = -1;
+    let stable = 0;
+    const step = () => {
+      const el = scrollRef.current;
+      if (!el) {
+        // ⚠️ Le drapeau DOIT retomber ici aussi : l'oublier figerait le fil pour de bon.
+        positioningRef.current = false;
+        return;
+      }
+      apply();
+      stable = el.scrollHeight === lastHeight ? stable + 1 : 0;
+      lastHeight = el.scrollHeight;
+      // Deux images de suite sans changement de hauteur : la mise en page a fini.
+      if (stable < 2 && Date.now() - startedAt < JUMP_SETTLE_MS) requestAnimationFrame(step);
+      else positioningRef.current = false;
+    };
+    requestAnimationFrame(step);
   }, []);
 
   /**
@@ -185,15 +236,12 @@ export default function ThreadPage() {
          * après leur premier rendu. Avec une seule, le fil s'arrêtait à ~120 px du bas et le
          * bouton de retour restait affiché alors qu'on venait de l'utiliser.
          */
-        requestAnimationFrame(() => {
-          scrollToBottom(false);
-          requestAnimationFrame(() => scrollToBottom(false));
-        });
+        settle(() => scrollToBottom(false));
       } catch {
         // Réseau : on laisse le fil tel quel, le bouton reste disponible.
       }
     })();
-  }, [hasNewer, id, scrollToBottom]);
+  }, [hasNewer, id, scrollToBottom, settle]);
 
   // ⚠️ Synchronisé dans un EFFET et non pendant le rendu : React 19 interdit d'écrire une
   // ref au rendu (la valeur pourrait être celle d'un rendu abandonné).
@@ -279,8 +327,8 @@ export default function ThreadPage() {
   useEffect(() => {
     if (loading || !openingRef.current || !messages.length) return;
     openingRef.current = false;
-    scrollToBottom(false);
-  }, [loading, messages.length, scrollToBottom]);
+    settle(() => scrollToBottom(false));
+  }, [loading, messages.length, scrollToBottom, settle]);
 
   // --- Temps réel ---
   useEffect(() => {
@@ -528,6 +576,12 @@ export default function ThreadPage() {
      * d'une fenêtre qui s'arrête un mois en arrière. Tant qu'il reste des messages plus
      * récents à charger, le bouton de retour au présent doit rester visible.
      */
+    /**
+     * ⚠️ Pendant un saut, `onScroll` ne déduit RIEN et ne charge RIEN : les mouvements qu'il
+     * observe sont ceux qu'on provoque soi-même. En tirer une intention est exactement la
+     * faute que le fil mobile avait dû corriger (`lib/threadScroll.ts`).
+     */
+    if (positioningRef.current) return;
     const nearBottom = distanceToBottom < AT_BOTTOM_PX;
     setAtBottom(nearBottom && !hasNewer);
     // Remonter dans l'historique, c'est renoncer au suivi ; redescendre, le reprendre.
@@ -633,15 +687,38 @@ export default function ThreadPage() {
    */
   const jumpTo = useCallback(
     (messageId: string) => {
-      const scrollToIt = () => {
-        const el = document.getElementById(`msg-${messageId}`);
-        if (!el) return false;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightId(messageId);
-        setTimeout(() => setHighlightId(null), 2000);
-        return true;
+      /**
+       * ⚠️ On vise la LIGNE, pas le message. Un album est plusieurs messages mais une seule
+       * ligne, ancrée sur le premier du lot : chercher `msg-<id>` échouait donc en silence
+       * pour le 2ᵉ ou 3ᵉ média d'un envoi groupé, et le saut ne faisait rien.
+       */
+      const centerOn = (list: Message[], smooth: boolean) => {
+        const anchor = rowAnchorId(list, messageId);
+        const el = anchor ? document.getElementById(`msg-${anchor}`) : null;
+        if (!el) return null;
+        el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+        return anchor;
       };
-      if (scrollToIt()) return;
+
+      /**
+       * Le surlignage porte sur la LIGNE, donc sur son ancre — et n'est posé QU'UNE FOIS.
+       *
+       * ⚠️ Le calage re-vise à chaque image : y appeler `setHighlightId` déclencherait un
+       * rendu par image pendant plus d'une seconde, et chaque appel armerait un minuteur de
+       * plus. C'est le genre de gaspillage qui finit par provoquer le décalage qu'on essaie
+       * justement de corriger.
+       */
+      const highlight = (anchor: string) => {
+        setHighlightId(anchor);
+        setTimeout(() => setHighlightId(null), 2000);
+      };
+
+      const scrollToIt = (list: Message[]) => {
+        const anchor = centerOn(list, true);
+        if (anchor) highlight(anchor);
+        return !!anchor;
+      };
+      if (scrollToIt(messages)) return;
 
       void (async () => {
         try {
@@ -663,14 +740,32 @@ export default function ThreadPage() {
             // annulant le saut qu'on vient de faire.
             stickRef.current = false;
           }
-          // Le DOM n'a pas encore rendu la fenêtre : on vise à l'image suivante.
-          requestAnimationFrame(() => requestAnimationFrame(scrollToIt));
+          /**
+           * ⚠️ Ciblage RÉPÉTÉ, pas une seule tentative. Le DOM n'a pas encore rendu la
+           * fenêtre à cet instant, et surtout les images n'ont pas leur hauteur : la
+           * position calculée à la première image dérive dès qu'une image se charge. On
+           * re-vise donc pendant une courte fenêtre, et on s'arrête dès que la hauteur
+           * totale cesse de bouger.
+           */
+          const window_ = win.messages.slice().reverse();
+          let highlighted = false;
+          settle(() => {
+            // ⚠️ Sans animation : une animation en cours serait interrompue par la suivante
+            // à chaque image, et le fil n'atteindrait jamais sa cible.
+            const anchor = centerOn(window_, false);
+            if (anchor && !highlighted) {
+              highlighted = true;
+              highlight(anchor);
+            }
+          });
         } catch {
           // Message introuvable (supprimé, expiré) : on ne bouge pas.
         }
       })();
     },
-    [id],
+    // `messages` sert au raccourci « déjà à l'écran » : sans lui, on relirait une liste
+    // périmée et on irait rechercher au serveur une fenêtre déjà chargée.
+    [id, messages, settle],
   );
 
   const react = useCallback(

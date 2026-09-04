@@ -189,11 +189,23 @@ export function ConversationList() {
       });
     };
 
+    /**
+     * ⚠️ La pastille doit bouger EN DIRECT. Sans cet écouteur, une demande reçue pendant que
+     * l'onglet est ouvert n'apparaissait qu'au rechargement — et personne ne recharge une
+     * messagerie. Le mobile écoute déjà cet événement dans `app/_layout.tsx`.
+     *
+     * ⚠️ Incrémenté sans aller-retour, comme sur mobile : l'événement dit qu'une demande
+     * vient d'arriver, la recompter au serveur n'apprendrait rien de plus.
+     */
+    const onFriendRequest = () => setFriendRequests((n) => n + 1);
+
+    socket.on('friend_request_received', onFriendRequest);
     socket.on('conversation_updated', onUpdate);
     socket.on('added_to_group', load);
     socket.on('removed_from_group', load);
 
     return () => {
+      socket.off('friend_request_received', onFriendRequest);
       socket.off('conversation_updated', onUpdate);
       socket.off('added_to_group', load);
       socket.off('removed_from_group', load);

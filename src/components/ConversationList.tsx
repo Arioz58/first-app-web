@@ -23,9 +23,12 @@ import {
   IconPin,
   IconPlus,
   IconStar,
+  IconUsers,
   IconVideo,
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
+import { FriendsPanel } from '@/components/FriendsPanel';
+import { fetchFriendRequests } from '@/lib/friends';
 import { ProfilePanel } from '@/components/ProfilePanel';
 import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession } from '@/lib/auth';
@@ -100,6 +103,15 @@ export function ConversationList() {
   const [filter, setFilter] = useState<Filter>('all');
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  /**
+   * Demandes d'ami reçues, pour la pastille de l'en-tête.
+   *
+   * ⚠️ Alimentée par le panneau lui-même quand il charge : sans compteur visible, une demande
+   * reçue n'aurait aucune chance d'être remarquée — c'était tout le problème que ce panneau
+   * vient résoudre.
+   */
+  const [friendRequests, setFriendRequests] = useState(0);
   /**
    * Mon profil, chargé ICI et passé au panneau.
    *
@@ -136,6 +148,15 @@ export function ConversationList() {
     // Profil affiché en pied de colonne. Un échec n'empêche rien : la vignette reste en
     // squelette et la messagerie fonctionne.
     void fetchMe().then(setMe).catch(() => {});
+    /**
+     * Pastille des demandes d'ami, chargée ICI et non par le panneau.
+     *
+     * ⚠️ Sinon elle n'apparaîtrait qu'APRÈS avoir ouvert le panneau — or c'est elle qui doit
+     * donner envie de l'ouvrir. Le panneau la met ensuite à jour après chaque accept/refus.
+     */
+    void fetchFriendRequests()
+      .then(([received]) => setFriendRequests(received.length))
+      .catch(() => {});
 
     const socket = connectSocket();
 
@@ -295,6 +316,19 @@ export function ConversationList() {
           )}
         </h1>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setFriendsOpen(true)}
+            title="Amis"
+            aria-label="Amis"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <IconUsers size={19} />
+            {friendRequests > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {friendRequests > 9 ? '9+' : friendRequests}
+              </span>
+            )}
+          </button>
           <button
             onClick={() => setNewChatOpen(true)}
             title="Nouvelle conversation"
@@ -593,6 +627,18 @@ export function ConversationList() {
           <span className="block text-xs text-slate-400">Vous</span>
         </span>
       </button>
+
+      {friendsOpen && (
+        <FriendsPanel
+          onClose={() => setFriendsOpen(false)}
+          onOpenConversation={(convId) => {
+            // La conversation peut être neuve : on recharge pour qu'elle figure dans la liste.
+            load();
+            router.push(`/chat/${convId}`);
+          }}
+          onCountChange={setFriendRequests}
+        />
+      )}
 
       {profileOpen && <ProfilePanel me={me} onClose={() => setProfileOpen(false)} />}
 

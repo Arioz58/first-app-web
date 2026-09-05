@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
+import { MotionConfig } from 'framer-motion';
 import { detectLanguage, initI18n, setLanguage, type Language } from '@/lib/i18n';
 
 /**
@@ -31,5 +32,16 @@ export function I18nProvider({ lang, children }: { lang: Language; children: Rea
     }
   }, [lang]);
 
-  return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
+  /**
+   * ⚠️ `reducedMotion="user"` respecte `prefers-reduced-motion` du système, pour TOUTE
+   * l'application d'un coup. Ce n'est pas une option de confort : les animations de
+   * déplacement provoquent des nausées chez une partie des utilisateurs, et une interface
+   * qu'on ne peut pas calmer leur devient inutilisable. Framer Motion neutralise alors les
+   * translations et les échelles en gardant les fondus, ce qui laisse l'interface lisible.
+   */
+  return (
+    <I18nextProvider i18n={i18n}>
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+    </I18nextProvider>
+  );
 }

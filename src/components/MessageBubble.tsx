@@ -1,5 +1,9 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { bubble } from '@/lib/motion';
+import { dejaVu, marquerVus } from '@/lib/seenMessages';
+
 import {
   anchorFromEvent,
   FloatingMenu,
@@ -91,10 +95,27 @@ export function MessageBubble({
   // identique à chaque rendu.
   /** Point d'ancrage du menu (`null` = fermé) — voir `FloatingMenu`. */
   const [menuAt, setMenuAt] = useState<MenuAnchor | null>(null);
+
   const [canEdit, setCanEdit] = useState(false);
   const item = row.messages[0];
   const isMe = item.sender?.id === meId;
   const album = row.messages.length > 1 ? row.messages : null;
+
+  /**
+   * Ce message vient-il d'ARRIVER, ou était-il déjà là ?
+   *
+   * ⚠️ Décidé UNE FOIS au montage (initialiseur paresseux) et non à chaque rendu : la valeur
+   * doit rester stable pour toute la vie de la bulle, sinon un simple re-rendu — une réaction
+   * posée, un accusé de lecture — rejouerait l'animation d'entrée.
+   *
+   * ⚠️ Après `item` mais AVANT le retour anticipé du bandeau système : l'ordre des hooks doit
+   * être identique à chaque rendu, et l'initialiseur a besoin de l'identifiant du message.
+   */
+  const [neuf] = useState(() => {
+    const jamaisVu = !dejaVu(item.id);
+    marquerVus([item.id]);
+    return jamaisVu;
+  });
 
   // Bandeau système : son contenu est une clé i18n en JSON, non traduite sur le web.
   /**
@@ -136,8 +157,16 @@ export function MessageBubble({
   const big = emojis >= 1 && emojis <= 3;
 
   return (
-    <div
+    <motion.div
       id={`msg-${item.id}`}
+      /**
+       * ⚠️ `initial={false}` sur un message DÉJÀ VU : sans cela, chaque page d'historique
+       * rapatriée rejouerait trente animations d'entrée d'un coup, alors qu'on remonte
+       * justement pour lire.
+       */
+      initial={neuf ? 'hidden' : false}
+      animate="show"
+      variants={bubble(isMe)}
       className={`group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} ${
         firstOfGroup ? 'mt-3' : 'mt-0.5'
       } ${highlighted ? 'rounded-xl bg-yellow-200/40 py-1 transition-colors' : ''}`}
@@ -386,7 +415,7 @@ export function MessageBubble({
           })}
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }
 

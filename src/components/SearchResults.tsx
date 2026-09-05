@@ -1,5 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { listItem, staggeredList } from '@/lib/motion';
+
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@/components/Avatar';
@@ -49,14 +52,31 @@ const excerpt = (content: string, term: string): string => {
   return `…${flat.slice(at - 30, at + 90)}`;
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  /** Nombre de lignes — la cascade se resserre pour que l'ensemble reste bref. */
+  count: number;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="pb-2">
-      <h2 className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+    <motion.section
+      variants={staggeredList(count)}
+      initial="hidden"
+      animate="show"
+      className="pb-2"
+    >
+      <motion.h2
+        variants={listItem}
+        className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400"
+      >
         {title}
-      </h2>
+      </motion.h2>
       {children}
-    </section>
+    </motion.section>
   );
 }
 
@@ -101,12 +121,12 @@ export function SearchResults({
   return (
     <div className="pb-4">
       {conversations.length > 0 && (
-        <Section title={t('search.section_chats')}>
+        <Section title={t('search.section_chats')} count={conversations.length}>
           <ul>
             {conversations.map((c) => {
               const name = conversationName(c, meId);
               return (
-                <li key={c.id}>
+                <motion.li key={c.id} variants={listItem}>
                   <button
                     onClick={() => onOpenConversation(c.id)}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800"
@@ -116,7 +136,7 @@ export function SearchResults({
                       <Highlight text={name} term={term} />
                     </span>
                   </button>
-                </li>
+                </motion.li>
               );
             })}
           </ul>
@@ -124,12 +144,12 @@ export function SearchResults({
       )}
 
       {hits.length > 0 && (
-        <Section title={t('search.section_messages')}>
+        <Section title={t('search.section_messages')} count={hits.length}>
           <ul>
             {hits.map((hit) => {
               const { name, photoUrl } = hitIdentity(hit);
               return (
-                <li key={hit.id}>
+                <motion.li key={hit.id} variants={listItem}>
                   <button
                     onClick={() => onOpenMessage(hit.conversationId, hit.id)}
                     className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800"
@@ -149,7 +169,7 @@ export function SearchResults({
                       </span>
                     </span>
                   </button>
-                </li>
+                </motion.li>
               );
             })}
           </ul>
@@ -157,10 +177,10 @@ export function SearchResults({
       )}
 
       {contacts.length > 0 && (
-        <Section title={t('search.section_contacts')}>
+        <Section title={t('search.section_contacts')} count={contacts.length}>
           <ul>
             {contacts.map((f) => (
-              <li key={f.id}>
+              <motion.li key={f.id} variants={listItem}>
                 <button
                   onClick={() => onOpenContact(f.id)}
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800"
@@ -170,7 +190,7 @@ export function SearchResults({
                     <Highlight text={f.name} term={term} />
                   </span>
                 </button>
-              </li>
+              </motion.li>
             ))}
           </ul>
         </Section>

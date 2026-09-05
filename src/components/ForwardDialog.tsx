@@ -1,5 +1,8 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { backdrop, dialog } from '@/lib/motion';
+
 import { IconCheck } from '@/components/icons';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useState } from 'react';
@@ -67,15 +70,26 @@ export function ForwardDialog({
       .filter((c) => !q || conversationName(c, meId).toLowerCase().includes(q));
   }, [items, query, meId]);
 
-  if (!open) return null;
+  /**
+   * ⚠️ `AnimatePresence` reste monté, c'est le CONTENU qui apparaît et disparaît. Avec un
+   * `if (!open) return null`, le composant était retiré de l'arbre à la fermeture et
+   * l'animation de sortie n'avait jamais lieu de se jouer : la boîte disparaissait d'un coup.
+   */
 
   return (
-    <div
+    <AnimatePresence>
+      {open && (
+    <motion.div
       onClick={onClose}
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
     >
-      <div
+      <motion.div
         onClick={(e) => e.stopPropagation()}
+        variants={dialog}
         className="flex max-h-[70vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
       >
         <div className="px-5 pt-5">
@@ -147,7 +161,9 @@ export function ForwardDialog({
             Envoyer{picked.length ? ` (${picked.length})` : ''}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

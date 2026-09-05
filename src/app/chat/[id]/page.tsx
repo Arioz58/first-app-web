@@ -51,6 +51,9 @@ import {
   type Quote,
 } from '@/lib/messages';
 import { ACCEPT, mediaKindOf, uploadFile } from '@/lib/upload';
+import { marquerVus, oublierVus } from '@/lib/seenMessages';
+import { AnimatePresence, motion } from 'framer-motion';
+import { damped, snappy } from '@/lib/motion';
 import type { BubbleActions } from '@/components/MessageBubble';
 import { ForwardDialog } from '@/components/ForwardDialog';
 import GifPicker from '@/components/GifPicker';
@@ -286,6 +289,7 @@ export default function ThreadPage() {
     void (async () => {
       try {
         const page = await fetchMessages(id);
+        marquerVus(page.map((m) => m.id));
         setMessages(page.slice().reverse());
         setHasNewer(false);
         // La page fraîche ne contient que les derniers messages : tout le reste est de
@@ -363,6 +367,7 @@ export default function ThreadPage() {
         if (openOn && !page.some((x) => x.id === openOn)) {
           const win = await fetchAround(id, openOn).catch(() => null);
           if (win && !cancelled) {
+            marquerVus(win.messages.map((m) => m.id));
             setMessages(win.messages.slice().reverse());
             setHasOlder(win.hasOlder);
             setHasNewer(win.hasNewer);
@@ -372,11 +377,13 @@ export default function ThreadPage() {
               stickRef.current = false;
             }
           } else {
-            setMessages(page.slice().reverse());
+            marquerVus(page.map((m) => m.id));
+        setMessages(page.slice().reverse());
             setHasOlder(page.length >= 30);
           }
         } else {
-          setMessages(page.slice().reverse());
+          marquerVus(page.map((m) => m.id));
+        setMessages(page.slice().reverse());
           setHasOlder(page.length >= 30);
         }
         void markConversationRead(id);
@@ -389,6 +396,9 @@ export default function ThreadPage() {
 
     return () => {
       cancelled = true;
+      // ⚠️ Registre vidé en quittant : il grandirait sans fin au long d'une session, et
+      // rouvrir la conversation doit repartir d'un historique « déjà vu », pas animé.
+      oublierVus();
     };
     // ⚠️ `meId` volontairement hors dépendances : il vient d'un initialiseur paresseux et ne
     // change jamais pendant la vie de l'écran. L'ajouter n'apporterait rien, et relancerait
@@ -652,6 +662,7 @@ export default function ThreadPage() {
         const page = await fetchMessages(id, { cursor: messages[0].id });
         if (page.length < 30) setHasOlder(false);
         if (page.length) {
+          marquerVus(page.map((m) => m.id));
           setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'start'));
           requestAnimationFrame(() => {
             const after = scrollRef.current?.scrollHeight ?? 0;
@@ -686,7 +697,10 @@ export default function ThreadPage() {
       try {
         const page = await fetchMessages(id, { newerCursor: messages[messages.length - 1].id });
         if (page.length < 30) setHasNewer(false);
-        if (page.length) setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'end'));
+        if (page.length) {
+          marquerVus(page.map((m) => m.id));
+          setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'end'));
+        }
       } catch {
         // Réseau : `hasNewer` reste vrai, le prochain passage réessaiera.
       } finally {
@@ -1644,15 +1658,29 @@ export default function ThreadPage() {
         />
         {/* Un seul point d'entrée pour toutes les pièces jointes : le « + » ouvre le menu,
             les boutons séparés (trombone, GIF) ont été fusionnés dedans. */}
-        <button
+        {/* ⚠️ Le « + » PIVOTE en croix quand son menu est ouvert : le bouton dit lui-même
+            dans quel état il se trouve, au lieu de laisser deviner que le menu vient de là. */}
+        <motion.button
           type="button"
           onClick={(e) => setPlusMenu(anchorFromEvent(e))}
           disabled={uploading || !!editing}
+          whileTap={{ scale: 0.88 }}
+          transition={snappy}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
           aria-label={t('thread.attach')}
         >
-          {uploading ? <IconSpinner size={19} className="animate-spin" /> : <IconPlus size={22} />}
-        </button>
+          {uploading ? (
+            <IconSpinner size={19} className="animate-spin" />
+          ) : (
+            <motion.span
+              animate={{ rotate: plusMenu ? 45 : 0 }}
+              transition={damped}
+              className="flex"
+            >
+              <IconPlus size={22} />
+            </motion.span>
+          )}
+        </motion.button>
         <textarea
           value={text}
           onChange={(e) => onType(e.target.value)}
@@ -1669,26 +1697,48 @@ export default function ThreadPage() {
         />
         {/* ⚠️ Micro quand le champ est vide, envoi sinon — et jamais de micro en mode
             édition : on modifie du texte, pas un vocal. */}
-        {text.trim() || editing ? (
-          <button
-            type="submit"
-            disabled={!text.trim()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-            aria-label={t(editing ? 'thread.validate' : 'thread.send')}
-          >
-            {editing ? <IconCheck size={20} /> : <IconSend size={19} />}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setRecording(true)}
-            disabled={uploading}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-            aria-label={t('thread.record')}
-          >
-            <IconMic size={19} />
-          </button>
-        )}
+        {/*
+          ⚠️ `mode="popLayout"` : l'icône sortante quitte la mise en page immédiatement, si
+          bien que l'entrante prend sa place sans que le bouton ne s'élargisse un instant.
+          Sans cela, le composeur tressaute à chaque première lettre tapée.
+
+          ⚠️ La rotation accompagne le changement — micro/envoi ne sont pas deux états du
+          même bouton mais deux gestes différents, et la permutation doit se voir.
+        */}
+        <AnimatePresence mode="popLayout" initial={false}>
+          {text.trim() || editing ? (
+            <motion.button
+              key="envoyer"
+              type="submit"
+              disabled={!text.trim()}
+              initial={{ opacity: 0, scale: 0.7, rotate: -35 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.7, rotate: 35 }}
+              whileTap={{ scale: 0.9 }}
+              transition={damped}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+              aria-label={t(editing ? 'thread.validate' : 'thread.send')}
+            >
+              {editing ? <IconCheck size={20} /> : <IconSend size={19} />}
+            </motion.button>
+          ) : (
+            <motion.button
+              key="micro"
+              type="button"
+              onClick={() => setRecording(true)}
+              disabled={uploading}
+              initial={{ opacity: 0, scale: 0.7, rotate: 35 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.7, rotate: -35 }}
+              whileTap={{ scale: 0.9 }}
+              transition={damped}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+              aria-label={t('thread.record')}
+            >
+              <IconMic size={19} />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </form>
       )}
       {cameraOpen && (

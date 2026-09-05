@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
+import { damped } from '@/lib/motion';
 
 /**
  * Menu flottant, positionné au point où on l'a ouvert.
@@ -137,10 +139,22 @@ export function FloatingMenu({
   if (!anchor || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div
+    <motion.div
       ref={ref}
       role="menu"
+      /**
+       * ⚠️ L'échelle part de 0.94 et l'origine suit le coin d'ouverture : le menu semble
+       * SORTIR du point cliqué au lieu d'apparaître au milieu de nulle part.
+       *
+       * ⚠️ Transition amortie (`damped`) et non élastique : un menu qui rebondit se lit
+       * comme une erreur d'affichage, et son contenu — du texte — devient flou pendant le
+       * dépassement.
+       */
+      initial={{ opacity: 0, scale: 0.94, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={damped}
       style={{
+        transformOrigin: 'top left',
         left: pos?.x ?? anchor.x,
         top: pos?.y ?? anchor.y,
         width,
@@ -150,7 +164,7 @@ export function FloatingMenu({
       className="fixed z-[61] overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200 dark:bg-zinc-800 dark:ring-zinc-700"
     >
       {children}
-    </div>,
+    </motion.div>,
     document.body,
   );
 }

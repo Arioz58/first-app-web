@@ -1,5 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { backdrop, dialog } from '@/lib/motion';
+
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/components/Avatar';
@@ -151,12 +154,17 @@ export function UserProfileDialog({
   };
 
   return (
-    <div
+    <motion.div
       onClick={onClose}
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
     >
-      <div
+      <motion.div
         onClick={(e) => e.stopPropagation()}
+        variants={dialog}
         className="flex max-h-[75vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-zinc-800">
@@ -252,7 +260,7 @@ export function UserProfileDialog({
             </>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

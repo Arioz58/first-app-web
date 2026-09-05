@@ -1,5 +1,8 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { backdrop, dialog } from '@/lib/motion';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/components/Avatar';
@@ -62,7 +65,11 @@ export function AddMembersDialog({
       .filter((f) => (q ? f.name.toLowerCase().includes(q) : true));
   }, [friends, existingIds, query]);
 
-  if (!open) return null;
+  /**
+   * ⚠️ `AnimatePresence` reste monté, c'est le CONTENU qui apparaît et disparaît. Avec un
+   * `if (!open) return null`, le composant était retiré de l'arbre à la fermeture et
+   * l'animation de sortie n'avait jamais lieu de se jouer : la boîte disparaissait d'un coup.
+   */
 
   const submit = () => {
     if (!picked.length) return;
@@ -77,12 +84,19 @@ export function AddMembersDialog({
   };
 
   return (
-    <div
+    <AnimatePresence>
+      {open && (
+    <motion.div
       onClick={onClose}
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
     >
-      <div
+      <motion.div
         onClick={(e) => e.stopPropagation()}
+        variants={dialog}
         className="flex max-h-[75vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
       >
         <div className="px-5 pt-5">
@@ -144,7 +158,9 @@ export function AddMembersDialog({
             {t('newchat.add')}{picked.length ? ` (${picked.length})` : ''}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

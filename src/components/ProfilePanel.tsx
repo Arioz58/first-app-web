@@ -1,5 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { panel } from '@/lib/motion';
+
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
@@ -94,7 +97,12 @@ export function ProfilePanel({
 
   if (blockedOpen) {
     return (
-      <div className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900">
+      <motion.div
+        variants={panel}
+        initial="hidden"
+        animate="show"
+        className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900"
+      >
         <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
           <button
             onClick={() => setBlockedOpen(false)}
@@ -143,12 +151,17 @@ export function ProfilePanel({
             </ul>
           )}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900">
+    <motion.div
+      variants={panel}
+      initial="hidden"
+      animate="show"
+      className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900"
+    >
       <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
         <button
           onClick={onClose}
@@ -318,6 +331,6 @@ export function ProfilePanel({
           </button>
         </section>
       </div>
-    </div>
+    </motion.div>
   );
 }

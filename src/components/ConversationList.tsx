@@ -31,6 +31,8 @@ import {
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { SearchResults } from '@/components/SearchResults';
 import { StoriesBar } from '@/components/StoriesBar';
+import { AnimatePresence, motion } from 'framer-motion';
+import { soft } from '@/lib/motion';
 import { notify, notificationState, registerNotificationWorker } from '@/lib/webNotifications';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
@@ -643,6 +645,17 @@ export function ConversationList() {
           </div>
         ) : (
           <ul className="px-2 pb-4">
+            {/*
+              ⚠️ `layout` sur chaque ligne : quand un message arrive, la conversation REMONTE
+              en tête et le mouvement se voit, au lieu de sauter d'un coup. C'est l'animation
+              la plus utile de l'écran — c'est elle qui dit « il vient de se passer quelque
+              chose ici ».
+
+              ⚠️ `AnimatePresence` avec `initial={false}` : sans lui, les vingt conversations
+              joueraient leur entrée au premier chargement, ce qui donne un écran qui gigote
+              avant d'être lisible. On n'anime que les changements SUIVANTS.
+            */}
+            <AnimatePresence initial={false}>
             {visible.map((c) => {
               const last = c.messages[0];
               const preview = messagePreview(last);
@@ -650,7 +663,12 @@ export function ConversationList() {
               const unread = c.unreadCount > 0;
               const active = c.id === activeId;
               return (
-                <li
+                <motion.li
+                  layout="position"
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, transition: { duration: 0.16 } }}
+                  transition={soft}
                   key={c.id}
                   onContextMenu={openOnRightClick((at) => setMenuFor({ id: c.id, at }))}
                   className="group relative"
@@ -731,9 +749,10 @@ export function ConversationList() {
                   >
                     <IconMore size={16} />
                   </button>
-                </li>
+                </motion.li>
               );
             })}
+            </AnimatePresence>
           </ul>
         )}
       </div>

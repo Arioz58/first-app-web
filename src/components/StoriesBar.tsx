@@ -1,5 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { listContainer, listItem, snappy } from '@/lib/motion';
+
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -77,11 +80,21 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
 
   return (
     <>
-      <div className="flex gap-3 overflow-x-auto px-4 pb-3">
+      {/* ⚠️ Cascade courte (35 ms par vignette) : au-delà, une barre de dix personnes met
+          une demi-seconde à finir d'apparaître et l'effet passe de vivant à lent. */}
+      <motion.div
+        variants={listContainer}
+        initial="hidden"
+        animate="show"
+        className="flex gap-3 overflow-x-auto px-4 pb-3"
+      >
         {/* Tuile de création, affichée seulement quand je n'ai pas encore de story — sinon
             c'est le « + » posé sur ma propre vignette qui joue ce rôle. */}
         {!jaiUneStory && (
-          <button
+          <motion.button
+            variants={listItem}
+            whileTap={{ scale: 0.92 }}
+            transition={snappy}
             onClick={() => setComposeur(true)}
             className="flex w-16 shrink-0 flex-col items-center gap-1"
           >
@@ -95,14 +108,17 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
             <span className="w-full truncate text-center text-[11px] text-slate-600 dark:text-zinc-400">
               {t('stories.mine')}
             </span>
-          </button>
+          </motion.button>
         )}
 
         {groups.map((g, i) => {
           const estMoi = g.user.id === me?.id;
           return (
-            <button
+            <motion.button
               key={g.user.id}
+              variants={listItem}
+              whileTap={{ scale: 0.92 }}
+              transition={snappy}
               onClick={() => setOuvert(i)}
               className="flex w-16 shrink-0 flex-col items-center gap-1"
             >
@@ -157,10 +173,10 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
               <span className="w-full truncate text-center text-[11px] text-slate-600 dark:text-zinc-400">
                 {estMoi ? t('stories.mine') : g.user.name}
               </span>
-            </button>
+            </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
       {composeur && (
         <StoryComposer

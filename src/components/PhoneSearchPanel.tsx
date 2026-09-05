@@ -41,7 +41,15 @@ const RELATION_KEY: Record<RelationStatus, string> = {
 /** Même délai que le mobile. L'endpoint est rate-limité : une requête par frappe le viderait. */
 const DEBOUNCE_MS = 400;
 
-export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: string) => void }) {
+export function PhoneSearchPanel({
+  onOpened,
+  onOpenProfile,
+}: {
+  onOpened: (conversationId: string) => void;
+  /** ⚠️ La carte mène désormais au PROFIL, comme sur mobile : les actions y sont plus
+   *  complètes, et c'est là qu'on décide quoi faire de quelqu'un qu'on vient de trouver. */
+  onOpenProfile: (userId: string) => void;
+}) {
   const { t } = useTranslation();
   const [country, setCountry] = useState<Country>(defaultCountry);
   const [phone, setPhone] = useState('');
@@ -154,14 +162,17 @@ export function PhoneSearchPanel({ onOpened }: { onOpened: (conversationId: stri
     const label = sentTo === c.id ? t('phone.request_sent') : key ? t(key) : '';
     return (
       <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-700">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => onOpenProfile(c.id)}
+          className="flex w-full items-center gap-3 text-left"
+        >
           <Avatar name={c.name} photoUrl={c.photoUrl} size={44} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-slate-900 dark:text-zinc-100">{c.name}</p>
             <p className="truncate text-sm text-slate-400">{c.phone}</p>
             {label && <p className="mt-0.5 text-xs text-[#1E40AF] dark:text-blue-400">{label}</p>}
           </div>
-        </div>
+        </button>
         {showActions && (
           <div className="mt-3 flex gap-2">
             {/* ⚠️ « Ajouter en ami » n'est proposé que si aucune relation n'existe : le

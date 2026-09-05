@@ -65,6 +65,7 @@ import {
   fetchMediaCounts,
   fetchPins,
   fetchStarred,
+  fetchBlocked,
   fetchUserProfile,
   REPORT_CATEGORIES,
   reportUser,
@@ -181,12 +182,22 @@ export function DetailsPanel({
     void fetchStarred(meta.id).then(setStarred).catch(() => setStarred([]));
     if (!isGroup && other) {
       void fetchUserProfile(other.userId)
-        .then((p) => {
-          setProfile(p);
-          // `relationStatus` porte le blocage : c'est lui qui décide du libellé de l'action.
-          setBlocked(p.relationStatus === 'blocked');
-        })
+        .then(setProfile)
         .catch(() => setProfile(null));
+      /**
+       * ⚠️ Le blocage vient de `/blocks`, PAS de `relationStatus`.
+       *
+       * Le code testait `relationStatus === 'blocked'`, une valeur que le serveur ne renvoie
+       * JAMAIS : `getRelationStatus` ne produit que `self`, `friends`, `request_sent`,
+       * `request_received` et `none`. Le test était donc toujours faux et l'action affichait
+       * « Bloquer » même sur quelqu'un qu'on venait de bloquer.
+       *
+       * ⚠️ Le profil ne peut pas servir de source : bloquée, la personne renvoie 404 —
+       * précisément pour ne rien révéler. Seule la liste de MES blocages fait foi.
+       */
+      void fetchBlocked()
+        .then((list) => setBlocked(list.some((u) => u.id === other.userId)))
+        .catch(() => {});
     }
   }, [open, meta, isGroup, other]);
 

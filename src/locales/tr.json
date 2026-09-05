@@ -315,5 +315,14 @@
     "7d": "7 gün",
     "30d": "30 gün",
     "off": "Kapalı"
+  },
+  "profile_user": {
+    "title": "Profil",
+    "mutual_one": "1 ortak arkadaş",
+    "mutual_other": "{{count}} ortak arkadaş",
+    "last_seen": "son görülme {{date}}",
+    "no_info": "Bu kişi daha fazla bilgi paylaşmıyor.",
+    "cancel_request": "İsteği iptal et",
+    "unavailable": "Profil kullanılamıyor."
   }
 }

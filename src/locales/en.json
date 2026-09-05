@@ -315,5 +315,14 @@
     "7d": "7 days",
     "30d": "30 days",
     "off": "Off"
+  },
+  "profile_user": {
+    "title": "Profile",
+    "mutual_one": "1 mutual friend",
+    "mutual_other": "{{count}} mutual friends",
+    "last_seen": "last seen {{date}}",
+    "no_info": "This person doesn't share more information.",
+    "cancel_request": "Cancel request",
+    "unavailable": "Profile unavailable."
   }
 }

@@ -36,11 +36,14 @@ const TAB_KEY: Record<Tab, string> = {
 export function FriendsPanel({
   onClose,
   onOpenConversation,
+  onOpenProfile,
   onFindPeople,
   onCountChange,
 }: {
   onClose: () => void;
   onOpenConversation: (conversationId: string) => void;
+  /** Ouvre le profil de quelqu'un — la fenêtre est portée par la liste. */
+  onOpenProfile: (userId: string) => void;
   /**
    * Mène à la recherche par numéro.
    *
@@ -124,11 +127,18 @@ export function FriendsPanel({
     subtitle?: string,
   ) => (
     <li key={user.id} className="flex items-center gap-3 px-4 py-2.5">
+      {/* ⚠️ Seuls l'avatar et le nom ouvrent le profil, pas la ligne entière : les boutons
+          d'action vivent à droite, et un parent cliquable capterait leurs clics. */}
+      <button
+        onClick={() => onOpenProfile(user.id)}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
       <Avatar name={user.name} photoUrl={user.photoUrl} size={40} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-slate-900 dark:text-zinc-100">{user.name}</p>
         {subtitle && <p className="truncate text-xs text-slate-400">{subtitle}</p>}
       </div>
+      </button>
       <div className="flex shrink-0 gap-1.5">
         {actions.map((a) => (
           <button

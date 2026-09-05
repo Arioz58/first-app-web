@@ -38,6 +38,7 @@ export function NewChatDialog({
   onClose,
   onOpened,
   initialMode = 'direct',
+  onOpenProfile,
 }: {
   open: boolean;
   /**
@@ -48,6 +49,8 @@ export function NewChatDialog({
    * d'onglet, juste après avoir cliqué sur un bouton qui promettait autre chose.
    */
   initialMode?: Mode;
+  /** Transmis à la recherche par numéro, dont la carte mène au profil. */
+  onOpenProfile: (userId: string) => void;
   onClose: () => void;
   /** Reçoit l'identifiant de la conversation créée ou retrouvée. */
   onOpened: (conversationId: string) => void;
@@ -141,6 +144,10 @@ export function NewChatDialog({
 
           {mode === 'phone' && (
             <PhoneSearchPanel
+              onOpenProfile={(id) => {
+                onOpenProfile(id);
+                onClose();
+              }}
               onOpened={(convId) => {
                 onOpened(convId);
                 onClose();

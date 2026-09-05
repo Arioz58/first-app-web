@@ -33,6 +33,7 @@ import { FriendsPanel } from '@/components/FriendsPanel';
 import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
 import { fetchFriendRequests } from '@/lib/friends';
 import { ProfilePanel } from '@/components/ProfilePanel';
+import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession } from '@/lib/auth';
 import {
@@ -128,6 +129,14 @@ export function ConversationList() {
    * (choix serveur), la bannière est donc le seul signal qu'un inconnu a écrit.
    */
   const [messageRequests, setMessageRequests] = useState(0);
+  /**
+   * Profil ouvert en fenêtre.
+   *
+   * ⚠️ Porté par la LISTE et non par chaque appelant : elle est le seul parent commun à la
+   * recherche par numéro, au panneau Amis et au panneau de détails. Le dupliquer ferait
+   * cohabiter plusieurs fenêtres, dont une seule serait au premier plan.
+   */
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   /**
    * Mon profil, chargé ICI et passé au panneau.
    *
@@ -690,8 +699,20 @@ export function ConversationList() {
         />
       )}
 
+      {profileUserId && (
+        <UserProfileDialog
+          userId={profileUserId}
+          onClose={() => setProfileUserId(null)}
+          onOpenConversation={(convId) => {
+            load();
+            router.push(`/chat/${convId}`);
+          }}
+        />
+      )}
+
       {friendsOpen && (
         <FriendsPanel
+          onOpenProfile={setProfileUserId}
           onClose={() => setFriendsOpen(false)}
           onOpenConversation={(convId) => {
             // La conversation peut être neuve : on recharge pour qu'elle figure dans la liste.
@@ -714,6 +735,7 @@ export function ConversationList() {
       <NewChatDialog
         open={newChatOpen}
         initialMode={newChatMode}
+        onOpenProfile={setProfileUserId}
         onClose={() => setNewChatOpen(false)}
         onOpened={(convId) => {
           // La conversation peut être neuve : on recharge la liste pour qu'elle y figure.

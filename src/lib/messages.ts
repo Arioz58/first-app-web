@@ -299,7 +299,17 @@ export type UserProfile = {
   lastSeenAt: string | null;
   isFriend: boolean;
   mutualFriendsCount: number;
-  relationStatus: string;
+  relationStatus: 'self' | 'friends' | 'request_sent' | 'request_received' | 'none';
+  /**
+   * ⚠️ Ces cinq champs étaient renvoyés par le serveur mais ABSENTS du type : ce sont eux qui
+   * décident des boutons. Sans eux, l'interface devait deviner ce qui est permis — et le
+   * serveur refuse ce qu'il n'autorise pas, donc un bouton deviné échoue au clic.
+   */
+  requestId: string | null;
+  isSelf: boolean;
+  canMessage: boolean;
+  canCall: boolean;
+  canFriendRequest: boolean;
 };
 
 /**
@@ -467,3 +477,9 @@ export const systemText = (
     return '';
   }
 };
+
+/** Amis en commun avec quelqu'un (404 si l'un des deux a bloqué l'autre). */
+export const fetchMutualFriends = (userId: string) =>
+  apiRequest<{ id: string; name: string; photoUrl: string | null }[]>(
+    `/users/${userId}/mutual-friends`,
+  );

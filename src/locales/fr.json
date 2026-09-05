@@ -315,5 +315,14 @@
     "7d": "7 jours",
     "30d": "30 jours",
     "off": "Désactivé"
+  },
+  "profile_user": {
+    "title": "Profil",
+    "mutual_one": "1 ami en commun",
+    "mutual_other": "{{count}} amis en commun",
+    "last_seen": "vu le {{date}}",
+    "no_info": "Cette personne ne partage pas plus d'informations.",
+    "cancel_request": "Annuler la demande",
+    "unavailable": "Profil indisponible."
   }
 }

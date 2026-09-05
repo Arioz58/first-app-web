@@ -32,21 +32,34 @@ export type ComposerAction = {
 const TAILLE = 42;
 
 /**
- * Espacement vertical entre deux pastilles, de centre à centre.
+ * Éventail : chaque pastille est au bout d'un BRAS qui pivote autour du bouton.
  *
- * ⚠️ Doit rester supérieur à `TAILLE`, sinon les pastilles se touchent. 54 px pour 42 px de
- * diamètre laisse 12 px de jour — l'arc essayé précédemment butait sur ce même calcul, à ceci
- * près qu'un arc doit le tenir sur une corde et non sur une droite.
+ * ⚠️ Le mouvement ne consiste PAS à déplacer les pastilles vers un point calculé sur un
+ * cercle — ce serait un déplacement en ligne droite vers une position qui se trouve être sur
+ * un arc. Ici c'est le bras qui tourne, donc la pastille SUIT réellement l'arc, comme la lame
+ * d'un éventail. C'est la différence entre « disposé en arc » et « déplié en arc ».
+ *
+ * ⚠️ Toutes les lames partent du MÊME angle (celui de la première) : l'éventail est fermé au
+ * départ, les pastilles empilées, et s'ouvre en les écartant. C'est ce qui donne l'accordéon.
  */
-const ECART = 54;
+const RAYON = 225;
+
+/** Angle de la lame la plus BASSE, en degrés au-dessus de l'horizontale, vers la droite. */
+const ANGLE_FERME = 18;
+/** Angle de la lame la plus HAUTE. */
+const ANGLE_OUVERT = 74;
 
 /**
- * Position d'une pastille dans la colonne, depuis le CENTRE du bouton.
+ * ⚠️ L'angle bas ne descend pas sous 18° : la pastille passerait derrière la barre de saisie.
+ * L'angle haut s'arrête à 74° pour que l'éventail reste franchement À DROITE du bouton —
+ * au-delà il repasse au-dessus, et la forme ne se lit plus comme un dépliage vers la droite.
  *
- * ⚠️ `y` NÉGATIF : l'axe des ordonnées du navigateur descend, et la colonne monte. Le
- * composeur est en bas de l'écran — vers le bas, elle sortirait de la fenêtre.
+ * ⚠️ L'écart entre deux pastilles vaut `rayon x angle_total_en_radians / (n - 1)`, soit
+ * 225 x 0.977 / 4 ≈ 55 px pour 42 px de diamètre : 13 px de jour. Réduire le rayon les fait
+ * se toucher.
  */
-const positionColonne = (index: number) => ({ x: 0, y: -(index + 1) * ECART });
+const angleLame = (index: number, total: number) =>
+  ANGLE_FERME + (ANGLE_OUVERT - ANGLE_FERME) * (total <= 1 ? 0 : index / (total - 1));
 
 export function ComposerActions({
   open,
@@ -122,54 +135,69 @@ export function ComposerActions({
             }}
           >
             {actions.map((action, i) => {
-              const { x, y } = positionColonne(i);
+              const angle = angleLame(i, actions.length);
               return (
+                /*
+                  LE BRAS. Longueur nulle, pivot sur le centre du bouton ; c'est lui qui
+                  tourne, et la pastille au bout suit l'arc.
+
+                  ⚠️ Rotation NÉGATIVE : en CSS un angle positif tourne dans le sens des
+                  aiguilles d'une montre, donc vers le bas. L'éventail doit monter.
+                */
                 <motion.li
                   key={action.key}
-                  /* ⚠️ `group` sur la LIGNE et non sur le bouton : le libellé est son voisin,
-                     pas son descendant, et `group-hover` ne l'atteindrait jamais. */
-                  className="group absolute hover:z-10"
-                  style={{ left: -TAILLE / 2, top: -TAILLE / 2, width: TAILLE, height: TAILLE }}
+                  className="absolute h-0 w-0"
+                  style={{ transformOrigin: '0px 0px' }}
                   variants={{
-                    /**
-                     * ⚠️ Départ à (0, 0) et à l'échelle 0.3 : les pastilles SORTENT du bouton
-                     * au lieu d'apparaître à leur place. C'est tout ce qui distingue un menu
-                     * qui se déploie d'un menu qui s'affiche.
-                     */
-                    ferme: { x: 0, y: 0, scale: 0.3, opacity: 0 },
-                    ouvert: { x, y, scale: 1, opacity: 1, transition: soft },
+                    ferme: { rotate: -ANGLE_FERME, scale: 0.35, opacity: 0 },
+                    ouvert: { rotate: -angle, scale: 1, opacity: 1, transition: soft },
                   }}
                 >
-                  <motion.button
-                    type="button"
-                    onClick={() => {
-                      onOpenChange(false);
-                      action.onSelect();
-                    }}
-                    whileHover={{ scale: 1.12 }}
-                    whileTap={{ scale: 0.9 }}
-                    transition={snappy}
-                    aria-label={action.label}
-                    className="flex h-full w-full items-center justify-center rounded-full bg-white text-[#1E40AF] shadow-lg ring-1 ring-slate-200 dark:bg-zinc-800 dark:text-blue-300 dark:ring-zinc-700"
-                  >
-                    <action.icon size={18} />
-                  </motion.button>
+                  {/* La longueur du bras. */}
+                  <div style={{ transform: `translateX(${RAYON}px)` }}>
+                    {/*
+                      ⚠️ CONTRE-ROTATION, animée en même temps que le bras : sans elle, la
+                      pastille et surtout son libellé tourneraient avec l'éventail et
+                      arriveraient de travers. Elle annule exactement la rotation du bras, si
+                      bien que le contenu reste droit pendant tout le dépliage.
+                    */}
+                    <motion.div
+                      className="group relative"
+                      style={{ width: TAILLE, height: TAILLE, marginLeft: -TAILLE / 2, marginTop: -TAILLE / 2 }}
+                      variants={{
+                        ferme: { rotate: ANGLE_FERME },
+                        ouvert: { rotate: angle, transition: soft },
+                      }}
+                    >
+                      <motion.button
+                        type="button"
+                        onClick={() => {
+                          onOpenChange(false);
+                          action.onSelect();
+                        }}
+                        whileHover={{ scale: 1.12 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={snappy}
+                        aria-label={action.label}
+                        className="flex h-full w-full items-center justify-center rounded-full bg-white text-[#1E40AF] shadow-lg ring-1 ring-slate-200 dark:bg-zinc-800 dark:text-blue-300 dark:ring-zinc-700"
+                      >
+                        <action.icon size={18} />
+                      </motion.button>
 
-                  {/*
-                    Libellé À GAUCHE de la pastille, révélé au survol.
+                      {/*
+                        Libellé À GAUCHE de la pastille, révélé au survol.
 
-                    ⚠️ `pointer-events-none` : il déborde sur la conversation et sur les autres
-                    pastilles, et sans cela il intercepterait leurs clics.
+                        ⚠️ `pointer-events-none` : il déborde sur la conversation et sur les
+                        autres pastilles, et sans cela il intercepterait leurs clics.
 
-                    ⚠️ Un seul libellé est visible à la fois (au survol) : posés en permanence,
-                    ceux des pastilles hautes et basses se chevaucheraient, l'arc les rapprochant
-                    horizontalement.
-                  */}
-                  {/* ⚠️ `hover:z-10` sur la ligne : sans lui, le libellé d'une pastille basse
-                      passait DERRIÈRE les pastilles voisines, l'arc les faisant se recouvrir. */}
-                  <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/95 dark:text-zinc-900">
-                    {action.label}
-                  </span>
+                        ⚠️ Un seul libellé à la fois : posés en permanence, ceux des lames
+                        voisines se chevaucheraient, l'éventail les rapprochant à la verticale.
+                      */}
+                      <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/95 dark:text-zinc-900">
+                        {action.label}
+                      </span>
+                    </motion.div>
+                  </div>
                 </motion.li>
               );
             })}

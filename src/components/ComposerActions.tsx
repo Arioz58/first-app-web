@@ -32,34 +32,39 @@ export type ComposerAction = {
 const TAILLE = 42;
 
 /**
- * Éventail : chaque pastille est au bout d'un BRAS qui pivote autour du bouton.
+ * Courbe des pastilles : la première PILE AU-DESSUS du « + », chacune ensuite plus haute et
+ * un peu plus à droite que la précédente.
  *
- * ⚠️ Le mouvement ne consiste PAS à déplacer les pastilles vers un point calculé sur un
- * cercle — ce serait un déplacement en ligne droite vers une position qui se trouve être sur
- * un arc. Ici c'est le bras qui tourne, donc la pastille SUIT réellement l'arc, comme la lame
- * d'un éventail. C'est la différence entre « disposé en arc » et « déplié en arc ».
- *
- * ⚠️ Toutes les lames partent du MÊME angle (celui de la première) : l'éventail est fermé au
- * départ, les pastilles empilées, et s'ouvre en les écartant. C'est ce qui donne l'accordéon.
+ * ⚠️ Ce n'est PAS un arc centré sur le bouton. Sur un tel arc, passé la verticale les
+ * pastilles se mettent à REDESCENDRE — c'est ce qui rendait les deux tentatives précédentes
+ * fausses : elles partaient presque à l'horizontale et remontaient, au lieu de partir droit
+ * en l'air et de s'incliner. Ici le centre du cercle est à DROITE, à la hauteur de la
+ * première pastille, ce qui rend la tangente VERTICALE à cet endroit : la courbe démarre
+ * droite et se couche progressivement vers la droite en montant.
  */
-const RAYON = 225;
 
-/** Angle de la lame la plus BASSE, en degrés au-dessus de l'horizontale, vers la droite. */
-const ANGLE_FERME = 18;
-/** Angle de la lame la plus HAUTE. */
-const ANGLE_OUVERT = 74;
+/** Hauteur de la première pastille au-dessus du centre du bouton. */
+const HAUTEUR = 62;
 
 /**
- * ⚠️ L'angle bas ne descend pas sous 18° : la pastille passerait derrière la barre de saisie.
- * L'angle haut s'arrête à 74° pour que l'éventail reste franchement À DROITE du bouton —
- * au-delà il repasse au-dessus, et la forme ne se lit plus comme un dépliage vers la droite.
+ * Rayon de la courbe.
  *
- * ⚠️ L'écart entre deux pastilles vaut `rayon x angle_total_en_radians / (n - 1)`, soit
- * 225 x 0.977 / 4 ≈ 55 px pour 42 px de diamètre : 13 px de jour. Réduire le rayon les fait
- * se toucher.
+ * ⚠️ Il règle l'INCLINAISON, pas la taille : plus il est grand, plus la courbe reste droite
+ * longtemps ; plus il est petit, plus elle se couche vite vers la droite.
  */
-const angleLame = (index: number, total: number) =>
-  ANGLE_FERME + (ANGLE_OUVERT - ANGLE_FERME) * (total <= 1 ? 0 : index / (total - 1));
+const RAYON = 150;
+
+/**
+ * Écart angulaire entre deux pastilles.
+ *
+ * ⚠️ Déduit de l'espacement voulu, pas choisi : sur un cercle, la distance entre deux points
+ * vaut `rayon x angle`. 54 px de centre à centre pour 42 px de diamètre laissent 12 px de
+ * jour ; réduire le rayon sans toucher à cet angle les ferait se toucher.
+ */
+const PAS = 54 / RAYON;
+
+/** Angle de la i-ème pastille, mesuré depuis la verticale au-dessus du bouton. */
+const angleLame = (index: number) => index * PAS;
 
 export function ComposerActions({
   open,
@@ -120,7 +125,14 @@ export function ComposerActions({
               exactement du « + » — un conteneur avec ses propres dimensions les ferait naître
               d'un de ses coins.
             */
-            className="absolute bottom-5 left-5 z-50 h-0 w-0"
+            /*
+              ⚠️ Le conteneur est ancré sur le CENTRE DU CERCLE — décalé de `RAYON` vers la
+              droite et de `HAUTEUR` vers le haut par rapport au bouton — et non sur le bouton
+              lui-même. C'est ce centre qui sert de pivot aux bras ; l'ancrer sur le « + »
+              redonnerait l'arc qui redescend.
+            */
+            className="absolute z-50 h-0 w-0"
+            style={{ left: 22 + RAYON, bottom: 22 + HAUTEUR }}
             initial="ferme"
             animate="ouvert"
             exit="ferme"
@@ -135,7 +147,7 @@ export function ComposerActions({
             }}
           >
             {actions.map((action, i) => {
-              const angle = angleLame(i, actions.length);
+              const angle = angleLame(i);
               return (
                 /*
                   LE BRAS. Longueur nulle, pivot sur le centre du bouton ; c'est lui qui
@@ -149,12 +161,20 @@ export function ComposerActions({
                   className="absolute h-0 w-0"
                   style={{ transformOrigin: '0px 0px' }}
                   variants={{
-                    ferme: { rotate: -ANGLE_FERME, scale: 0.35, opacity: 0 },
-                    ouvert: { rotate: -angle, scale: 1, opacity: 1, transition: soft },
+                    /*
+                      ⚠️ Fermé, TOUTES les lames sont à l'angle 0, c'est-à-dire empilées au
+                      même endroit : juste au-dessus du « + ». L'éventail s'ouvre en les
+                      écartant de là — c'est ce qui fait l'accordéon, et c'est ce qui donne au
+                      « + » son rôle d'origine.
+                    */
+                    ferme: { rotate: 0, scale: 0.35, opacity: 0 },
+                    ouvert: { rotate: `${(angle * 180) / Math.PI}deg`, scale: 1, opacity: 1, transition: soft },
                   }}
                 >
                   {/* La longueur du bras. */}
-                  <div style={{ transform: `translateX(${RAYON}px)` }}>
+                  {/* ⚠️ Bras vers la GAUCHE : le pivot est à droite des pastilles, la lame
+                      pointe donc vers le bouton. */}
+                  <div style={{ transform: `translateX(${-RAYON}px)` }}>
                     {/*
                       ⚠️ CONTRE-ROTATION, animée en même temps que le bras : sans elle, la
                       pastille et surtout son libellé tourneraient avec l'éventail et
@@ -165,8 +185,8 @@ export function ComposerActions({
                       className="group relative"
                       style={{ width: TAILLE, height: TAILLE, marginLeft: -TAILLE / 2, marginTop: -TAILLE / 2 }}
                       variants={{
-                        ferme: { rotate: ANGLE_FERME },
-                        ouvert: { rotate: angle, transition: soft },
+                        ferme: { rotate: 0 },
+                        ouvert: { rotate: `${(-angle * 180) / Math.PI}deg`, transition: soft },
                       }}
                     >
                       <motion.button

@@ -66,6 +66,22 @@ const PAS = 54 / RAYON;
 /** Angle de la i-ème pastille, mesuré depuis la verticale au-dessus du bouton. */
 const angleLame = (index: number) => index * PAS;
 
+/**
+ * État FERMÉ : toutes les lames repliées sur le centre du « + ».
+ *
+ * ⚠️ La rotation seule ne suffit PAS à ramener une lame sur le bouton. Le pivot est le centre
+ * du cercle, situé en haut à droite du bouton ; à longueur de bras constante, l'extrémité
+ * décrit un cercle qui NE PASSE PAS par le « + ». Les pastilles émergeaient donc d'un point
+ * en l'air, 62 px au-dessus de lui. Il faut aussi rétracter le bras à la distance exacte
+ * pivot → bouton, qui est l'hypoténuse `√(RAYON² + HAUTEUR²)`.
+ *
+ * ⚠️ Angle NÉGATIF : depuis le pivot, le bouton est plus BAS que l'horizontale.
+ */
+const BRAS_FERME = Math.hypot(RAYON, HAUTEUR);
+const ANGLE_FERME = -Math.atan2(HAUTEUR, RAYON);
+
+const enDegres = (radians: number) => `${(radians * 180) / Math.PI}deg`;
+
 export function ComposerActions({
   open,
   onOpenChange,
@@ -167,14 +183,35 @@ export function ComposerActions({
                       écartant de là — c'est ce qui fait l'accordéon, et c'est ce qui donne au
                       « + » son rôle d'origine.
                     */
-                    ferme: { rotate: 0, scale: 0.35, opacity: 0 },
-                    ouvert: { rotate: `${(angle * 180) / Math.PI}deg`, scale: 1, opacity: 1, transition: soft },
+                    /*
+                      ⚠️ AUCUNE `scale` ici. Le bras porte la longueur du rayon dans un
+                      `translateX` ; une échelle sur lui multiplierait cette longueur et la
+                      pastille ne partirait plus du bouton. Mesuré : avec `scale: 0.35`, le
+                      bras rétracté de 162 px n'en faisait plus que 57, ce qui plaçait les
+                      pastilles à 106 px du « + » au lieu de 0. L'échelle vit sur le contenu.
+                    */
+                    ferme: { rotate: enDegres(ANGLE_FERME), opacity: 0 },
+                    ouvert: { rotate: enDegres(angle), opacity: 1, transition: soft },
                   }}
                 >
                   {/* La longueur du bras. */}
-                  {/* ⚠️ Bras vers la GAUCHE : le pivot est à droite des pastilles, la lame
-                      pointe donc vers le bouton. */}
-                  <div style={{ transform: `translateX(${-RAYON}px)` }}>
+                  {/*
+                    LONGUEUR DU BRAS, animée elle aussi.
+
+                    ⚠️ Sans cela, les pastilles ne partent pas du « + » : à longueur fixe,
+                    l'extrémité du bras décrit un cercle qui ne passe pas par le bouton. Le
+                    bras est donc rétracté à l'hypoténuse pivot → bouton quand c'est fermé,
+                    et se déploie à `RAYON` en s'ouvrant. Combiné à la rotation, chaque
+                    pastille sort du bouton et rejoint sa place en suivant la courbe.
+
+                    ⚠️ Bras vers la GAUCHE : le pivot est à droite des pastilles.
+                  */}
+                  <motion.div
+                    variants={{
+                      ferme: { x: -BRAS_FERME },
+                      ouvert: { x: -RAYON, transition: soft },
+                    }}
+                  >
                     {/*
                       ⚠️ CONTRE-ROTATION, animée en même temps que le bras : sans elle, la
                       pastille et surtout son libellé tourneraient avec l'éventail et
@@ -185,8 +222,9 @@ export function ComposerActions({
                       className="group relative"
                       style={{ width: TAILLE, height: TAILLE, marginLeft: -TAILLE / 2, marginTop: -TAILLE / 2 }}
                       variants={{
-                        ferme: { rotate: 0 },
-                        ouvert: { rotate: `${(-angle * 180) / Math.PI}deg`, transition: soft },
+                        // L'échelle est portée ICI, où elle ne touche à aucune longueur de bras.
+                        ferme: { rotate: enDegres(-ANGLE_FERME), scale: 0.4 },
+                        ouvert: { rotate: enDegres(-angle), scale: 1, transition: soft },
                       }}
                     >
                       <motion.button
@@ -217,7 +255,7 @@ export function ComposerActions({
                         {action.label}
                       </span>
                     </motion.div>
-                  </div>
+                  </motion.div>
                 </motion.li>
               );
             })}

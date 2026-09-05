@@ -130,7 +130,10 @@
     "uploading": "Gönderiliyor…"
   },
   "search": {
-    "placeholder": "Ara"
+    "placeholder": "Ara",
+    "section_chats": "Sohbetler",
+    "section_messages": "Mesajlar",
+    "section_contacts": "Kişiler"
   },
   "relation": {
     "friends": "Arkadaş",

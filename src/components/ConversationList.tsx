@@ -29,6 +29,7 @@ import {
   IconVideo,
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
+import { SearchResults } from '@/components/SearchResults';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
 import { fetchFriendRequests } from '@/lib/friends';
@@ -42,6 +43,7 @@ import {
   conversationPhoto,
   favoriteConversation,
   fetchConversations,
+  fetchFriends,
   fetchMessageRequests,
   formatListDate,
   isMuted,
@@ -51,11 +53,13 @@ import {
   MUTE_OPTIONS,
   pinConversation,
   sortConversations,
+  startDirectConversation,
   type Conversation,
+  type Friend,
   type LastMessage,
   type PreviewKind,
 } from '@/lib/conversations';
-import { fetchMe, type Me } from '@/lib/messages';
+import { fetchMe, searchAllMessages, type Me, type MessageHit } from '@/lib/messages';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 
@@ -108,6 +112,22 @@ export function ConversationList() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  /**
+   * Résultats venant du SERVEUR : messages et contacts.
+   *
+   * ⚠️ Séparés des conversations, filtrées localement : leurs noms sont déjà en mémoire,
+   * alors que le CONTENU des messages ne l'est pas — le navigateur n'a que la dernière page
+   * de chaque fil, et l'on cherche justement ce qu'on ne voit plus.
+   */
+  /**
+   * ⚠️ Les résultats portent LE TERME qui les a produits. Sans lui, deux défauts : il faudrait
+   * les vider dans un effet (`setState` synchrone, interdit par React 19), et en changeant de
+   * mot on verrait un instant les résultats du précédent sous le nouveau — un démenti visible
+   * à chaque frappe.
+   */
+  const [results, setResults] = useState<{ term: string; hits: MessageHit[]; contacts: Friend[] }>(
+    { term: '', hits: [], contacts: [] },
+  );
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -313,6 +333,63 @@ export function ConversationList() {
               ? t('list.empty_groups')
               : t('chat.no_conversations');
 
+  /**
+   * Seuil de la recherche SERVEUR. En dessous, seul le filtrage local des conversations
+   * s'applique — c'est aussi le minimum qu'impose le serveur.
+   */
+  const searchTerm = query.trim();
+  const isSearching = searchTerm.length >= 2;
+
+  /**
+   * Interroge le serveur pour les messages et les contacts.
+   *
+   * ⚠️ Débouncé à 300 ms et protégé contre les réponses hors délai : en tapant vite, une
+   * requête lancée plus tôt peut répondre APRÈS une plus récente et réafficher les résultats
+   * d'un mot déjà effacé. Même mécanique que `useUserSearch` sur mobile.
+   */
+  useEffect(() => {
+    if (!isSearching) return;
+    let annule = false;
+    const timer = setTimeout(() => {
+      void Promise.allSettled([searchAllMessages(searchTerm), fetchFriends(searchTerm)]).then(
+        ([messages, amis]) => {
+          if (annule) return;
+          /**
+           * ⚠️ Un échec ne fait pas échouer l'autre (`allSettled`) : si la recherche de
+           * contacts tombe, les messages trouvés doivent quand même s'afficher.
+           */
+          setResults({
+            term: searchTerm,
+            hits: messages.status === 'fulfilled' ? messages.value : [],
+            contacts: amis.status === 'fulfilled' ? amis.value : [],
+          });
+        },
+      );
+    }, 300);
+    return () => {
+      annule = true;
+      clearTimeout(timer);
+    };
+  }, [searchTerm, isSearching]);
+
+  /**
+   * Conversations dont le NOM correspond, quel que soit le filtre actif.
+   *
+   * ⚠️ Volontairement affranchi des filtres : chercher « Marie » depuis « Non lues » sans
+   * rien trouver alors que la conversation existe serait incompréhensible. Pendant une
+   * recherche, les pastilles de filtre sont d'ailleurs masquées — la recherche EST le filtre.
+   */
+  /** Les résultats affichés sont-ils bien ceux du terme courant ? Sinon, on cherche encore. */
+  const fresh = results.term === searchTerm;
+
+  const convHits = useMemo(() => {
+    if (!isSearching) return [];
+    const q = searchTerm.toLowerCase();
+    return conversations
+      .filter((c) => !c.archivedAt && conversationName(c, meId).toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [conversations, isSearching, searchTerm, meId]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return conversations
@@ -392,6 +469,10 @@ export function ConversationList() {
         />
       </div>
 
+      {/* ⚠️ Masqués pendant une recherche : la recherche parcourt TOUTES les conversations,
+          afficher en même temps un filtre actif annoncerait un périmètre qui n'est pas
+          celui des résultats. */}
+      {!isSearching && (
       <div className="flex gap-2 px-4 pb-3">
         {FILTERS.map((f) => (
           <button
@@ -408,6 +489,7 @@ export function ConversationList() {
           </button>
         ))}
       </div>
+      )}
 
       {/* ⚠️ Visible uniquement sur « Toutes », comme sur mobile : sur un filtre, elle
           prêterait à confusion avec le résultat filtré. Le compte annonce les non-lus
@@ -450,7 +532,21 @@ export function ConversationList() {
       )}
 
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {isSearching ? (
+          <SearchResults
+            term={searchTerm}
+            busy={!fresh}
+            conversations={convHits}
+            hits={fresh ? results.hits : []}
+            contacts={fresh ? results.contacts : []}
+            meId={meId}
+            onOpenConversation={(cid) => router.push(`/chat/${cid}`)}
+            onOpenMessage={(cid, mid) => router.push(`/chat/${cid}?m=${mid}`)}
+            onOpenContact={(userId) => {
+              void startDirectConversation(userId).then((c) => router.push(`/chat/${c.id}`));
+            }}
+          />
+        ) : loading ? (
           <ul className="space-y-1 px-2">
             {Array.from({ length: 7 }).map((_, i) => (
               <li key={i} className="flex animate-pulse items-center gap-3 rounded-xl p-3">

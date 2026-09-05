@@ -22,7 +22,7 @@ import {
   IconSpinner,
   IconUp,
 } from '@/components/icons';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -79,6 +79,16 @@ const LOAD_OLDER_PX = 300;
 export default function ThreadPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  /**
+   * Message à rejoindre, passé dans l'ADRESSE (`?m=<id>`) par la recherche globale.
+   *
+   * ⚠️ Un paramètre d'URL plutôt qu'un relais en mémoire comme sur mobile : ici c'est une
+   * vraie adresse, qui survit à un rechargement et se partage. Il est RETIRÉ une fois
+   * consommé — sans quoi, en cherchant deux fois le même message depuis la conversation
+   * déjà ouverte, l'adresse ne changerait pas et le saut ne se redéclencherait jamais.
+   */
+  const jumpParam = useSearchParams().get('m');
+  const jumpDoneRef = useRef<string | null>(null);
   const { id } = useParams<{ id: string }>();
   const [meId] = useState<string | null>(() =>
     typeof window === 'undefined' ? null : getUserId(),
@@ -344,8 +354,14 @@ export default function ThreadPage() {
          * défiler vers une ligne absente du fil, et remonter page par page serait
          * interminable.
          */
-        if (mark && !page.some((x) => x.id === mark.id)) {
-          const win = await fetchAround(id, mark.id).catch(() => null);
+        /**
+         * ⚠️ La cible de recherche PRIME sur le repère de non-lus : on vient de demander à
+         * voir un message précis, l'ouvrir ailleurs serait ignorer la demande.
+         */
+        const openOn =
+          new URLSearchParams(window.location.search).get('m') ?? mark?.id ?? null;
+        if (openOn && !page.some((x) => x.id === openOn)) {
+          const win = await fetchAround(id, openOn).catch(() => null);
           if (win && !cancelled) {
             setMessages(win.messages.slice().reverse());
             setHasOlder(win.hasOlder);
@@ -831,9 +847,32 @@ export default function ThreadPage() {
         setTimeout(() => setHighlightId(null), 2000);
       };
 
+      /**
+       * ⚠️ La position est RETENUE au-delà du défilement, comme pour le repère de reprise.
+       *
+       * `scrollIntoView` vise une hauteur PROVISOIRE : les images du fil se chargent sur
+       * plusieurs secondes et poussent le contenu, si bien que le message rejoint dérivait
+       * hors de l'écran quelques instants après y être arrivé — mesuré à 460 px au-dessus du
+       * bord haut sur un message en milieu d'historique. `holdRef` re-vise à chaque
+       * changement de taille du contenu (`ResizeObserver`), et le premier défilement
+       * volontaire le libère.
+       *
+       * ⚠️ Le maintien est SANS animation : rejouée à chaque image, une animation serait
+       * interrompue par la suivante et n'atteindrait jamais sa cible.
+       */
+      const hold = (list: Message[]) => {
+        holdRef.current = () => centerOn(list, false);
+        // On ne suit plus le bas : on vient de placer volontairement le fil ailleurs.
+        stickRef.current = false;
+      };
+
       const scrollToIt = (list: Message[]) => {
         const anchor = centerOn(list, true);
-        if (anchor) highlight(anchor);
+        if (anchor) {
+          highlight(anchor);
+          settle(() => centerOn(list, false));
+          hold(list);
+        }
         return !!anchor;
       };
       if (scrollToIt(messages)) return;
@@ -876,6 +915,8 @@ export default function ThreadPage() {
               highlight(anchor);
             }
           });
+          // Même maintien que ci-dessus : le calage seul abandonne trop tôt.
+          hold(window_);
         } catch {
           // Message introuvable (supprimé, expiré) : on ne bouge pas.
         }
@@ -885,6 +926,28 @@ export default function ThreadPage() {
     // périmée et on irait rechercher au serveur une fenêtre déjà chargée.
     [id, messages, settle],
   );
+
+  /**
+   * Consomme `?m=<id>` : rejoint le message, puis RETIRE le paramètre de l'adresse.
+   *
+   * ⚠️ Le retrait n'est pas cosmétique. Sans lui, chercher deux fois le même message depuis
+   * la conversation déjà ouverte ne changerait pas l'adresse, donc ne redéclencherait rien —
+   * et le second clic ne ferait visiblement rien du tout.
+   *
+   * ⚠️ Attend la fin du chargement : le fil est vide avant, et `jumpTo` ne trouverait aucune
+   * ligne à viser.
+   */
+  useEffect(() => {
+    if (!jumpParam) {
+      // Paramètre retiré : on réarme pour le prochain saut, y compris vers le même message.
+      jumpDoneRef.current = null;
+      return;
+    }
+    if (loading || jumpDoneRef.current === jumpParam) return;
+    jumpDoneRef.current = jumpParam;
+    jumpTo(jumpParam);
+    router.replace(`/chat/${id}`, { scroll: false });
+  }, [jumpParam, loading, jumpTo, router, id]);
 
   const react = useCallback(
     (m: Message, emoji: string) => {

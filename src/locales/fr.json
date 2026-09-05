@@ -130,7 +130,10 @@
     "uploading": "Envoi…"
   },
   "search": {
-    "placeholder": "Rechercher"
+    "placeholder": "Rechercher",
+    "section_chats": "Discussions",
+    "section_messages": "Messages",
+    "section_contacts": "Contacts"
   },
   "relation": {
     "friends": "Amis",

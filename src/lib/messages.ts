@@ -483,3 +483,32 @@ export const fetchMutualFriends = (userId: string) =>
   apiRequest<{ id: string; name: string; photoUrl: string | null }[]>(
     `/users/${userId}/mutual-friends`,
   );
+
+/**
+ * Recherche globale dans les messages de TOUTES mes conversations.
+ *
+ * ⚠️ Côté serveur, et non un filtre sur ce qui est déjà chargé : le navigateur n'a que la
+ * dernière page de chaque fil, alors que la personne cherche justement ce qu'elle ne voit
+ * plus. Chercher en local ne trouverait que ce qui est déjà sous les yeux.
+ *
+ * ⚠️ Le serveur applique les mêmes règles que le fil (éphémères expirés, messages effacés
+ * pour moi, historique d'une conversation supprimée) : un résultat est forcément un message
+ * qu'on peut réellement atteindre. Sans cela, cliquer un résultat sauterait dans le vide.
+ *
+ * Minimum 2 caractères et 40 résultats maximum, imposés par le serveur.
+ */
+export type MessageHit = {
+  id: string;
+  content: string | null;
+  createdAt: string;
+  conversationId: string;
+  conversation: {
+    type: 'direct' | 'group';
+    name: string | null;
+    photoUrl: string | null;
+    members: { userId: string; user: { id: string; name: string; photoUrl: string | null } }[];
+  };
+};
+
+export const searchAllMessages = (q: string) =>
+  apiRequest<MessageHit[]>(`/conversations/search-messages?q=${encodeURIComponent(q)}`);

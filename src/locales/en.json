@@ -130,7 +130,10 @@
     "uploading": "Sending…"
   },
   "search": {
-    "placeholder": "Search"
+    "placeholder": "Search",
+    "section_chats": "Chats",
+    "section_messages": "Messages",
+    "section_contacts": "Contacts"
   },
   "relation": {
     "friends": "Friends",

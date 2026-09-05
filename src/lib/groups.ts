@@ -12,11 +12,12 @@ import type { ConvMember } from './messages';
 
 export type Role = 'admin' | 'moderator' | 'member';
 
-export const ROLE_LABEL: Record<Role, string> = {
-  admin: 'Admin',
-  moderator: 'Modérateur',
-  member: 'Membre',
-};
+/**
+ * ⚠️ Plus de table de libellés ici : les rôles sont traduits à l'affichage via `roles.admin`,
+ * `roles.moderator`, `roles.member` (et leurs variantes minuscules pour les phrases). Ce
+ * module n'est pas un composant — il ne peut pas appeler `t`, et son texte échappait donc à
+ * l'i18n.
+ */
 
 /** Ajouter ou retirer des membres : admin ET modérateur. */
 export const canManageMembers = (myRole?: Role) =>

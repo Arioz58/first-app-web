@@ -19,7 +19,8 @@
     "star": "Mettre en favori",
     "unstar": "Retirer des favoris",
     "unpin": "Désépingler",
-    "pin": "Épingler"
+    "pin": "Épingler",
+    "forward_n_to": "Transférer {{count}} messages à"
   },
   "details": {
     "mute": "Notifications",
@@ -62,7 +63,14 @@
     "report_sent": "Signalement envoyé.",
     "muted": "En sourdine",
     "mute_short": "Sourdine",
-    "soon": "Disponible prochainement"
+    "soon": "Disponible prochainement",
+    "pinned_n": "Épinglés · {{count}}",
+    "starred_n": "Favoris · {{count}}",
+    "actions_on": "Actions sur {{name}}",
+    "you_are_role": "vous êtes {{role}}",
+    "block_confirm_named": "Bloquer {{name}} ?\n\nVotre amitié sera supprimée et cette personne ne pourra plus vous contacter.",
+    "this_contact": "ce contact",
+    "days_short": "{{count}} j"
   },
   "moderation": {
     "block": "Bloquer",
@@ -136,7 +144,10 @@
   "roles": {
     "admin": "Admin",
     "moderator": "Modérateur",
-    "member": "Membre"
+    "member": "Membre",
+    "admin_low": "admin",
+    "moderator_low": "modérateur",
+    "member_low": "membre"
   },
   "common": {
     "close": "Fermer",

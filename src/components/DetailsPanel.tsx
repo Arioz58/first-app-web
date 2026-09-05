@@ -41,7 +41,6 @@ import {
   isGroupAdmin,
   leaveGroup,
   removeMember,
-  ROLE_LABEL,
   setMemberRole,
   setWhoCanSend,
   updateGroup,
@@ -98,6 +97,7 @@ export function DetailsPanel({
   onOpenMedia,
   onChanged,
   onMetaChanged,
+  onOpenProfile,
   onJumpTo,
 }: {
   open: boolean;
@@ -118,6 +118,14 @@ export function DetailsPanel({
    * d'afficher l'ancienne composition.
    */
   onMetaChanged: () => void;
+  /**
+   * Ouvre le profil de quelqu'un.
+   *
+   * ⚠️ Remonté à l'écran de chat plutôt que rendu ici : la fenêtre est en `fixed`, mais la
+   * porter dans ce panneau la ferait disparaître avec lui — or fermer les détails pour
+   * consulter un membre serait exactement le contraire de ce qu'on veut.
+   */
+  onOpenProfile: (userId: string) => void;
   /** Saut vers un message épinglé ou favori — le fil sait charger une fenêtre autour. */
   onJumpTo: (messageId: string) => void;
 }) {
@@ -356,7 +364,7 @@ export function DetailsPanel({
                 )}
                 <p className="mt-1 text-sm text-slate-400">
                   {meta.members.length} membres
-                  {myRole && myRole !== 'member' ? ` · vous êtes ${ROLE_LABEL[myRole].toLowerCase()}` : ''}
+                  {myRole && myRole !== 'member' ? ` · ${t('details.you_are_role', { role: t(`roles.${myRole}_low`) })}` : ''}
                 </p>
               </>
             )
@@ -463,7 +471,7 @@ export function DetailsPanel({
 
         {/* Épinglés — niveau conversation, visibles par tous les membres. */}
         {pins.length > 0 && (
-          <Section title={`Épinglés · ${pins.length}`}>
+          <Section title={t('details.pinned_n', { count: String(pins.length) })}>
             <ul className="px-2">
               {pins.map((m) => (
                 <li key={m.id}>
@@ -482,7 +490,7 @@ export function DetailsPanel({
 
         {/* Favoris — PERSONNELS, contrairement aux épinglés. */}
         {starred.length > 0 && (
-          <Section title={`Favoris · ${starred.length}`}>
+          <Section title={t('details.starred_n', { count: String(starred.length) })}>
             <ul className="px-2">
               {starred.map((m) => (
                 <li key={m.id}>
@@ -501,7 +509,7 @@ export function DetailsPanel({
 
         {/* Membres d'un groupe */}
         {isGroup && (
-          <Section title={`Membres · ${meta.members.length}`}>
+          <Section title={t('details.members_count', { count: String(meta.members.length) })}>
             {canManage && (
               <button
                 onClick={() => setAddOpen(true)}
@@ -537,20 +545,31 @@ export function DetailsPanel({
                       onContextMenu={actionable ? openOnRightClick(openMenu) : undefined}
                       className="flex items-center gap-3 px-2 py-2"
                     >
-                      <Avatar name={m.user.name} photoUrl={m.user.photoUrl} size={36} />
-                      <span className="flex-1 truncate text-sm text-slate-900 dark:text-zinc-100">
-                        {isMe ? 'Vous' : m.user.name}
-                      </span>
+                      {/* ⚠️ Seuls l'avatar et le nom ouvrent le profil, pas la ligne
+                          entière : le bouton d'actions vit à droite, et un parent cliquable
+                          capterait ses clics. Même règle que la liste d'amis.
+                          ⚠️ Pas de profil sur SOI-MÊME : le serveur renverrait `isSelf` et
+                          l'écran n'aurait rien à proposer. */}
+                      <button
+                        disabled={isMe}
+                        onClick={() => onOpenProfile(m.userId)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
+                      >
+                        <Avatar name={m.user.name} photoUrl={m.user.photoUrl} size={36} />
+                        <span className="min-w-0 flex-1 truncate text-sm text-slate-900 dark:text-zinc-100">
+                          {isMe ? t('list.you') : m.user.name}
+                        </span>
+                      </button>
                       {m.role !== 'member' && (
                         <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-[#1E40AF] dark:bg-blue-900/30">
                           {m.role === 'admin' ? <IconAdmin size={11} /> : <IconModerator size={11} />}
-                          {ROLE_LABEL[m.role as Role]}
+                          {t(`roles.${m.role}`)}
                         </span>
                       )}
                       {actionable && (
                         <button
                           onClick={(e) => openMenu(anchorFromEvent(e))}
-                          aria-label={`Actions sur ${m.user.name}`}
+                          aria-label={t('details.actions_on', { name: m.user.name })}
                           className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
                         >
                           <IconMore size={16} />
@@ -629,7 +648,7 @@ export function DetailsPanel({
                 Messages éphémères
                 <span className="ml-2 text-xs text-slate-400">
                   {meta.ephemeralDuration
-                    ? `${Math.round(meta.ephemeralDuration / 86400)} j`
+                    ? t('details.days_short', { count: String(Math.round(meta.ephemeralDuration / 86400)) })
                     : 'désactivés'}
                 </span>
               </button>
@@ -729,7 +748,7 @@ export function DetailsPanel({
                       if (
                         !blocked &&
                         !window.confirm(
-                          `Bloquer ${profile?.name ?? 'ce contact'} ?\n\nVotre amitié sera supprimée et cette personne ne pourra plus vous contacter.`,
+                          t('details.block_confirm_named', { name: profile?.name ?? t('details.this_contact') }),
                         )
                       )
                         return;
@@ -784,7 +803,9 @@ export function DetailsPanel({
                   <MenuItem
                     key={r}
                     icon={r === 'admin' ? IconAdmin : r === 'moderator' ? IconModerator : undefined}
-                    label={`Passer ${r === 'member' ? 'simple membre' : ROLE_LABEL[r].toLowerCase()}`}
+                    label={t('details.make_role', {
+                      role: r === 'member' ? t('details.plain_member') : t(`roles.${r}_low`),
+                    })}
                     onClick={() => {
                       close();
                       setBusy(true);

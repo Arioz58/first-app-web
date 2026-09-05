@@ -19,7 +19,8 @@
     "star": "Yıldız ekle",
     "unstar": "Yıldızı kaldır",
     "unpin": "Sabitlemeyi kaldır",
-    "pin": "Sabitle"
+    "pin": "Sabitle",
+    "forward_n_to": "{{count}} mesajı şuraya ilet"
   },
   "details": {
     "mute": "Bildirimler",
@@ -62,7 +63,14 @@
     "report_sent": "Şikayet gönderildi.",
     "muted": "Sessize alındı",
     "mute_short": "Sessiz",
-    "soon": "Yakında"
+    "soon": "Yakında",
+    "pinned_n": "Sabitlenenler · {{count}}",
+    "starred_n": "Yıldızlananlar · {{count}}",
+    "actions_on": "{{name}} için işlemler",
+    "you_are_role": "siz {{role}}sınız",
+    "block_confirm_named": "{{name}} engellensin mi?\n\nArkadaşlığınız kaldırılacak ve bu kişi size ulaşamayacak.",
+    "this_contact": "bu kişi",
+    "days_short": "{{count}} g"
   },
   "moderation": {
     "block": "Engelle",
@@ -136,7 +144,10 @@
   "roles": {
     "admin": "Yönetici",
     "moderator": "Moderatör",
-    "member": "Üye"
+    "member": "Üye",
+    "admin_low": "yönetici",
+    "moderator_low": "moderatör",
+    "member_low": "üye"
   },
   "common": {
     "close": "Kapat",

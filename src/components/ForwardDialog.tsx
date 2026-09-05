@@ -80,7 +80,7 @@ export function ForwardDialog({
       >
         <div className="px-5 pt-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">
-            {count > 1 ? `Transférer ${count} messages à` : t('chat.forward_to')}
+            {count > 1 ? t('chat.forward_n_to', { count: String(count) }) : t('chat.forward_to')}
           </h2>
           <input
             value={query}

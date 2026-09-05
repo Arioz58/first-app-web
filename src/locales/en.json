@@ -19,7 +19,8 @@
     "star": "Add to starred",
     "unstar": "Remove from starred",
     "unpin": "Unpin",
-    "pin": "Pin"
+    "pin": "Pin",
+    "forward_n_to": "Forward {{count}} messages to"
   },
   "details": {
     "mute": "Notifications",
@@ -62,7 +63,14 @@
     "report_sent": "Report sent.",
     "muted": "Muted",
     "mute_short": "Mute",
-    "soon": "Coming soon"
+    "soon": "Coming soon",
+    "pinned_n": "Pinned · {{count}}",
+    "starred_n": "Starred · {{count}}",
+    "actions_on": "Actions on {{name}}",
+    "you_are_role": "you are {{role}}",
+    "block_confirm_named": "Block {{name}}?\n\nYour friendship will be removed and this person will no longer be able to contact you.",
+    "this_contact": "this contact",
+    "days_short": "{{count}}d"
   },
   "moderation": {
     "block": "Block",
@@ -136,7 +144,10 @@
   "roles": {
     "admin": "Admin",
     "moderator": "Moderator",
-    "member": "Member"
+    "member": "Member",
+    "admin_low": "admin",
+    "moderator_low": "moderator",
+    "member_low": "member"
   },
   "common": {
     "close": "Close",

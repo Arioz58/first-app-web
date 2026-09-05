@@ -1,6 +1,7 @@
 'use client';
 
 import { MediaViewer } from '@/components/MediaViewer';
+import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { useTranslation } from 'react-i18next';
 import { canManageMembers, type Role } from '@/lib/groups';
 import {
@@ -138,6 +139,15 @@ export default function ThreadPage() {
   const [convSettings, setConvSettings] = useState<Conversation | null>(null);
   /** Média ouvert en plein écran. La visionneuse parcourt ensuite toute la conversation. */
   const [viewer, setViewer] = useState<Message | null>(null);
+  /**
+   * Profil ouvert depuis la liste des membres d'un groupe.
+   *
+   * ⚠️ Instance PROPRE à cet écran, distincte de celle de `ConversationList`. Les deux vivent
+   * dans des sous-arbres disjoints — la liste est montée par le layout, ce fil par la page —
+   * et aucun parent commun ne porte d'état côté client. Elles ne peuvent pas être ouvertes en
+   * même temps : chacune ne s'ouvre que depuis sa propre colonne.
+   */
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [search, setSearch] = useState<{ term: string; results: string[]; index: number } | null>(
     null,
   );
@@ -1549,6 +1559,7 @@ export default function ThreadPage() {
       meId={meId}
       onClose={() => setDetailsOpen(false)}
       onOpenMedia={setViewer}
+      onOpenProfile={setProfileUserId}
       onChanged={loadConvSettings}
       onMetaChanged={() => {
         void fetchConversationMeta(id).then(setMeta).catch(() => {});
@@ -1568,6 +1579,14 @@ export default function ThreadPage() {
         alors pas. */}
     {viewer && (
       <MediaViewer conversationId={id} initial={viewer} onClose={() => setViewer(null)} />
+    )}
+
+    {profileUserId && (
+      <UserProfileDialog
+        userId={profileUserId}
+        onClose={() => setProfileUserId(null)}
+        onOpenConversation={(convId) => router.push(`/chat/${convId}`)}
+      />
     )}
     </div>
   );

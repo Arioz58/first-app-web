@@ -223,7 +223,9 @@
     "pinned": "Épinglé",
     "edit_banner": "Modification du message",
     "delete_all": "Supprimer pour tout le monde ?\n\nAnnuler = supprimer pour moi seulement.",
-    "search_ph": "Rechercher…"
+    "search_ph": "Rechercher…",
+    "send_failed": "Échec de l'envoi de {{name}}",
+    "gif": "Envoyer un GIF"
   },
   "gallery": {
     "media": "Médias",
@@ -335,5 +337,27 @@
     "no_info": "Cette personne ne partage pas plus d'informations.",
     "cancel_request": "Annuler la demande",
     "unavailable": "Profil indisponible."
+  },
+  "gif": {
+    "search": "Rechercher un GIF",
+    "empty": "Aucun GIF trouvé",
+    "unavailable": "Recherche de GIFs indisponible"
+  },
+  "attach": {
+    "documents": "Documents",
+    "media": "Photos et vidéos",
+    "camera": "Caméra",
+    "audio": "Audio",
+    "gif": "GIF"
+  },
+  "camera": {
+    "title": "Prendre une photo",
+    "shoot": "Prendre la photo",
+    "retake": "Reprendre",
+    "switch": "Changer de caméra",
+    "denied": "Accès à la caméra refusé. Autorisez-le dans les réglages de votre navigateur.",
+    "none": "Aucune caméra détectée.",
+    "failed": "Impossible d'ouvrir la caméra.",
+    "insecure": "La caméra n'est disponible qu'en HTTPS."
   }
 }

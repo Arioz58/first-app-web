@@ -71,4 +71,6 @@ export {
   Image as IconPhoto,
   FileText as IconDocument,
   MessageSquare as IconChat,
+  Music as IconAudio,
+  FileImage as IconGif,
 } from 'lucide-react';

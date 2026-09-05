@@ -223,7 +223,9 @@
     "pinned": "Sabitlendi",
     "edit_banner": "Mesaj düzenleniyor",
     "delete_all": "Herkes için silinsin mi?\n\nİptal = yalnızca benim için sil.",
-    "search_ph": "Ara…"
+    "search_ph": "Ara…",
+    "send_failed": "{{name}} gönderilemedi",
+    "gif": "GIF gönder"
   },
   "gallery": {
     "media": "Medya",
@@ -335,5 +337,27 @@
     "no_info": "Bu kişi daha fazla bilgi paylaşmıyor.",
     "cancel_request": "İsteği iptal et",
     "unavailable": "Profil kullanılamıyor."
+  },
+  "gif": {
+    "search": "GIF ara",
+    "empty": "GIF bulunamadı",
+    "unavailable": "GIF arama kullanılamıyor"
+  },
+  "attach": {
+    "documents": "Belgeler",
+    "media": "Fotoğraflar ve videolar",
+    "camera": "Kamera",
+    "audio": "Ses",
+    "gif": "GIF"
+  },
+  "camera": {
+    "title": "Fotoğraf çek",
+    "shoot": "Fotoğrafı çek",
+    "retake": "Yeniden çek",
+    "switch": "Kamerayı değiştir",
+    "denied": "Kamera erişimi reddedildi. Tarayıcı ayarlarından izin verin.",
+    "none": "Kamera bulunamadı.",
+    "failed": "Kamera açılamadı.",
+    "insecure": "Kamera yalnızca HTTPS üzerinden kullanılabilir."
   }
 }

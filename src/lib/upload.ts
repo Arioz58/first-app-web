@@ -20,6 +20,30 @@ export const mediaKindOf = (mime: string): MediaKind => {
 };
 
 /**
+ * Filtres du sélecteur de fichiers, PAR ENTRÉE DU MENU « + ».
+ *
+ * ⚠️ Ces listes recopient l'allow-list du serveur (`upload.controller.ts`) et doivent le
+ * rester. Un filtre plus large laisserait choisir un fichier que le serveur refusera : la
+ * personne attend la fin du téléversement pour n'obtenir qu'une erreur. Le filtre du
+ * navigateur est le seul endroit où le refus est instantané.
+ *
+ * ⚠️ Le HEIC est volontairement ABSENT des images : le serveur ne le signe pas, et aucun
+ * navigateur ne le décode. C'est le format par défaut des photos iPhone, donc le cas se
+ * présente pour de bon — mieux vaut le griser dans le sélecteur que l'accepter pour
+ * afficher une image cassée (même problème que celui corrigé côté mobile par
+ * `toUploadableImage`).
+ */
+export const ACCEPT = {
+  images: 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime',
+  audio: 'audio/mpeg,audio/mp4,audio/x-m4a,audio/webm,audio/ogg',
+  documents:
+    'application/pdf,application/msword,' +
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
+    'application/vnd.ms-excel,' +
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain',
+} as const;
+
+/**
  * Téléverse et renvoie l'URL publique.
  *
  * ⚠️ Le `PUT` vers S3 se fait avec `fetch` NU, sans passer par `apiRequest` : l'URL signée

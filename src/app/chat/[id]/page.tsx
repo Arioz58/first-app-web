@@ -5,7 +5,12 @@ import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { useTranslation } from 'react-i18next';
 import { canManageMembers, type Role } from '@/lib/groups';
 import {
-  IconAttach,
+  IconPlus,
+  IconAudio,
+  IconGif,
+  IconCamera,
+  IconDocument,
+  IconPhoto,
   IconBack,
   IconCheck,
   IconClose,
@@ -45,9 +50,12 @@ import {
   type Message,
   type Quote,
 } from '@/lib/messages';
-import { mediaKindOf, uploadFile } from '@/lib/upload';
+import { ACCEPT, mediaKindOf, uploadFile } from '@/lib/upload';
 import type { BubbleActions } from '@/components/MessageBubble';
 import { ForwardDialog } from '@/components/ForwardDialog';
+import GifPicker from '@/components/GifPicker';
+import CameraCapture from '@/components/CameraCapture';
+import { FloatingMenu, MenuItem, anchorFromEvent, type MenuAnchor } from '@/components/FloatingMenu';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { fetchConversations, type Conversation } from '@/lib/conversations';
@@ -126,6 +134,16 @@ export default function ThreadPage() {
   /** Message rejoint (citation, épinglé, recherche) : surligné brièvement. */
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [gifOpen, setGifOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  /**
+   * Point d'ancrage du menu « + ». `null` = fermé.
+   *
+   * ⚠️ UN SEUL input de fichier, dont l'attribut `accept` est réécrit avant l'ouverture selon
+   * l'entrée choisie. Trois inputs distincts (documents / médias / audio) auraient triplé la
+   * remise à zéro de `value` — l'oubli qui empêche de rechoisir deux fois le même fichier.
+   */
+  const [plusMenu, setPlusMenu] = useState<MenuAnchor | null>(null);
   /** Index de l'épinglé affiché : chaque clic passe au suivant, en cyclant. */
   const [pinIndex, setPinIndex] = useState(0);
   const [pinBarHidden, setPinBarHidden] = useState(false);
@@ -1030,13 +1048,40 @@ export default function ThreadPage() {
               batchId,
             });
           } catch {
-            window.alert(`Échec de l'envoi de ${file.name}`);
+            window.alert(t('thread.send_failed', { name: file.name }));
           }
         }
         setUploading(false);
       })();
     },
-    [id, meId],
+    [id, meId, t],
+  );
+
+  /** Ouvre le sélecteur de fichiers en le limitant aux types que le serveur accepte. */
+  const pickFiles = useCallback((accept: string) => {
+    const input = fileRef.current;
+    if (!input) return;
+    input.accept = accept;
+    input.click();
+  }, []);
+
+  /**
+   * Envoi d'un GIF choisi dans le sélecteur.
+   *
+   * ⚠️ L'URL Giphy part telle quelle, sans passer par S3 — c'est ce que fait le mobile
+   * (`onGifSelect`), et les deux clients doivent produire le MÊME message : un GIF envoyé
+   * depuis le web doit s'afficher sur le téléphone, et réciproquement.
+   */
+  const sendGif = useCallback(
+    (url: string) => {
+      connectSocket().emit('send_message', {
+        conversationId: id,
+        content: '',
+        mediaUrl: url,
+        mediaType: 'gif',
+      });
+    },
+    [id],
   );
 
   /**
@@ -1477,8 +1522,51 @@ export default function ThreadPage() {
       ) : (
       <form
         onSubmit={send}
-        className="flex items-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+        className="relative flex items-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
       >
+        {gifOpen && <GifPicker onClose={() => setGifOpen(false)} onSelect={sendGif} />}
+        <FloatingMenu anchor={plusMenu} onClose={() => setPlusMenu(null)} width={232}>
+          <MenuItem
+            icon={IconDocument}
+            label={t('attach.documents')}
+            onClick={() => {
+              setPlusMenu(null);
+              pickFiles(ACCEPT.documents);
+            }}
+          />
+          <MenuItem
+            icon={IconPhoto}
+            label={t('attach.media')}
+            onClick={() => {
+              setPlusMenu(null);
+              pickFiles(ACCEPT.images);
+            }}
+          />
+          <MenuItem
+            icon={IconCamera}
+            label={t('attach.camera')}
+            onClick={() => {
+              setPlusMenu(null);
+              setCameraOpen(true);
+            }}
+          />
+          <MenuItem
+            icon={IconAudio}
+            label={t('attach.audio')}
+            onClick={() => {
+              setPlusMenu(null);
+              pickFiles(ACCEPT.audio);
+            }}
+          />
+          <MenuItem
+            icon={IconGif}
+            label={t('attach.gif')}
+            onClick={() => {
+              setPlusMenu(null);
+              setGifOpen(true);
+            }}
+          />
+        </FloatingMenu>
         <input
           ref={fileRef}
           type="file"
@@ -1491,14 +1579,16 @@ export default function ThreadPage() {
             e.target.value = '';
           }}
         />
+        {/* Un seul point d'entrée pour toutes les pièces jointes : le « + » ouvre le menu,
+            les boutons séparés (trombone, GIF) ont été fusionnés dedans. */}
         <button
           type="button"
-          onClick={() => fileRef.current?.click()}
+          onClick={(e) => setPlusMenu(anchorFromEvent(e))}
           disabled={uploading || !!editing}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
           aria-label={t('thread.attach')}
         >
-          {uploading ? <IconSpinner size={19} className="animate-spin" /> : <IconAttach size={19} />}
+          {uploading ? <IconSpinner size={19} className="animate-spin" /> : <IconPlus size={22} />}
         </button>
         <textarea
           value={text}
@@ -1538,6 +1628,19 @@ export default function ThreadPage() {
         )}
       </form>
       )}
+      {cameraOpen && (
+        <CameraCapture
+          onClose={() => setCameraOpen(false)}
+          onCapture={(file) => {
+            // ⚠️ Une photo prise ici emprunte le MÊME chemin qu'un fichier choisi sur le
+            // disque : `sendFiles` gère déjà téléversement, `batchId` et bulle optimiste.
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            sendFiles(dt.files);
+          }}
+        />
+      )}
+
       <ForwardDialog
         open={!!forwarding}
         // Compte de BULLES : un album désigné une fois ne doit pas annoncer « 5 messages ».

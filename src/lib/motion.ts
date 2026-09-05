@@ -16,19 +16,44 @@ import type { Transition, Variants } from 'framer-motion';
  * peine élastique (`soft`).
  */
 
-/** Ressort principal : léger dépassement, pour les déplacements et les apparitions. */
-export const soft: Transition = { type: 'spring', stiffness: 420, damping: 30, mass: 0.7 };
+/**
+ * Ressort principal : souple, avec un léger dépassement.
+ *
+ * ⚠️ Calé sur celui des exemples de motion.dev (`stiffness: 200, damping: 22`), demandé par
+ * le client comme référence. Le rapport d'amortissement vaut ζ ≈ 0.78 — sous 1, donc le
+ * mouvement dépasse sa cible et revient : c'est ce qui donne le rebond. Ma première version
+ * (420/30, ζ ≈ 0.88) arrivait plus vite et ne dépassait presque pas : nette, mais sans
+ * « flow ».
+ */
+export const soft: Transition = { type: 'spring', stiffness: 200, damping: 22 };
 
-/** Plus vif, pour les micro-interactions au doigt (boutons, icônes). */
-export const snappy: Transition = { type: 'spring', stiffness: 600, damping: 32, mass: 0.55 };
+/**
+ * Plus vif, pour les micro-interactions au doigt (boutons, icônes).
+ *
+ * ⚠️ Même rapport d'amortissement que `soft` (ζ ≈ 0.78) mais plus raide : le rebond se
+ * ressemble d'un bout à l'autre de l'application, seule la vitesse change. Deux ressorts de
+ * caractères différents donneraient deux interfaces cousues ensemble.
+ */
+export const snappy: Transition = { type: 'spring', stiffness: 420, damping: 32 };
+
+/**
+ * Transformation d'un élément en un autre (`layoutId`) — le geste « dossier iOS ».
+ *
+ * ⚠️ Volontairement PLUS LENT que `soft` : un morphing parcourt toute la distance entre deux
+ * endroits de l'écran, souvent plusieurs centaines de pixels. À la vitesse d'une apparition,
+ * l'œil ne suit pas le lien entre le point de départ et l'arrivée — et c'est précisément ce
+ * lien qui fait tout l'intérêt du procédé.
+ */
+export const morph: Transition = { type: 'spring', stiffness: 170, damping: 24 };
 
 /**
  * Sans dépassement — pour tout ce qui change d'ÉCHELLE, et pour les surfaces larges.
  *
- * ⚠️ `damping: 34` avec cette raideur donne un mouvement critique : il arrive vite et
- * s'arrête net, sans osciller.
+ * ⚠️ ζ ≈ 0.87, juste sous le seuil critique : le mouvement arrive vite et s'arrête sans
+ * osciller visiblement. C'est ce qu'il faut sur une échelle, où un dépassement rend le texte
+ * flou le temps du rebond.
  */
-export const damped: Transition = { type: 'spring', stiffness: 520, damping: 34, mass: 0.8 };
+export const damped: Transition = { type: 'spring', stiffness: 300, damping: 30 };
 
 /** Fondu simple, quand un mouvement n'apporterait rien (voiles, incrustations). */
 export const fade: Transition = { duration: 0.18, ease: [0.4, 0, 0.2, 1] };

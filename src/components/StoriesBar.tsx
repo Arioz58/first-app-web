@@ -1,7 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { listContainer, listItem, snappy } from '@/lib/motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { listContainer, listItem, morph, snappy } from '@/lib/motion';
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -128,7 +128,15 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
                 l'avatar rond au centre sans le déformer.
               */}
               <span className="relative">
-                <span
+                {/*
+                  ⚠️ `layoutId` partagé avec la visionneuse : la pastille S'OUVRE en story
+                  plein écran et se referme en revenant à sa place, comme le dossier iOS.
+                  C'est posé sur l'ANNEAU et non sur la photo — c'est la pastille entière,
+                  bordure comprise, qui doit sembler grandir.
+                */}
+                <motion.span
+                  layoutId={`story-${g.user.id}`}
+                  transition={morph}
                   className="block rounded-full p-[2.5px]"
                   style={{
                     background: g.hasUnviewed
@@ -139,7 +147,7 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
                   <span className="block rounded-full bg-white p-[2px] dark:bg-zinc-900">
                     <Avatar name={g.user.name} photoUrl={g.user.photoUrl} size={48} />
                   </span>
-                </span>
+                </motion.span>
                 {/*
                   ⚠️ Un « + » DANS le coin de ma vignette, comme sur mobile : le tap sur
                   l'avatar reste « visionner ma story », et ce badge sert à en ajouter une
@@ -185,6 +193,9 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
         />
       )}
 
+      {/* ⚠️ `AnimatePresence` : sans lui, fermer la visionneuse la retirerait de l'arbre
+          instantanément et la story ne reviendrait jamais se ranger dans sa pastille. */}
+      <AnimatePresence>
       {ouvert !== null && (
         <StoryViewer
           groups={groups}
@@ -199,6 +210,7 @@ export function StoriesBar({ me }: { me: { id: string; name: string; photoUrl: s
           onDeleted={() => void charger().catch(() => {})}
         />
       )}
+      </AnimatePresence>
     </>
   );
 }

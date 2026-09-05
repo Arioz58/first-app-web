@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { backdrop, morph } from '@/lib/motion';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
@@ -233,7 +235,13 @@ export function StoryViewer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+    <motion.div
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+    >
       <button
         onClick={onClose}
         aria-label={t('common.close')}
@@ -243,8 +251,18 @@ export function StoryViewer({
       </button>
 
       {/* ⚠️ Ratio 9/16 conservé : c'est le cadre sur lequel les textes ont été composés. */}
-      <div
+      <motion.div
         ref={frameRef}
+        /*
+          ⚠️ Le cadre porte le `layoutId` de la pastille dont il est parti : la story semble
+          S'OUVRIR depuis la vignette au lieu d'apparaître par-dessus l'écran.
+
+          ⚠️ L'identifiant suit le GROUPE affiché (`gi`) : en passant à la personne suivante,
+          la cible du morphing change, et fermer ramène la story vers la bonne pastille — pas
+          vers celle par laquelle on était entré.
+        */
+        layoutId={`story-${group.user.id}`}
+        transition={morph}
         className="relative aspect-[9/16] h-full max-h-[92vh] overflow-hidden rounded-xl bg-black"
         onPointerDown={() => setPaused(true)}
         onPointerUp={() => setPaused(false)}
@@ -457,7 +475,7 @@ export function StoryViewer({
             </div>
           </>
         )}
-      </div>
+      </motion.div>
 
       {/*
         ⚠️ Hors du cadre de la story : posé dedans, il serait rogné par l'`overflow-hidden` et
@@ -474,6 +492,6 @@ export function StoryViewer({
           }}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

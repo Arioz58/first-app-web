@@ -1,5 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { backdrop, morph } from '@/lib/motion';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconBack, IconClose } from '@/components/icons';
@@ -130,9 +133,18 @@ export function MediaViewer({
   if (!current) return null;
 
   return (
-    <div
+    <motion.div
       // ⚠️ Le fond ferme, pas le contenu : `stopPropagation` sur tout ce qui est cliquable.
       onClick={onClose}
+      /*
+        ⚠️ Le fond APPARAÎT EN FONDU pendant que la photo se déplace. Posé d'un coup, l'aplat
+        noir masquerait le trajet de l'image et le morphing serait invisible : on verrait une
+        photo surgir au centre, ce qui est précisément ce qu'on cherchait à éviter.
+      */
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
       className="fixed inset-0 z-50 flex flex-col bg-black/90"
     >
       <div className="flex items-center justify-between px-4 py-3 text-white">
@@ -169,9 +181,21 @@ export function MediaViewer({
             className="max-h-full max-w-full"
           />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          /*
+            ⚠️ Même `layoutId` que la vignette du fil : c'est ce qui fait GRANDIR la photo
+            depuis sa bulle jusqu'au plein écran, puis la fait revenir se ranger à sa place à
+            la fermeture. Sans lui, la visionneuse s'ouvrait en fondu par-dessus, et rien ne
+            reliait ce qu'on voit à ce qu'on avait cliqué.
+
+            ⚠️ Le `layoutId` ne suit QUE le média d'origine (`initial.id`) : en faisant défiler
+            vers la photo suivante, il n'y a plus de vignette correspondante à rejoindre, et
+            garder l'identifiant ferait revenir l'image vers une bulle qui n'est pas la
+            sienne à la fermeture.
+          */
+          <motion.img
             key={current.id}
+            layoutId={current.id === initial.id ? `media-${current.id}` : undefined}
+            transition={morph}
             src={current.mediaUrl ?? ''}
             alt=""
             onClick={(e) => e.stopPropagation()}
@@ -224,6 +248,6 @@ export function MediaViewer({
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

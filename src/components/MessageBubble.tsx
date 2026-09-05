@@ -490,8 +490,16 @@ function MediaContent({
             onClick={() => onOpen(m)}
             className="relative"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={m.mediaUrl ?? ''} alt="" className="h-32 w-full rounded-lg object-cover" />
+            {/* ⚠️ Les tuiles d'ALBUM portent le même `layoutId` que l'image seule : sans
+                elles, ouvrir une photo d'album n'avait aucune source à rejoindre et la
+                visionneuse s'ouvrait sèchement — ce qui représente la majorité des photos
+                dans une conversation un peu fournie. */}
+            <motion.img
+              layoutId={`media-${m.id}`}
+              src={m.mediaUrl ?? ''}
+              alt=""
+              className="h-32 w-full rounded-lg object-cover"
+            />
             {/* « +N » sur la dernière tuile quand l'album déborde. */}
             {i === 3 && album.length > 4 && (
               <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 text-lg font-semibold text-white">
@@ -507,8 +515,20 @@ function MediaContent({
   if (item.mediaType === 'image' || item.mediaType === 'gif') {
     return (
       <button onClick={() => onOpen(item)} className="mb-1 block">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={item.mediaUrl} alt="" className="max-h-80 rounded-lg object-cover" />
+        {/*
+          ⚠️ `layoutId` partagé avec la visionneuse : la photo GRANDIT depuis sa place dans le
+          fil jusqu'au plein écran, au lieu qu'un panneau noir apparaisse par-dessus. C'est le
+          procédé du « dossier iOS » — l'élément ne se duplique pas, il se déplace.
+
+          ⚠️ L'identifiant est celui du MESSAGE : il doit désigner un média et un seul, sinon
+          deux photos identiques dans le fil se disputeraient la transformation.
+        */}
+        <motion.img
+          layoutId={`media-${item.id}`}
+          src={item.mediaUrl}
+          alt=""
+          className="max-h-80 rounded-lg object-cover"
+        />
       </button>
     );
   }

@@ -1793,9 +1793,16 @@ export default function ThreadPage() {
         Laissée dans la section du fil, elle disparaissait avec elle quand le panneau de
         détails prend l'écran sur mobile — un média ouvert depuis le panneau ne s'affichait
         alors pas. */}
-    {viewer && (
-      <MediaViewer conversationId={id} initial={viewer} onClose={() => setViewer(null)} />
-    )}
+    {/*
+      ⚠️ `AnimatePresence` ici et non dans la visionneuse : c'est le parent qui la monte et la
+      démonte. Sans lui, la fermeture retirerait le composant de l'arbre instantanément et la
+      photo ne reviendrait jamais se ranger dans sa bulle — on perdrait la moitié de l'effet.
+    */}
+    <AnimatePresence>
+      {viewer && (
+        <MediaViewer conversationId={id} initial={viewer} onClose={() => setViewer(null)} />
+      )}
+    </AnimatePresence>
 
     {profileUserId && (
       <UserProfileDialog

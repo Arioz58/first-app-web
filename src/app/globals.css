@@ -1,14 +1,32 @@
 @import "tailwindcss";
 
 /**
- * ⚠️ La variante `dark:` de Tailwind écoute `prefers-color-scheme` PAR DÉFAUT. On la
- * redéfinit sur une classe : sans ça, le réglage « Clair » / « Sombre » du profil ne pourrait
- * pas contredire celui du système — il ne resterait qu'à le subir.
+ * Variante `dark:` — DEUX déclencheurs, et l'ordre compte.
  *
- * La classe est posée sur `<html>` par `lib/theme.ts`, et dès le premier octet par le script
- * en tête de `layout.tsx` (voir le commentaire là-bas : c'est ce qui évite l'éclair blanc).
+ * 1. la classe `.dark`, posée par le serveur quand un choix explicite existe (cookie) ;
+ * 2. `prefers-color-scheme: dark`, mais SEULEMENT hors d'un `.light`.
+ *
+ * ⚠️ La media query seule ne suffirait pas : le réglage « Sombre » du profil doit pouvoir
+ * CONTREDIRE le système, sinon il ne resterait qu'à le subir. Et la classe seule ne suffit
+ * pas non plus : en préférence « système » — le défaut — le serveur ne pose aucune classe,
+ * puisqu'il ignore le réglage de l'appareil. C'est le CSS qui tranche alors, sans script.
+ *
+ * ⚠️ C'est ce qui a permis de SUPPRIMER le script anti-flash de `layout.tsx`. Rendu dans
+ * l'arbre React, il était recréé à l'hydratation, ce que React signale (« Encountered a
+ * script tag while rendering React component ») — et le thème sombre était perdu à chaque
+ * rechargement, `color-scheme` compris. Le thème vient désormais du serveur, il n'y a plus
+ * aucune divergence à corriger.
  */
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(.light):not(.light *)) {
+      @slot;
+    }
+  }
+}
 
 :root {
   --background: #ffffff;
@@ -16,13 +34,21 @@
 }
 
 /**
- * ⚠️ Le fond suit la CLASSE et non la media query, pour la même raison que la variante.
- * Sans cette règle, forcer « Sombre » sur un système clair laisserait l'app sombre posée sur
- * un fond de page blanc — visible au rebond de défilement.
+ * ⚠️ Les variables de fond suivent les MÊMES deux déclencheurs que la variante `dark:`.
+ * Sans cela, forcer « Sombre » sur un système clair laisserait l'app sombre posée sur un
+ * fond de page blanc — visible au rebond de défilement.
  */
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Préférence « système » : aucune classe n'est posée, c'est la media query qui décide. */
+  :root:not(.light) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 @theme inline {

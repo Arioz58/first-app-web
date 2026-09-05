@@ -22,3 +22,16 @@ export const FALLBACK_LANGUAGE: Language = 'tr';
 
 export const isLanguage = (v: string | undefined | null): v is Language =>
   !!v && LANGUAGES.some((l) => l.code === v);
+
+/**
+ * Cookie du thème.
+ *
+ * ⚠️ Ici et non dans `lib/theme.ts` : ce dernier est marqué `'use client'`, or le layout —
+ * un composant SERVEUR — doit lire ce nom. Même raison que pour `LANG_COOKIE`.
+ */
+export const THEME_COOKIE = 'nexa.theme';
+
+export type ThemeChoice = 'light' | 'dark';
+
+/** Le cookie ne porte QUE les choix explicites : « système » se traduit par son absence. */
+export const isThemeChoice = (v: unknown): v is ThemeChoice => v === 'light' || v === 'dark';

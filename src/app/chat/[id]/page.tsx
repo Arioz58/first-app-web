@@ -5,7 +5,6 @@ import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { useTranslation } from 'react-i18next';
 import { canManageMembers, type Role } from '@/lib/groups';
 import {
-  IconPlus,
   IconAudio,
   IconGif,
   IconCamera,
@@ -53,12 +52,12 @@ import {
 import { ACCEPT, mediaKindOf, uploadFile } from '@/lib/upload';
 import { marquerVus, oublierVus } from '@/lib/seenMessages';
 import { AnimatePresence, motion } from 'framer-motion';
-import { damped, snappy } from '@/lib/motion';
+import { damped } from '@/lib/motion';
 import type { BubbleActions } from '@/components/MessageBubble';
 import { ForwardDialog } from '@/components/ForwardDialog';
 import GifPicker from '@/components/GifPicker';
 import CameraCapture from '@/components/CameraCapture';
-import { FloatingMenu, MenuItem, anchorFromEvent, type MenuAnchor } from '@/components/FloatingMenu';
+import { ComposerActions, type ComposerAction } from '@/components/ComposerActions';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { fetchConversations, type Conversation } from '@/lib/conversations';
@@ -156,7 +155,7 @@ export default function ThreadPage() {
    * l'entrée choisie. Trois inputs distincts (documents / médias / audio) auraient triplé la
    * remise à zéro de `value` — l'oubli qui empêche de rechoisir deux fois le même fichier.
    */
-  const [plusMenu, setPlusMenu] = useState<MenuAnchor | null>(null);
+  const [actionsOuvertes, setActionsOuvertes] = useState(false);
   /** Index de l'épinglé affiché : chaque clic passe au suivant, en cyclant. */
   const [pinIndex, setPinIndex] = useState(0);
   const [pinBarHidden, setPinBarHidden] = useState(false);
@@ -1143,6 +1142,25 @@ export default function ThreadPage() {
   }, []);
 
   /**
+   * Actions du bouton flottant, du plus PROCHE du bouton au plus loin — c'est leur ordre
+   * d'apparition dans la colonne.
+   *
+   * ⚠️ Mémoïsées : la liste est passée à un composant animé, et la recréer à chaque frappe
+   * dans le champ relancerait la cascade d'ouverture.
+   */
+  const actionsComposeur: ComposerAction[] = useMemo(
+    () => [
+      { key: 'documents', label: t('attach.documents'), icon: IconDocument, onSelect: () => pickFiles(ACCEPT.documents) },
+      { key: 'media', label: t('attach.media'), icon: IconPhoto, onSelect: () => pickFiles(ACCEPT.images) },
+      { key: 'camera', label: t('attach.camera'), icon: IconCamera, onSelect: () => setCameraOpen(true) },
+      { key: 'audio', label: t('attach.audio'), icon: IconAudio, onSelect: () => pickFiles(ACCEPT.audio) },
+      { key: 'gif', label: t('attach.gif'), icon: IconGif, onSelect: () => setGifOpen(true) },
+    ],
+    [t, pickFiles],
+  );
+
+
+  /**
    * Envoi d'un GIF choisi dans le sélecteur.
    *
    * ⚠️ L'URL Giphy part telle quelle, sans passer par S3 — c'est ce que fait le mobile
@@ -1602,48 +1620,6 @@ export default function ThreadPage() {
         className="relative flex items-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
       >
         {gifOpen && <GifPicker onClose={() => setGifOpen(false)} onSelect={sendGif} />}
-        <FloatingMenu anchor={plusMenu} onClose={() => setPlusMenu(null)} width={232}>
-          <MenuItem
-            icon={IconDocument}
-            label={t('attach.documents')}
-            onClick={() => {
-              setPlusMenu(null);
-              pickFiles(ACCEPT.documents);
-            }}
-          />
-          <MenuItem
-            icon={IconPhoto}
-            label={t('attach.media')}
-            onClick={() => {
-              setPlusMenu(null);
-              pickFiles(ACCEPT.images);
-            }}
-          />
-          <MenuItem
-            icon={IconCamera}
-            label={t('attach.camera')}
-            onClick={() => {
-              setPlusMenu(null);
-              setCameraOpen(true);
-            }}
-          />
-          <MenuItem
-            icon={IconAudio}
-            label={t('attach.audio')}
-            onClick={() => {
-              setPlusMenu(null);
-              pickFiles(ACCEPT.audio);
-            }}
-          />
-          <MenuItem
-            icon={IconGif}
-            label={t('attach.gif')}
-            onClick={() => {
-              setPlusMenu(null);
-              setGifOpen(true);
-            }}
-          />
-        </FloatingMenu>
         <input
           ref={fileRef}
           type="file"
@@ -1658,29 +1634,21 @@ export default function ThreadPage() {
         />
         {/* Un seul point d'entrée pour toutes les pièces jointes : le « + » ouvre le menu,
             les boutons séparés (trombone, GIF) ont été fusionnés dedans. */}
-        {/* ⚠️ Le « + » PIVOTE en croix quand son menu est ouvert : le bouton dit lui-même
-            dans quel état il se trouve, au lieu de laisser deviner que le menu vient de là. */}
-        <motion.button
-          type="button"
-          onClick={(e) => setPlusMenu(anchorFromEvent(e))}
+        {/*
+          Bouton d'action flottant : le « + » se déploie en colonne d'actions décalées.
+
+          ⚠️ Remplace le menu en LISTE (`FloatingMenu`) : sur cinq entrées, une colonne de
+          pastilles se parcourt d'un coup d'œil là où une liste demande de lire. Les libellés
+          restent accessibles au survol et par `aria-label`.
+        */}
+        <ComposerActions
+          open={actionsOuvertes}
+          onOpenChange={setActionsOuvertes}
           disabled={uploading || !!editing}
-          whileTap={{ scale: 0.88 }}
-          transition={snappy}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
-          aria-label={t('thread.attach')}
-        >
-          {uploading ? (
-            <IconSpinner size={19} className="animate-spin" />
-          ) : (
-            <motion.span
-              animate={{ rotate: plusMenu ? 45 : 0 }}
-              transition={damped}
-              className="flex"
-            >
-              <IconPlus size={22} />
-            </motion.span>
-          )}
-        </motion.button>
+          label={t('thread.attach')}
+          busy={uploading ? <IconSpinner size={19} className="animate-spin" /> : undefined}
+          actions={actionsComposeur}
+        />
         <textarea
           value={text}
           onChange={(e) => onType(e.target.value)}

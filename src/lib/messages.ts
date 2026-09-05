@@ -434,3 +434,36 @@ export const rowAnchorId = (messages: Message[], messageId: string): string | nu
   }
   return null;
 };
+
+/**
+ * Texte d'un bandeau système.
+ *
+ * ⚠️ Le `content` d'un message système n'est PAS du texte lisible mais une CLÉ i18n en JSON
+ * (`{"k":"member_added","by":"UserA","who":"UserF"}`). L'afficher tel quel montrerait l'objet
+ * brut — c'est pour cela que le web les écartait purement et simplement, et que ces
+ * événements ne laissaient aucune trace : ajouter quelqu'un à un groupe, le renommer ou
+ * activer les éphémères se produisait en silence.
+ *
+ * ⚠️ Traduit dans la langue du LECTEUR, pas de celui qui a agi : le serveur ne stocke que la
+ * clé et ses paramètres, précisément pour que chaque membre lise l'événement chez lui.
+ *
+ * ⚠️ `dur` et `role` sont eux-mêmes des clés à traduire avant d'être injectés — sinon le
+ * bandeau afficherait « a activé les messages éphémères (24h) » avec le code brut, et
+ * « a nommé UserC admin » sans traduire le rôle.
+ */
+export const systemText = (
+  raw: string | null | undefined,
+  t: (key: string, params?: Record<string, string>) => string,
+): string => {
+  if (!raw) return '';
+  try {
+    const { k, dur, ...params } = JSON.parse(raw) as Record<string, string>;
+    if (!k) return '';
+    if (dur) params.duration = t(`ephemeral.${dur}`);
+    if (params.role) params.role = t(`roles.${params.role}`);
+    return t(`system.${k}`, params);
+  } catch {
+    // Contenu illisible (format d'une version antérieure) : rien plutôt qu'un objet brut.
+    return '';
+  }
+};

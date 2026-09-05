@@ -298,5 +298,22 @@
     "recording": "Enregistrement…",
     "mic_denied": "Micro indisponible. Autorisez l'accès dans votre navigateur.",
     "send": "Envoyer"
+  },
+  "system": {
+    "member_added": "{{by}} a ajouté {{who}}",
+    "member_removed": "{{by}} a retiré {{who}}",
+    "member_left": "{{by}} a quitté le groupe",
+    "group_created": "{{by}} a créé le groupe « {{name}} »",
+    "group_renamed": "{{by}} a renommé le groupe en « {{name}} »",
+    "ephemeral_on": "{{by}} a activé les messages éphémères ({{duration}})",
+    "ephemeral_off": "{{by}} a désactivé les messages éphémères",
+    "role_set": "{{by}} a nommé {{who}} {{role}}",
+    "role_removed": "{{by}} a retiré le rôle de {{who}}"
+  },
+  "ephemeral": {
+    "24h": "24 heures",
+    "7d": "7 jours",
+    "30d": "30 jours",
+    "off": "Désactivé"
   }
 }

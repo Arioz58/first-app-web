@@ -24,7 +24,14 @@ import {
 } from '@/components/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { emojiCount, formatTime, QUICK_REACTIONS, type Message, type Row } from '@/lib/messages';
+import {
+  emojiCount,
+  formatTime,
+  QUICK_REACTIONS,
+  systemText,
+  type Message,
+  type Row,
+} from '@/lib/messages';
 import { formatFileSize } from '@/lib/upload';
 import { MessageText } from '@/components/MessageText';
 
@@ -90,7 +97,24 @@ export function MessageBubble({
   const album = row.messages.length > 1 ? row.messages : null;
 
   // Bandeau système : son contenu est une clé i18n en JSON, non traduite sur le web.
-  if (item.type === 'system') return null;
+  /**
+   * Bandeau système : centré, sans bulle ni avatar — il n'appartient à personne.
+   *
+   * ⚠️ Rendu APRÈS tous les hooks, comme la bulle ordinaire : une sortie anticipée placée
+   * plus haut changerait le nombre de hooks selon le type de message.
+   */
+  if (item.type === 'system') {
+    const label = systemText(item.content, t);
+    // Clé inconnue ou contenu illisible : on n'affiche rien plutôt qu'un bandeau vide.
+    if (!label) return null;
+    return (
+      <div className="my-2 flex justify-center px-6">
+        <span className="rounded-full bg-white/85 px-3.5 py-1.5 text-center text-xs text-slate-600 shadow-sm dark:bg-zinc-800/85 dark:text-zinc-300">
+          {label}
+        </span>
+      </div>
+    );
+  }
 
   const myReaction = item.reactions?.find((r) => r.userId === meId)?.emoji;
   /**

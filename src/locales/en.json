@@ -298,5 +298,22 @@
     "recording": "Recording…",
     "mic_denied": "Microphone unavailable. Allow access in your browser.",
     "send": "Send"
+  },
+  "system": {
+    "member_added": "{{by}} added {{who}}",
+    "member_removed": "{{by}} removed {{who}}",
+    "member_left": "{{by}} left the group",
+    "group_created": "{{by}} created the group “{{name}}”",
+    "group_renamed": "{{by}} renamed the group to “{{name}}”",
+    "ephemeral_on": "{{by}} turned on disappearing messages ({{duration}})",
+    "ephemeral_off": "{{by}} turned off disappearing messages",
+    "role_set": "{{by}} made {{who}} {{role}}",
+    "role_removed": "{{by}} removed {{who}}'s role"
+  },
+  "ephemeral": {
+    "24h": "24 hours",
+    "7d": "7 days",
+    "30d": "30 days",
+    "off": "Off"
   }
 }

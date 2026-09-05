@@ -298,5 +298,22 @@
     "recording": "Kaydediliyor…",
     "mic_denied": "Mikrofon kullanılamıyor. Tarayıcınızda erişime izin verin.",
     "send": "Gönder"
+  },
+  "system": {
+    "member_added": "{{by}}, {{who}} kişisini ekledi",
+    "member_removed": "{{by}}, {{who}} kişisini çıkardı",
+    "member_left": "{{by}} gruptan ayrıldı",
+    "group_created": "{{by}} « {{name}} » grubunu oluşturdu",
+    "group_renamed": "{{by}} grubu « {{name}} » olarak yeniden adlandırdı",
+    "ephemeral_on": "{{by}} kaybolan mesajları açtı ({{duration}})",
+    "ephemeral_off": "{{by}} kaybolan mesajları kapattı",
+    "role_set": "{{by}}, {{who}} kişisini {{role}} yaptı",
+    "role_removed": "{{by}}, {{who}} kişisinin rolünü kaldırdı"
+  },
+  "ephemeral": {
+    "24h": "24 saat",
+    "7d": "7 gün",
+    "30d": "30 gün",
+    "off": "Kapalı"
   }
 }

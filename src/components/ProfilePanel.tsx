@@ -10,6 +10,7 @@ import {
   IconBack,
   IconBlock,
   IconChevron,
+  IconLock,
   IconDark,
   IconLeave,
   IconLight,
@@ -17,6 +18,7 @@ import {
 } from '@/components/icons';
 import { logout } from '@/lib/auth';
 import { fetchBlocked, unblockUser } from '@/lib/messages';
+import { PrivacyPanel } from '@/components/PrivacyPanel';
 import { type Me } from '@/lib/messages';
 import { disconnectSocket } from '@/lib/socket';
 import { setThemePref, THEME_OPTIONS, useThemePref, type ThemePref } from '@/lib/theme';
@@ -34,10 +36,9 @@ const THEME_ICON: Record<ThemePref, typeof IconLight> = {
  * ouverte reste visible à droite, et revenir à la liste ne la ferme pas. Un onglet comme sur
  * mobile n'a pas de sens ici, où les deux colonnes coexistent.
  *
- * ⚠️ Périmètre volontairement réduit à ce qui a du sens dans un navigateur : apparence et
- * déconnexion. L'édition du nom, de la photo, de la bio, la langue et la confidentialité
- * restent sur le mobile — les porter demanderait de dupliquer des écrans entiers pour un
- * client qui n'est pas l'appareil principal.
+ * ⚠️ Périmètre volontairement réduit à ce qui a du sens dans un navigateur : apparence,
+ * langue, confidentialité, utilisateurs bloqués, déconnexion. L'édition du nom, de la photo
+ * et de la bio reste sur le mobile — l'appareil qui porte l'appareil photo.
  */
 export function ProfilePanel({
   /** ⚠️ Fourni par la liste, qui l'a déjà chargé pour sa vignette — pas de seconde requête. */
@@ -49,6 +50,7 @@ export function ProfilePanel({
 }) {
   const { t, i18n } = useTranslation();
   const [blockedOpen, setBlockedOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [blocked, setBlocked] = useState<{ id: string; name: string; photoUrl: string | null }[]>(
     [],
   );
@@ -74,6 +76,8 @@ export function ProfilePanel({
    * réglages ferait glisser le bouton de déconnexion loin sous elle. Même schéma que la
    * galerie de médias du panneau de détails.
    */
+  if (privacyOpen) return <PrivacyPanel onClose={() => setPrivacyOpen(false)} />;
+
   if (blockedOpen) {
     return (
       <div className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900">
@@ -227,6 +231,16 @@ export function ProfilePanel({
           {/* ⚠️ Bloquer était possible depuis les détails d'une conversation, débloquer non :
               une fois quelqu'un bloqué, plus rien sur le web ne permettait de revenir en
               arrière. */}
+          <button
+            onClick={() => setPrivacyOpen(true)}
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800"
+          >
+            <IconLock size={18} className="text-slate-500" />
+            <span className="flex-1 text-slate-900 dark:text-zinc-100">
+              {t('privacy_settings.title')}
+            </span>
+            <IconChevron size={16} className="text-slate-400" />
+          </button>
           <button
             onClick={() => setBlockedOpen(true)}
             className="mb-2 flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"

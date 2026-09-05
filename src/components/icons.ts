@@ -52,6 +52,7 @@ export {
   Copy as IconCopy,
   Ban as IconBlock,
   LockOpen as IconUnblock,
+  Lock as IconLock,
   Flag as IconReport,
   Trash2 as IconTrash,
   Timer as IconTimer,

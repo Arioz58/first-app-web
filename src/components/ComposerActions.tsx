@@ -32,41 +32,21 @@ export type ComposerAction = {
 const TAILLE = 42;
 
 /**
- * Géométrie de l'arc, en coordonnées polaires depuis le CENTRE du bouton.
+ * Espacement vertical entre deux pastilles, de centre à centre.
  *
- * ⚠️ L'arc s'ouvre vers le HAUT et la DROITE. Le composeur est en bas de l'écran et le bouton
- * contre le bord gauche : vers le bas il sortirait de la fenêtre, vers la gauche il n'y a pas
- * de place. Le premier angle est volontairement au-dessus de l'horizontale (28°) pour que la
- * pastille la plus basse dégage la barre de saisie au lieu de la recouvrir.
+ * ⚠️ Doit rester supérieur à `TAILLE`, sinon les pastilles se touchent. 54 px pour 42 px de
+ * diamètre laisse 12 px de jour — l'arc essayé précédemment butait sur ce même calcul, à ceci
+ * près qu'un arc doit le tenir sur une corde et non sur une droite.
  */
-const RAYON = 225;
-const ANGLE_BAS = 24;
-const ANGLE_HAUT = 80;
-
-/*
- * ⚠️ Le rayon est dicté par l'ESPACEMENT, pas choisi à l'œil. Cinq pastilles de 42 px
- * réparties sur 56° doivent rester séparées : l'écart entre deux centres vaut
- * `rayon × (angle total en radians) / (n - 1)`, soit ici 225 × 0.977 / 4 ≈ 55 px — 13 px de
- * jour entre deux pastilles. Avec le rayon initial de 132, cet écart tombait à 41 px et les
- * pastilles se touchaient.
- *
- * ⚠️ L'angle haut s'arrête à 80° et non à la verticale : au-delà, la pastille du sommet passe
- * à gauche du bouton, qui est déjà contre le bord du panneau — et son libellé, posé à gauche,
- * sortait de l'écran.
- */
+const ECART = 54;
 
 /**
- * Position d'une pastille sur l'arc.
+ * Position d'une pastille dans la colonne, depuis le CENTRE du bouton.
  *
- * ⚠️ `y` est NÉGATIF vers le haut : l'axe des ordonnées du navigateur descend, alors que
- * l'angle d'un cercle trigonométrique monte. Oublier ce signe déploie l'arc sous le bouton,
- * hors de l'écran.
+ * ⚠️ `y` NÉGATIF : l'axe des ordonnées du navigateur descend, et la colonne monte. Le
+ * composeur est en bas de l'écran — vers le bas, elle sortirait de la fenêtre.
  */
-const positionArc = (index: number, total: number) => {
-  const t = total <= 1 ? 0 : index / (total - 1);
-  const angle = ((ANGLE_BAS + (ANGLE_HAUT - ANGLE_BAS) * t) * Math.PI) / 180;
-  return { x: Math.cos(angle) * RAYON, y: -Math.sin(angle) * RAYON };
-};
+const positionColonne = (index: number) => ({ x: 0, y: -(index + 1) * ECART });
 
 export function ComposerActions({
   open,
@@ -142,7 +122,7 @@ export function ComposerActions({
             }}
           >
             {actions.map((action, i) => {
-              const { x, y } = positionArc(i, actions.length);
+              const { x, y } = positionColonne(i);
               return (
                 <motion.li
                   key={action.key}

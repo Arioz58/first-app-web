@@ -22,7 +22,7 @@ import {
   IconUp,
 } from '@/components/icons';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import { MessageBubble } from '@/components/MessageBubble';
 import { setSessionExpiredHandler } from '@/lib/api';
@@ -206,6 +206,23 @@ export default function ThreadPage() {
    * l'ouverture en bas. Cette fonction dit à l'observateur quoi retenir d'autre.
    */
   const holdRef = useRef<(() => void) | null>(null);
+  /**
+   * Message servant d'ANCRE pendant le chargement d'une page d'historique, et la position à
+   * laquelle il doit rester à l'écran.
+   *
+   * On retient la DISTANCE AU BAS du fil (`scrollHeight - scrollTop`), et non une position à
+   * l'écran ni une hauteur.
+   *
+   * ⚠️ C'est la seule grandeur que l'insertion en tête laisse invariante : tout ce qui grandit
+   * au-dessus augmente `scrollHeight` et `scrollTop` d'autant. La rétablir suffit donc à
+   * remettre le fil exactement où il était — y compris quand les images de la page rapatriée
+   * finissent de charger bien après, ce qu'une compensation ponctuelle ne rattrape pas.
+   *
+   * ⚠️ Ancrer sur la position d'une LIGNE à l'écran, essayé d'abord, se révèle fragile : si la
+   * personne continue de faire défiler pendant le chargement, la position mémorisée n'est plus
+   * celle qu'elle vise. Mesuré à 290 px d'erreur sur un défilement rapide et continu.
+   */
+  const anchorRef = useRef<{ gap: number; until: number } | null>(null);
   /**
    * Le fil est en cours de POSITIONNEMENT par le code (ouverture, saut, retour au présent).
    *
@@ -418,18 +435,56 @@ export default function ThreadPage() {
    * la dernière image aura fini de charger, et re-caler en boucle « au cas où » arracherait
    * le fil à qui est en train de lire.
    */
+  /**
+   * Remet la ligne d'ancre à la place qu'elle occupait avant l'insertion.
+   *
+   * ⚠️ `positioningRef` est levé le temps du recalage : sans lui, `onScroll` prendrait notre
+   * propre correction pour un défilement de l'utilisateur, libérerait l'ancre et relancerait
+   * un chargement. C'est la faute que le fil mobile avait dû corriger en son temps.
+   */
+  const recalerAncre = useCallback(() => {
+    const a = anchorRef.current;
+    const el = scrollRef.current;
+    if (!a || !el) return;
+    if (Date.now() > a.until) {
+      anchorRef.current = null;
+      return;
+    }
+    const vise = el.scrollHeight - a.gap;
+    if (Math.abs(el.scrollTop - vise) < 0.5) return;
+    positioningRef.current = true;
+    el.scrollTop = vise;
+    requestAnimationFrame(() => {
+      positioningRef.current = false;
+    });
+  }, []);
+
+  /**
+   * ⚠️ `useLayoutEffect` et non `useEffect` : la correction doit être appliquée AVANT que le
+   * navigateur ne peigne. Dans un effet ordinaire, l'utilisateur verrait une image du fil
+   * décalé avant qu'il ne revienne en place — exactement le saut qu'on cherche à supprimer.
+   */
+  useLayoutEffect(() => {
+    if (anchorRef.current) recalerAncre();
+  }, [messages, recalerAncre]);
+
   useEffect(() => {
     const el = scrollRef.current;
     const inner = el?.firstElementChild;
     if (!el || !inner) return;
     const ro = new ResizeObserver(() => {
-      // Une position retenue l'emporte sur le suivi du bas : elle a été demandée.
-      if (holdRef.current) holdRef.current();
+      /**
+       * ⚠️ L'ancre d'historique PASSE AVANT tout le reste : c'est précisément quand le
+       * contenu grandit — les images de la page rapatriée qui finissent de charger — qu'elle
+       * a une raison d'exister.
+       */
+      if (anchorRef.current) recalerAncre();
+      else if (holdRef.current) holdRef.current();
       else if (stickRef.current) el.scrollTo({ top: el.scrollHeight });
     });
     ro.observe(inner);
     return () => ro.disconnect();
-  }, [loading]);
+  }, [loading, recalerAncre]);
 
   /**
    * Calage à l'ouverture : sur le repère de reprise s'il y en a un, en bas sinon.
@@ -651,10 +706,15 @@ export default function ThreadPage() {
   const loadOlder = useCallback(() => {
     if (loadingOlderRef.current || !hasOlder || !messages.length) return;
     loadingOlderRef.current = true;
-    const el = scrollRef.current;
-    // ⚠️ On mémorise la hauteur AVANT insertion : ajouter en tête pousse le contenu vers le
-    // bas, et sans compensation le fil sauterait d'une page entière sous les yeux.
-    const before = el?.scrollHeight ?? 0;
+    const zone = scrollRef.current;
+    if (zone) {
+      anchorRef.current = {
+        gap: zone.scrollHeight - zone.scrollTop,
+        // Fenêtre bornée : au-delà, plus rien ne devrait grandir, et re-caler indéfiniment
+        // arracherait le fil à qui est en train de lire.
+        until: Date.now() + 4000,
+      };
+    }
 
     void (async () => {
       try {
@@ -663,10 +723,7 @@ export default function ThreadPage() {
         if (page.length) {
           marquerVus(page.map((m) => m.id));
           setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'start'));
-          requestAnimationFrame(() => {
-            const after = scrollRef.current?.scrollHeight ?? 0;
-            if (scrollRef.current) scrollRef.current.scrollTop += after - before;
-          });
+          // Le recalage est fait par l'effet de mise en page ci-dessous, une fois le DOM posé.
         }
       } catch {
         // Réseau : on laisse `hasOlder` à vrai, le prochain passage réessaiera.
@@ -728,6 +785,17 @@ export default function ThreadPage() {
      * pas nos propres mouvements pour les siens.
      */
     if (positioningRef.current) return;
+    /**
+     * ⚠️ Un défilement VOLONTAIRE ne supprime pas l'ancre d'historique, il la DÉPLACE : la
+     * personne choisit où elle regarde, et l'ancre doit garder ce nouveau point stable
+     * pendant que les images finissent de charger. L'annuler ici ramènerait la dérive.
+     */
+    if (anchorRef.current) {
+      const zone = scrollRef.current;
+      if (zone) {
+        anchorRef.current = { ...anchorRef.current, gap: zone.scrollHeight - zone.scrollTop };
+      }
+    }
     holdRef.current = null;
     const nearBottom = distanceToBottom < AT_BOTTOM_PX;
     setAtBottom(nearBottom && !hasNewer);
@@ -1488,7 +1556,25 @@ export default function ThreadPage() {
           <IconDown size={20} />
         </button>
       )}
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        /**
+         * ⚠️ ANCRAGE NATIF DÉSACTIVÉ, volontairement. Chrome repositionne tout seul le
+         * défilement quand du contenu est inséré au-dessus (`overflow-anchor`), et notre
+         * propre compensation S'AJOUTAIT à la sienne : le fil sautait alors d'une page
+         * entière vers le présent — le défaut signalé. Mesuré sur une vraie conversation :
+         * 1600 px d'écart avec les deux, 0 avec l'ancrage natif seul, 4095 px avec aucun des
+         * deux.
+         *
+         * ⚠️ On ne s'en remet PAS à l'ancrage natif seul : Safari ne l'implémente pas, et le
+         * fil y sauterait de ces 4095 px. Une compensation explicite se comporte pareil
+         * partout, et reste sous notre contrôle — c'est elle qui permet aussi de rattraper la
+         * croissance tardive des images.
+         */
+        style={{ overflowAnchor: 'none' }}
+        className="flex-1 overflow-y-auto px-4 py-4"
+      >
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -1736,6 +1822,12 @@ export default function ThreadPage() {
 
     </section>
 
+    {/*
+      ⚠️ `AnimatePresence` ici : c'est le parent qui décide de la présence du panneau. Laissé
+      monté avec une garde interne, il ne pouvait pas jouer sa sortie.
+    */}
+    <AnimatePresence>
+    {detailsOpen && (
     <DetailsPanel
       open={detailsOpen}
       meta={meta}
@@ -1756,6 +1848,8 @@ export default function ThreadPage() {
         setDetailsOpen(false);
       }}
     />
+    )}
+    </AnimatePresence>
 
     {/* ⚠️ Hors des colonnes : la visionneuse est plein écran et appartient à la PAGE.
         Laissée dans la section du fil, elle disparaissait avec elle quand le panneau de

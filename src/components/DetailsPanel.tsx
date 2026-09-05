@@ -1,5 +1,9 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { damped } from '@/lib/motion';
+import { useMediaQuery } from '@/lib/useMediaQuery';
+
 import { ChoiceDialog } from '@/components/ChoiceDialog';
 
 import {
@@ -90,6 +94,19 @@ import {
  * une donnée manquante. On n'affiche donc rien à sa place — surtout pas « non renseigné »,
  * qui laisserait croire que la personne ne l'a pas rempli.
  */
+/**
+ * Largeur du panneau sur grand écran, et point de bascule.
+ *
+ * ⚠️ SOURCE UNIQUE : la largeur n'est plus dans une classe Tailwind (`md:w-[340px]`) mais ici,
+ * parce qu'elle est désormais ANIMÉE et qu'un style en ligne l'emporterait de toute façon sur
+ * la classe. Deux endroits qui prétendent fixer la même largeur finissent par diverger.
+ *
+ * ⚠️ `768px` est le point `md` de Tailwind : la valeur est reprise à la main faute de pouvoir
+ * lire la configuration depuis le JavaScript. À changer ici ET dans le thème si elle bouge.
+ */
+const LARGEUR = 340;
+const GRAND_ECRAN = '(min-width: 768px)';
+
 export function DetailsPanel({
   open,
   meta,
@@ -135,6 +152,7 @@ export function DetailsPanel({
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [counts, setCounts] = useState<MediaCounts | null>(null);
   const [gallery, setGallery] = useState<Message[]>([]);
+  const grandEcran = useMediaQuery(GRAND_ECRAN);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
@@ -211,7 +229,14 @@ export function DetailsPanel({
     }
   }, [open, meta, isGroup, other]);
 
-  if (!open || !meta) return null;
+  /**
+   * ⚠️ Plus de garde sur `open` : c'est le PARENT qui monte et démonte le panneau, enveloppé
+   * dans un `AnimatePresence`. Avec un `return null` ici, le composant restait dans l'arbre à
+   * la fermeture et l'animation de sortie n'avait jamais lieu de se jouer — le panneau
+   * disparaissait d'un coup après être entré en glissant, ce qui se remarque plus qu'une
+   * absence d'animation des deux côtés.
+   */
+  if (!meta) return null;
 
   const title = isGroup ? meta.name ?? '' : other?.user.name ?? '';
   const photo = isGroup ? meta.photoUrl : other?.user.photoUrl;
@@ -223,19 +248,70 @@ export function DetailsPanel({
    */
   if (galleryOpen && counts) {
     return (
-      <aside className="flex w-full shrink-0 flex-col border-l border-slate-200 bg-white md:w-[340px] dark:border-zinc-800 dark:bg-zinc-900">
+      <motion.aside
+        /*
+          Le panneau S'OUVRE EN LARGEUR : il pousse le fil au lieu d'apparaître déjà installé.
+
+          ⚠️ Le contenu intérieur garde une largeur FIXE et le panneau est en
+          `overflow-hidden` : il est donc RÉVÉLÉ, pas comprimé. Sans cela, tout le contenu se
+          remettrait en page à chaque image de l'animation — les textes se recassant sur
+          d'autres lignes une trentaine de fois par seconde, ce qui saute aux yeux et coûte
+          cher.
+
+          ⚠️ Sur PETIT écran, aucune animation de largeur : le panneau y occupe toute la
+          place, et le voir pousser le fil hors de l'écran en grandissant serait violent. Il
+          s'y contente du fondu.
+        */
+        initial={{ width: grandEcran ? 0 : '100%', opacity: 0 }}
+        animate={{ width: grandEcran ? LARGEUR : '100%', opacity: 1 }}
+        exit={{ width: grandEcran ? 0 : '100%', opacity: 0 }}
+        transition={damped}
+        className="flex shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+      >
+        {/* ⚠️ Largeur fixe : c'est elle qui empêche le contenu de se remettre en page pendant
+            que le panneau s'ouvre. */}
+        <div
+          className="flex h-full flex-col"
+          style={{ width: grandEcran ? LARGEUR : '100%' }}
+        >
         <MediaGalleryView
           conversationId={meta.id}
           counts={counts}
           onBack={() => setGalleryOpen(false)}
           onOpenMedia={onOpenMedia}
         />
-      </aside>
+        </div>
+      </motion.aside>
     );
   }
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-l border-slate-200 bg-white md:w-[340px] dark:border-zinc-800 dark:bg-zinc-900">
+    <motion.aside
+        /*
+          Le panneau S'OUVRE EN LARGEUR : il pousse le fil au lieu d'apparaître déjà installé.
+
+          ⚠️ Le contenu intérieur garde une largeur FIXE et le panneau est en
+          `overflow-hidden` : il est donc RÉVÉLÉ, pas comprimé. Sans cela, tout le contenu se
+          remettrait en page à chaque image de l'animation — les textes se recassant sur
+          d'autres lignes une trentaine de fois par seconde, ce qui saute aux yeux et coûte
+          cher.
+
+          ⚠️ Sur PETIT écran, aucune animation de largeur : le panneau y occupe toute la
+          place, et le voir pousser le fil hors de l'écran en grandissant serait violent. Il
+          s'y contente du fondu.
+        */
+        initial={{ width: grandEcran ? 0 : '100%', opacity: 0 }}
+        animate={{ width: grandEcran ? LARGEUR : '100%', opacity: 1 }}
+        exit={{ width: grandEcran ? 0 : '100%', opacity: 0 }}
+        transition={damped}
+        className="flex shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+      >
+        {/* ⚠️ Largeur fixe : c'est elle qui empêche le contenu de se remettre en page pendant
+            que le panneau s'ouvre. */}
+        <div
+          className="flex h-full flex-col"
+          style={{ width: grandEcran ? LARGEUR : '100%' }}
+        >
       <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
         <button
           onClick={onClose}
@@ -848,7 +924,8 @@ export function DetailsPanel({
       />
     )}
 
-    </aside>
+      </div>
+    </motion.aside>
   );
 }
 

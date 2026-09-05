@@ -87,7 +87,7 @@ export const deleteStory = (storyId: string) =>
 
 // --- Fonds (miroir exact de `lib/storyBackgrounds.ts`) ---
 
-const STORY_BACKGROUNDS: { id: string; colors: string[] }[] = [
+export const STORY_BACKGROUNDS: { id: string; colors: string[] }[] = [
   { id: 'noir', colors: ['#000000'] },
   { id: 'nexa', colors: ['#1E40AF'] },
   { id: 'sunset', colors: ['#FF5F6D', '#FFC371'] },
@@ -170,6 +170,26 @@ export const textStyle = (
     text: { ...commun, color: item.color, textShadow: SHADOW },
   };
 };
+
+/**
+ * Palette de l'éditeur — reprise telle quelle de `lib/storyText.ts` (mobile).
+ *
+ * ⚠️ Ce sont des couleurs PERSISTÉES avec la story : proposer une palette différente d'un
+ * client à l'autre ne casserait rien, mais une story composée sur le web ne serait plus
+ * modifiable à l'identique sur le téléphone.
+ */
+export const STORY_COLORS = [
+  '#FFFFFF', '#000000', '#FF3B30', '#FF9500', '#FFCC00',
+  '#34C759', '#00C7BE', '#0A84FF', '#5856D6', '#AF52DE',
+  '#FF2D55', '#A2845E',
+];
+
+/** Publie une story. `mediaUrl` OU `background` — le serveur refuse les deux absents. */
+export const createStory = (body: {
+  mediaUrl?: string;
+  background?: string;
+  texts?: StoryTextItem[];
+}) => apiRequest<Story>('/stories', { method: 'POST', body });
 
 /** Une story est-elle une vidéo ? Déduit de l'extension, `.mp4` étant garanti par l'upload. */
 export const isVideoStory = (story: Story): boolean => /\.(mp4|mov)($|\?)/i.test(story.mediaUrl ?? '');

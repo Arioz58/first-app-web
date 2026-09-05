@@ -397,6 +397,18 @@
     "delete": "Hikâyeyi sil",
     "previous": "Önceki hikâye",
     "next": "Sonraki hikâye",
-    "seen_by": "{{count}} kişi gördü"
+    "seen_by": "{{count}} kişi gördü",
+    "compose": "Yeni hikâye",
+    "add": "Hikâye ekle",
+    "from_gallery": "Fotoğraf veya video",
+    "from_camera": "Kamera",
+    "text_only": "Metin hikâyesi",
+    "text_placeholder": "Metniniz…",
+    "change_source": "Değiştir",
+    "publish": "Paylaş",
+    "publish_failed": "Paylaşım başarısız oldu.",
+    "bg_none": "Arka plansız",
+    "bg_translucent": "Yarı saydam",
+    "bg_solid": "Dolu"
   }
 }

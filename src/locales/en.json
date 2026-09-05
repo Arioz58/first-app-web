@@ -397,6 +397,18 @@
     "delete": "Delete story",
     "previous": "Previous story",
     "next": "Next story",
-    "seen_by": "Seen by {{count}}"
+    "seen_by": "Seen by {{count}}",
+    "compose": "New story",
+    "add": "Add a story",
+    "from_gallery": "Photo or video",
+    "from_camera": "Camera",
+    "text_only": "Text story",
+    "text_placeholder": "Your text…",
+    "change_source": "Change",
+    "publish": "Publish",
+    "publish_failed": "Publishing failed.",
+    "bg_none": "No background",
+    "bg_translucent": "Translucent",
+    "bg_solid": "Solid"
   }
 }

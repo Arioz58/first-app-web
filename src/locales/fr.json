@@ -397,6 +397,18 @@
     "delete": "Supprimer la story",
     "previous": "Story précédente",
     "next": "Story suivante",
-    "seen_by": "Vu par {{count}}"
+    "seen_by": "Vu par {{count}}",
+    "compose": "Nouvelle story",
+    "add": "Ajouter une story",
+    "from_gallery": "Photo ou vidéo",
+    "from_camera": "Caméra",
+    "text_only": "Story texte",
+    "text_placeholder": "Votre texte…",
+    "change_source": "Changer",
+    "publish": "Publier",
+    "publish_failed": "La publication a échoué.",
+    "bg_none": "Sans fond",
+    "bg_translucent": "Translucide",
+    "bg_solid": "Plein"
   }
 }

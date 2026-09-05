@@ -30,6 +30,7 @@ import {
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { SearchResults } from '@/components/SearchResults';
+import { StoriesBar } from '@/components/StoriesBar';
 import { notify, notificationState, registerNotificationWorker } from '@/lib/webNotifications';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
@@ -525,6 +526,10 @@ export function ConversationList() {
           className="w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
         />
       </div>
+
+      {/* ⚠️ Comme sur mobile, seulement sur « Toutes » : sur un filtre ou pendant une
+          recherche, une barre de stories n'a aucun rapport avec ce qui est listé en dessous. */}
+      {!isSearching && filter === 'all' && <StoriesBar me={me} />}
 
       {/* ⚠️ Masqués pendant une recherche : la recherche parcourt TOUTES les conversations,
           afficher en même temps un filtre actif annoncerait un périmètre qui n'est pas

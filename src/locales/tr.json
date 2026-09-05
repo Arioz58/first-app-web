@@ -391,5 +391,12 @@
     "state_denied": "Engellendi",
     "denied_hint": "Reddettiniz. Bu site için tarayıcı ayarlarınızdan yeniden izin verin.",
     "granted_hint": "Bu sekme ön planda değilken yeni mesajlar size bildirilir."
+  },
+  "stories": {
+    "mine": "Hikâyem",
+    "delete": "Hikâyeyi sil",
+    "previous": "Önceki hikâye",
+    "next": "Sonraki hikâye",
+    "seen_by": "{{count}} kişi gördü"
   }
 }

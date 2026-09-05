@@ -391,5 +391,12 @@
     "state_denied": "Bloquées",
     "denied_hint": "Vous les avez refusées. Réautorisez-les dans les réglages de votre navigateur pour ce site.",
     "granted_hint": "Vous serez prévenu des nouveaux messages quand cet onglet n'est pas au premier plan."
+  },
+  "stories": {
+    "mine": "Ma story",
+    "delete": "Supprimer la story",
+    "previous": "Story précédente",
+    "next": "Story suivante",
+    "seen_by": "Vu par {{count}}"
   }
 }

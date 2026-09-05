@@ -391,5 +391,12 @@
     "state_denied": "Blocked",
     "denied_hint": "You declined them. Re-allow them in your browser settings for this site.",
     "granted_hint": "You'll be alerted to new messages when this tab isn't in the foreground."
+  },
+  "stories": {
+    "mine": "My story",
+    "delete": "Delete story",
+    "previous": "Previous story",
+    "next": "Next story",
+    "seen_by": "Seen by {{count}}"
   }
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { backdrop, dialog } from '@/lib/motion';
 import { useTranslation } from 'react-i18next';
 
 import { IconCamera, IconClose, IconSend, IconSpinner } from './icons';
@@ -168,8 +170,19 @@ export default function CameraCapture({
   }, [facing, t]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-xl">
+    <motion.div
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+    >
+      {/* ⚠️ `damped` et non `soft` : sur une surface de cette taille, le dépassement d'un
+          ressort devient un tremblement et brouille l'aperçu vidéo le temps du rebond. */}
+      <motion.div
+        variants={dialog}
+        className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-xl"
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <span className="text-sm font-medium text-white">{t('camera.title')}</span>
           <button
@@ -254,7 +267,7 @@ export default function CameraCapture({
             </>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

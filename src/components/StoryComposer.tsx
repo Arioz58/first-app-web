@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { backdrop, dialog } from '@/lib/motion';
 import { useTranslation } from 'react-i18next';
 
 import CameraCapture from '@/components/CameraCapture';
@@ -160,7 +162,13 @@ export function StoryComposer({
   const rendu = frame.h > 0 ? textStyle({ ...style, content: apercuTexte }, frame.h) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-black/90 p-4">
+    <motion.div
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-black/90 p-4"
+    >
       <div className="mb-3 flex w-full max-w-md items-center justify-between">
         <span className="text-sm font-medium text-white">{t('stories.compose')}</span>
         <button
@@ -196,7 +204,10 @@ export function StoryComposer({
           lecture de ref pendant le rendu. Trois boutons distincts se lisent mieux qu'une
           boucle de trois éléments, de toute façon.
         */
-        <div className="flex w-full max-w-md flex-col gap-2 rounded-2xl bg-zinc-900 p-4">
+        <motion.div
+          variants={dialog}
+          className="flex w-full max-w-md flex-col gap-2 rounded-2xl bg-zinc-900 p-4"
+        >
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -221,7 +232,7 @@ export function StoryComposer({
             <IconText size={20} className="text-white/70" />
             {t('stories.text_only')}
           </button>
-        </div>
+        </motion.div>
       ) : (
         <>
           {/* ⚠️ Même cadre 9/16 que la visionneuse : ce qu'on compose ici doit être
@@ -367,6 +378,6 @@ export function StoryComposer({
       {cameraOuverte && (
         <CameraCapture onClose={() => setCameraOuverte(false)} onCapture={choisirFichier} />
       )}
-    </div>
+    </motion.div>
   );
 }

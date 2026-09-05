@@ -1,5 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { popover } from '@/lib/motion';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -87,7 +90,18 @@ export default function GifPicker({
       {/* Voile transparent : ferme au clic à côté sans assombrir la conversation, le
           sélecteur étant ancré au composeur et non centré comme une boîte de dialogue. */}
       <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute bottom-full left-4 z-40 mb-2 flex h-96 w-[22rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+      {/*
+        ⚠️ `transformOrigin` en bas à gauche : le sélecteur SORT du bouton GIF, qui se trouve
+        sous son coin gauche. Sans cette origine il grandirait depuis son centre, et rien ne
+        relierait le panneau au bouton qu'on vient de cliquer.
+      */}
+      <motion.div
+        variants={popover}
+        initial="hidden"
+        animate="show"
+        style={{ transformOrigin: 'bottom left' }}
+        className="absolute bottom-full left-4 z-40 mb-2 flex h-96 w-[22rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+      >
         <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-zinc-800">
           <input
             autoFocus
@@ -145,7 +159,7 @@ export default function GifPicker({
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     </>
   );
 }

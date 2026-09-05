@@ -117,6 +117,53 @@ export const backdrop: Variants = {
   exit: { opacity: 0, transition: fade },
 };
 
+/**
+ * PRINCIPE DIRECTEUR, tiré du bouton d'action du composeur (`ComposerActions`) que le client
+ * a validé : **une chose vient de là où on l'a déclenchée**.
+ *
+ * Un menu sort du bouton qu'on a cliqué, une feuille sort du bord dont elle vient, les
+ * entrées d'une liste arrivent l'une après l'autre. Ce qui apparaît « sur place » n'a pas
+ * d'origine, et l'œil ne relie pas ce qu'il voit à ce qu'il a fait.
+ *
+ * ⚠️ L'ÉCHELLE SE RÈGLE SUR LA TAILLE DE L'ÉLÉMENT. Un petit objet (pastille, entrée de menu)
+ * supporte le ressort `soft` : le léger dépassement se lit comme du ressort. Une grande
+ * surface (boîte de dialogue, panneau) prend `damped` : sur plusieurs centaines de pixels, le
+ * même dépassement devient un tremblement, et le texte qu'elle porte se brouille le temps du
+ * rebond.
+ */
+
+/** Cascade d'un menu : ses entrées sortent l'une après l'autre. */
+export const menuContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.025 } },
+  exit: { transition: { staggerChildren: 0.015, staggerDirection: -1 } },
+};
+
+/**
+ * Une entrée de menu.
+ *
+ * ⚠️ Elle glisse depuis le HAUT (`y: -6`), c'est-à-dire depuis le point d'ouverture du menu,
+ * et non depuis le vide. L'ampleur est faible exprès : sur une liste dense, un déplacement
+ * marqué donne l'impression que le menu se déballe.
+ */
+export const menuItem: Variants = {
+  hidden: { opacity: 0, y: -6 },
+  show: { opacity: 1, y: 0, transition: soft },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+/**
+ * Surface qui SORT D'UN POINT — un popover ancré à son bouton.
+ *
+ * ⚠️ À utiliser avec un `transformOrigin` posé sur le coin d'où elle vient, sinon elle grandit
+ * depuis son centre et l'ancrage ne se lit pas.
+ */
+export const popover: Variants = {
+  hidden: { opacity: 0, scale: 0.9, y: 8 },
+  show: { opacity: 1, scale: 1, y: 0, transition: damped },
+  exit: { opacity: 0, scale: 0.94, y: 6, transition: { duration: 0.12 } },
+};
+
 /** Panneau qui recouvre une colonne (profil, détails, confidentialité). */
 export const panel: Variants = {
   hidden: { opacity: 0, x: 24 },

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { damped } from '@/lib/motion';
+import { damped, menuItem } from '@/lib/motion';
 
 /**
  * Menu flottant, positionné au point où on l'a ouvert.
@@ -143,16 +143,30 @@ export function FloatingMenu({
       ref={ref}
       role="menu"
       /**
-       * ⚠️ L'échelle part de 0.94 et l'origine suit le coin d'ouverture : le menu semble
-       * SORTIR du point cliqué au lieu d'apparaître au milieu de nulle part.
+       * ⚠️ Le menu SORT du point cliqué : `transformOrigin` sur le coin d'ouverture et
+       * échelle qui part de 0.9. Sans cette origine, il grandirait depuis son centre et
+       * l'ancrage au geste ne se lirait pas.
        *
-       * ⚠️ Transition amortie (`damped`) et non élastique : un menu qui rebondit se lit
-       * comme une erreur d'affichage, et son contenu — du texte — devient flou pendant le
-       * dépassement.
+       * ⚠️ Transition amortie et non élastique sur la SURFACE : un panneau de texte qui
+       * rebondit devient flou le temps du dépassement. Le ressort, lui, vit sur les ENTRÉES,
+       * qui sont petites — même règle que le bouton d'action du composeur.
        */
-      initial={{ opacity: 0, scale: 0.94, y: -4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={damped}
+      variants={{
+        hidden: { opacity: 0, scale: 0.9, y: -6 },
+        show: {
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          /**
+           * ⚠️ La transition de la SURFACE et la cascade des ENTRÉES vivent dans le même
+           * objet. Les fusionner par étalement (`...`) écrasait l'une par l'autre — le menu
+           * perdait son amortissement ou ses entrées leur décalage, selon l'ordre.
+           */
+          transition: { ...damped, staggerChildren: 0.025, delayChildren: 0.02 },
+        },
+      }}
+      initial="hidden"
+      animate="show"
       style={{
         transformOrigin: 'top left',
         left: pos?.x ?? anchor.x,
@@ -183,8 +197,9 @@ export function MenuItem({
   icon?: React.ComponentType<{ size?: number | string; className?: string }>;
 }) {
   return (
-    <button
+    <motion.button
       role="menuitem"
+      variants={menuItem}
       onClick={onClick}
       className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-zinc-700 ${
         danger ? 'text-red-500' : 'text-slate-700 dark:text-zinc-200'
@@ -192,6 +207,6 @@ export function MenuItem({
     >
       {Icon && <Icon size={15} className="shrink-0" />}
       {label}
-    </button>
+    </motion.button>
   );
 }

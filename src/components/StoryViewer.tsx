@@ -359,11 +359,16 @@ export function StoryViewer({
 
         {/* « Vu par », sur mes stories uniquement */}
         {isMine && (
-          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/85 to-transparent px-4 pb-4 pt-10">
+          <div className="absolute bottom-0 left-0 right-0 z-20 flex justify-start bg-gradient-to-t from-black/85 to-transparent px-4 pb-4 pt-10">
             {/*
-              ⚠️ Le bloc entier est cliquable, pas seulement le chevron : une pile d'avatars
-              suivie d'un « > » se lit comme un bouton, et viser la petite flèche seule serait
-              une cible inutilement étroite.
+              Pilule cliquable : libellé, pile d'avatars et chevron dans une même capsule.
+
+              ⚠️ Tout est DANS la pilule, pas seulement le chevron : une capsule se lit comme
+              un bouton d'un seul tenant, alors que viser une flèche de 18 px serait une cible
+              inutilement étroite.
+
+              ⚠️ Pas de « +N » au-delà des 3 avatars : le total est déjà écrit juste à côté
+              (« Vu par 7 »), et le répéter allongerait la pilule pour rien.
             */}
             <button
               type="button"
@@ -374,34 +379,27 @@ export function StoryViewer({
                 e.stopPropagation();
                 setListeOuverte(true);
               }}
-              className="flex w-full items-center gap-2 rounded-xl px-1 py-1 text-left disabled:cursor-default"
+              className="flex items-center gap-2.5 rounded-full border border-white/15 bg-white/15 py-1.5 pl-3.5 pr-2.5 backdrop-blur transition hover:bg-white/25 disabled:cursor-default disabled:hover:bg-white/15"
             >
-              <span className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium text-white/95">
-                  {t('stories.seen_by', { count: viewers?.length ?? story.viewCount ?? 0 })}
-                </span>
-                {viewers && viewers.length > 0 && (
-                  /* Pile d'avatars : ils se CHEVAUCHENT (marge négative) et l'ordre visuel
-                     est inversé pour que le premier reste au-dessus de la pile. */
-                  <span className="flex items-center">
-                    {viewers.slice(0, 5).map((v, i) => (
-                      <span
-                        key={v.id}
-                        className="rounded-full ring-2 ring-black/60"
-                        style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 5 - i }}
-                      >
-                        <Avatar name={v.viewer.name} photoUrl={v.viewer.photoUrl} size={26} />
-                      </span>
-                    ))}
-                    {viewers.length > 5 && (
-                      <span className="ml-2 text-xs text-white/60">+{viewers.length - 5}</span>
-                    )}
-                  </span>
-                )}
+              <span className="text-sm font-medium text-white">
+                {t('stories.seen_by', { count: viewers?.length ?? story.viewCount ?? 0 })}
               </span>
-              {!!viewers?.length && (
-                <IconChevron size={18} className="ml-auto shrink-0 text-white/60" />
+              {viewers && viewers.length > 0 && (
+                /* Pile d'avatars : ils se CHEVAUCHENT (marge négative), et l'ordre de
+                   superposition est inversé pour que le premier reste au-dessus. */
+                <span className="flex items-center">
+                  {viewers.slice(0, 3).map((v, i) => (
+                    <span
+                      key={v.id}
+                      className="rounded-full ring-2 ring-black/40"
+                      style={{ marginLeft: i === 0 ? 0 : -9, zIndex: 3 - i }}
+                    >
+                      <Avatar name={v.viewer.name} photoUrl={v.viewer.photoUrl} size={24} />
+                    </span>
+                  ))}
+                </span>
               )}
+              {!!viewers?.length && <IconChevron size={16} className="text-white/70" />}
             </button>
           </div>
         )}

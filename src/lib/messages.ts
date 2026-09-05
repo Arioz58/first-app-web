@@ -402,11 +402,12 @@ export const setEphemeral = (conversationId: string, duration: number | null) =>
   });
 
 const DAY = 24 * 3600;
-export const EPHEMERAL_OPTIONS: { label: string; value: number | null }[] = [
-  { label: '24 heures', value: DAY },
-  { label: '7 jours', value: 7 * DAY },
-  { label: '30 jours', value: 30 * DAY },
-  { label: 'Désactivé', value: null },
+/** ⚠️ Des CLÉS i18n : en dur, ces libellés restaient en français quelle que soit la langue. */
+export const EPHEMERAL_OPTIONS: { labelKey: string; value: number | null }[] = [
+  { labelKey: 'ephemeral.24h', value: DAY },
+  { labelKey: 'ephemeral.7d', value: 7 * DAY },
+  { labelKey: 'ephemeral.30d', value: 30 * DAY },
+  { labelKey: 'ephemeral.off', value: null },
 ];
 
 /**

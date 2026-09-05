@@ -1,5 +1,7 @@
 'use client';
 
+import { ChoiceDialog } from '@/components/ChoiceDialog';
+
 import {
   IconAddMember,
   IconAdmin,
@@ -53,7 +55,7 @@ import { Avatar } from '@/components/Avatar';
 import {
   favoriteConversation,
   isMuted,
-  MUTE_OPTIONS,
+  muteOptions,
   muteConversation,
   type Conversation,
 } from '@/lib/conversations';
@@ -586,73 +588,46 @@ export function DetailsPanel({
         <Section title={t('details.settings')}>
           {conversation && (
             <div className="px-4">
-              {muteOpen ? (
-                MUTE_OPTIONS.map((o) => (
-                  <button
-                    key={o.label}
-                    onClick={() => {
-                      setMuteOpen(false);
-                      void muteConversation(meta.id, o.value).then(onChanged).catch(() => {});
-                    }}
-                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    {o.label}
-                  </button>
-                ))
-              ) : (
-                <button
-                  onClick={() => {
-                    if (isMuted(conversation)) {
-                      void muteConversation(meta.id, null).then(onChanged).catch(() => {});
-                    } else {
-                      setMuteOpen(true);
-                    }
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  {isMuted(conversation) ? (
-                    <>
-                      <IconBell size={15} />
-                      {t('details.reactivate_notifs')}
-                    </>
-                  ) : (
-                    <>
-                      <IconBellOff size={15} />
-                      {t('details.mute_for')}
-                    </>
-                  )}
-                </button>
-              )}
+              {/* ⚠️ Le bouton reste TOUJOURS affiché : auparavant la liste des durées le
+                  remplaçait sur place, si bien que le réglage disparaissait au profit d'une
+                  liste sans titre, sans valeur courante et sans moyen d'en sortir. */}
+              <button
+                onClick={() => {
+                  if (isMuted(conversation)) {
+                    void muteConversation(meta.id, null).then(onChanged).catch(() => {});
+                  } else {
+                    setMuteOpen(true);
+                  }
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {isMuted(conversation) ? (
+                  <>
+                    <IconBell size={15} />
+                    {t('details.reactivate_notifs')}
+                  </>
+                ) : (
+                  <>
+                    <IconBellOff size={15} />
+                    {t('details.mute_for')}
+                  </>
+                )}
+              </button>
             </div>
           )}
           <div className="px-4">
-            {ephemeralOpen ? (
-              EPHEMERAL_OPTIONS.map((o) => (
-                <button
-                  key={o.label}
-                  onClick={() => {
-                    setEphemeralOpen(false);
-                    void setEphemeral(meta.id, o.value).catch(() => {});
-                  }}
-                  className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  {o.label}
-                </button>
-              ))
-            ) : (
-              <button
-                onClick={() => setEphemeralOpen(true)}
-                className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <IconTimer size={15} className="mr-2 inline align-[-3px]" />
-                Messages éphémères
-                <span className="ml-2 text-xs text-slate-400">
-                  {meta.ephemeralDuration
-                    ? t('details.days_short', { count: String(Math.round(meta.ephemeralDuration / 86400)) })
-                    : 'désactivés'}
-                </span>
-              </button>
-            )}
+            <button
+              onClick={() => setEphemeralOpen(true)}
+              className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <IconTimer size={15} className="mr-2 inline align-[-3px]" />
+              {t('ephemeral.title')}
+              <span className="ml-2 text-xs text-slate-400">
+                {meta.ephemeralDuration
+                  ? t('details.days_short', { count: String(Math.round(meta.ephemeralDuration / 86400)) })
+                  : t('ephemeral.disabled_short')}
+              </span>
+            </button>
           </div>
         </Section>
 
@@ -660,34 +635,18 @@ export function DetailsPanel({
         {isGroup && (
           <Section title={t('details.group_management')}>
             <div className="px-4">
-              {admin &&
-                (whoOpen ? (
-                  (['all', 'admins'] as const).map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => {
-                        setWhoOpen(false);
-                        void setWhoCanSend(meta.id, v)
-                          .then(onMetaChanged)
-                          .catch((e) => window.alert(e.message));
-                      }}
-                      className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      {t(v === 'all' ? 'details.everyone' : 'details.admins_only')}
-                    </button>
-                  ))
-                ) : (
-                  <button
-                    onClick={() => setWhoOpen(true)}
-                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    <IconEdit size={15} className="mr-2 inline align-[-3px]" />
-                    {t('details.who_can_send')}
-                    <span className="ml-2 text-xs text-slate-400">
-                      {meta.whoCanSend === 'admins' ? 'admins' : 'tout le monde'}
-                    </span>
-                  </button>
-                ))}
+              {admin && (
+                <button
+                  onClick={() => setWhoOpen(true)}
+                  className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <IconEdit size={15} className="mr-2 inline align-[-3px]" />
+                  {t('details.who_can_send')}
+                  <span className="ml-2 text-xs text-slate-400">
+                    {t(meta.whoCanSend === 'admins' ? 'details.admins_short' : 'details.everyone_short')}
+                  </span>
+                </button>
+              )}
 
               {/* ⚠️ Ouvert à TOUS, y compris au dernier admin : le serveur promeut le membre
                   suivant. Empêcher son départ laisserait quelqu'un prisonnier de son groupe. */}
@@ -848,6 +807,47 @@ export function DetailsPanel({
           onAdded={onMetaChanged}
         />
       )}
+    {/*
+      Les trois réglages à choix multiple passent par la MÊME boîte de dialogue : ils posaient
+      la même question et souffraient du même défaut — la liste remplaçait le bouton sur place.
+    */}
+    {conversation && (
+      <ChoiceDialog
+        open={muteOpen}
+        title={t('details.mute_title')}
+        options={muteOptions().map((o) => ({ label: t(o.labelKey), value: o.value }))}
+        onSelect={(v) => void muteConversation(meta.id, v).then(onChanged).catch(() => {})}
+        onClose={() => setMuteOpen(false)}
+      />
+    )}
+
+    <ChoiceDialog
+      open={ephemeralOpen}
+      title={t('ephemeral.title')}
+      options={EPHEMERAL_OPTIONS.map((o) => ({ label: t(o.labelKey), value: o.value }))}
+      /* ⚠️ La durée en cours est cochée : sans repère, on ne sait pas sur quoi le réglage est
+         posé et on le remet au hasard. */
+      current={meta.ephemeralDuration ?? null}
+      onSelect={(v) => void setEphemeral(meta.id, v).catch(() => {})}
+      onClose={() => setEphemeralOpen(false)}
+    />
+
+    {isGroup && admin && (
+      <ChoiceDialog
+        open={whoOpen}
+        title={t('details.who_can_send')}
+        options={[
+          { label: t('details.everyone'), value: 'all' as const },
+          { label: t('details.admins_only'), value: 'admins' as const },
+        ]}
+        current={meta.whoCanSend === 'admins' ? ('admins' as const) : ('all' as const)}
+        onSelect={(v: 'all' | 'admins') =>
+          void setWhoCanSend(meta.id, v).then(onMetaChanged).catch((e) => window.alert(e.message))
+        }
+        onClose={() => setWhoOpen(false)}
+      />
+    )}
+
     </aside>
   );
 }

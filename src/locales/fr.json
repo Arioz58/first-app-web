@@ -70,7 +70,10 @@
     "you_are_role": "vous êtes {{role}}",
     "block_confirm_named": "Bloquer {{name}} ?\n\nVotre amitié sera supprimée et cette personne ne pourra plus vous contacter.",
     "this_contact": "ce contact",
-    "days_short": "{{count}} j"
+    "days_short": "{{count}} j",
+    "mute_title": "Mettre en sourdine",
+    "everyone_short": "tout le monde",
+    "admins_short": "admins"
   },
   "moderation": {
     "block": "Bloquer",
@@ -330,7 +333,9 @@
     "24h": "24 heures",
     "7d": "7 jours",
     "30d": "30 jours",
-    "off": "Désactivé"
+    "off": "Désactivé",
+    "title": "Messages éphémères",
+    "disabled_short": "désactivés"
   },
   "profile_user": {
     "title": "Profil",
@@ -410,5 +415,10 @@
     "bg_none": "Sans fond",
     "bg_translucent": "Translucide",
     "bg_solid": "Plein"
+  },
+  "mute": {
+    "8_hours": "8 heures",
+    "1_week": "1 semaine",
+    "always": "Toujours"
   }
 }

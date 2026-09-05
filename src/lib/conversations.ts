@@ -194,11 +194,20 @@ export const markUnread = (id: string) =>
 /** Sentinelle « toujours » — même valeur que le mobile (`MUTE_FOREVER`). */
 export const MUTE_FOREVER = new Date('2999-12-31T00:00:00Z').toISOString();
 
-/** Durées proposées, alignées sur le mobile. */
-export const MUTE_OPTIONS: { label: string; value: string }[] = [
-  { label: '8 heures', value: new Date(Date.now() + 8 * 3600 * 1000).toISOString() },
-  { label: '1 semaine', value: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() },
-  { label: 'Toujours', value: MUTE_FOREVER },
+/**
+ * Durées proposées, alignées sur le mobile.
+ *
+ * ⚠️ Une CLÉ i18n et non un libellé : écrit en français ici, le texte échappait à la
+ * traduction et un utilisateur turc lisait « 8 heures » au milieu de son interface.
+ *
+ * ⚠️ Les dates sont calculées À L'APPEL et non une fois pour toutes au chargement du module :
+ * une constante figée à l'ouverture de l'onglet mettrait la conversation en sourdine « huit
+ * heures à partir du moment où la page a été chargée », ce qui se voit sur une session longue.
+ */
+export const muteOptions = (): { labelKey: string; value: string }[] => [
+  { labelKey: 'mute.8_hours', value: new Date(Date.now() + 8 * 3600 * 1000).toISOString() },
+  { labelKey: 'mute.1_week', value: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() },
+  { labelKey: 'mute.always', value: MUTE_FOREVER },
 ];
 
 /** La conversation est-elle en sourdine à cet instant ? */

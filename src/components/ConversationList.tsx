@@ -54,7 +54,7 @@ import {
   markUnread,
   messagePreview,
   muteConversation,
-  MUTE_OPTIONS,
+  muteOptions,
   pinConversation,
   sortConversations,
   startDirectConversation,
@@ -775,10 +775,13 @@ export function ConversationList() {
         return (
           <FloatingMenu anchor={menuFor.at} onClose={close} width={228}>
             {muteFor === c.id ? (
-              MUTE_OPTIONS.map((o) => (
+              /* ⚠️ Ici la liste remplace le menu : c'est un SOUS-MENU, motif attendu dans un
+                 menu contextuel. Le défaut corrigé dans le panneau de détails était différent —
+                 la liste y remplaçait le réglage lui-même, dans la page. */
+              muteOptions().map((o) => (
                 <MenuItem
-                  key={o.label}
-                  label={o.label}
+                  key={o.labelKey}
+                  label={t(o.labelKey)}
                   onClick={() => act({ mutedUntil: o.value }, () => muteConversation(c.id, o.value))}
                 />
               ))

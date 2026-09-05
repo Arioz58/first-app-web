@@ -70,7 +70,10 @@
     "you_are_role": "siz {{role}}sınız",
     "block_confirm_named": "{{name}} engellensin mi?\n\nArkadaşlığınız kaldırılacak ve bu kişi size ulaşamayacak.",
     "this_contact": "bu kişi",
-    "days_short": "{{count}} g"
+    "days_short": "{{count}} g",
+    "mute_title": "Bildirimleri sessize al",
+    "everyone_short": "herkes",
+    "admins_short": "yöneticiler"
   },
   "moderation": {
     "block": "Engelle",
@@ -330,7 +333,9 @@
     "24h": "24 saat",
     "7d": "7 gün",
     "30d": "30 gün",
-    "off": "Kapalı"
+    "off": "Kapalı",
+    "title": "Kaybolan mesajlar",
+    "disabled_short": "kapalı"
   },
   "profile_user": {
     "title": "Profil",
@@ -410,5 +415,10 @@
     "bg_none": "Arka plansız",
     "bg_translucent": "Yarı saydam",
     "bg_solid": "Dolu"
+  },
+  "mute": {
+    "8_hours": "8 saat",
+    "1_week": "1 hafta",
+    "always": "Her zaman"
   }
 }

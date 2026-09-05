@@ -70,7 +70,10 @@
     "you_are_role": "you are {{role}}",
     "block_confirm_named": "Block {{name}}?\n\nYour friendship will be removed and this person will no longer be able to contact you.",
     "this_contact": "this contact",
-    "days_short": "{{count}}d"
+    "days_short": "{{count}}d",
+    "mute_title": "Mute notifications",
+    "everyone_short": "everyone",
+    "admins_short": "admins"
   },
   "moderation": {
     "block": "Block",
@@ -330,7 +333,9 @@
     "24h": "24 hours",
     "7d": "7 days",
     "30d": "30 days",
-    "off": "Off"
+    "off": "Off",
+    "title": "Disappearing messages",
+    "disabled_short": "off"
   },
   "profile_user": {
     "title": "Profile",
@@ -410,5 +415,10 @@
     "bg_none": "No background",
     "bg_translucent": "Translucent",
     "bg_solid": "Solid"
+  },
+  "mute": {
+    "8_hours": "8 hours",
+    "1_week": "1 week",
+    "always": "Always"
   }
 }

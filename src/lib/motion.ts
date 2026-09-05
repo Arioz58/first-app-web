@@ -183,7 +183,34 @@ export const panel: Variants = {
  * par la gauche. C'est ce qui fait lire l'échange comme une conversation et non comme une
  * liste qui se remplit.
  */
+/**
+ * Ressort des bulles : franchement rebondissant.
+ *
+ * ⚠️ ζ ≈ 0.63, sous le `soft` du reste de l'application (0.78) mais volontairement au-dessus
+ * d'un vrai ressort lâche. La bulle DÉPASSE sa place puis revient — c'est ce dépassement qui
+ * se lit comme du rebond.
+ *
+ * ⚠️ L'amplitude du dépassement vaut `e^(-πζ/√(1-ζ²))` du trajet, soit ici environ 7 % : 2 px
+ * pour 24 px de déplacement. Réglé par essais successifs avec le client — 16 % (ζ 0.50) était
+ * jugé trop marqué, 10 % (ζ 0.58) encore un peu. C'est le bon endroit pour ajuster : baisser
+ * `damping` accentue le rebond, le monter l'efface. Envoyer un message est
+ * le geste le plus répété de l'application : c'est le seul endroit qui mérite d'être plus vif
+ * que la mesure commune, et le seul où on le remarquera assez souvent pour que ça compte.
+ *
+ * ⚠️ Le rebond porte sur la TRANSLATION seule, jamais sur l'échelle. Une bulle qui grossit
+ * au-delà de sa taille puis revient rend son texte flou pendant tout le dépassement — et une
+ * bulle, c'est presque toujours du texte.
+ */
+export const bounce: Transition = { type: 'spring', stiffness: 300, damping: 22 };
+
+/**
+ * Bulle de message qui arrive.
+ *
+ * ⚠️ Le déplacement de départ (24 px) fait partie du réglage : le dépassement étant un
+ * POURCENTAGE du trajet, une amplitude trop faible ne laisse rien voir et l'effet se réduit à
+ * un fondu. C'est la distance parcourue qui donne son élan au rebond.
+ */
 export const bubble = (mine: boolean): Variants => ({
-  hidden: { opacity: 0, y: 12, x: mine ? 14 : -14 },
-  show: { opacity: 1, y: 0, x: 0, transition: soft },
+  hidden: { opacity: 0, y: 14, x: mine ? 24 : -24 },
+  show: { opacity: 1, y: 0, x: 0, transition: bounce },
 });

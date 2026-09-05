@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@/components/Avatar';
-import { IconClose, IconTrash } from '@/components/icons';
+import { UserProfileDialog } from '@/components/UserProfileDialog';
+import { IconChevron, IconClose, IconTrash } from '@/components/icons';
 import {
   backgroundCss,
   deleteStory,
@@ -54,6 +56,7 @@ export function StoryViewer({
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [gi, setGi] = useState(startGroup);
   const [si, setSi] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -61,12 +64,18 @@ export function StoryViewer({
   const [mediaReady, setMediaReady] = useState(false);
   const [viewers, setViewers] = useState<StoryView[] | null>(null);
   const [frame, setFrame] = useState({ w: 0, h: 0 });
+  /** Liste complète des vues, dépliée par un clic sur la pile d'avatars. */
+  const [listeOuverte, setListeOuverte] = useState(false);
+  /** Profil ouvert depuis la liste des vues. */
+  const [profilOuvert, setProfilOuvert] = useState<string | null>(null);
 
   const frameRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   /** ⚠️ Lu par la boucle d'animation : un state y serait figé à sa valeur de création. */
   const pausedRef = useRef(false);
   const viewSentRef = useRef<Set<string>>(new Set());
+  /** Groupe précédemment affiché, pour savoir si l'on vient de CHANGER DE PERSONNE. */
+  const groupeRef = useRef(startGroup);
 
   const group = groups[gi];
   const story: Story | undefined = group?.stories[si];
@@ -84,6 +93,7 @@ export function StoryViewer({
     setProgress(0);
     setMediaReady(false);
     setViewers(null);
+    setListeOuverte(false);
     if (!group) return onClose();
     if (si + 1 < group.stories.length) return setSi(si + 1);
     if (gi + 1 < groups.length) {
@@ -97,6 +107,7 @@ export function StoryViewer({
     setProgress(0);
     setMediaReady(false);
     setViewers(null);
+    setListeOuverte(false);
     if (si > 0) return setSi(si - 1);
     if (gi > 0) {
       const precedent = gi - 1;
@@ -104,6 +115,36 @@ export function StoryViewer({
       return setSi(groups[precedent].stories.length - 1);
     }
   }, [gi, si, groups]);
+
+  /**
+   * Bascule animée d'une personne à l'autre — le repère que réclame l'œil pour comprendre
+   * qu'on a changé d'auteur, et pas seulement de story.
+   *
+   * ⚠️ Uniquement au changement de GROUPE. Entre deux stories d'une même personne, il ne se
+   * passe rien de tel : ce sont les barres de progression qui portent l'information, et
+   * animer là aussi rendrait la lecture d'une série pénible.
+   *
+   * ⚠️ Animation IMPÉRATIVE (`element.animate`) plutôt qu'une classe CSS remontée par une
+   * `key` : remonter le cadre détacherait le `ResizeObserver` qui mesure sa taille, et les
+   * textes perdraient la référence dont dépend leur position.
+   *
+   * ⚠️ Le sens vient de la comparaison avec le groupe précédent : avancer et reculer doivent
+   * tourner dans des sens opposés, sinon le geste ne veut plus rien dire.
+   */
+  useEffect(() => {
+    const precedent = groupeRef.current;
+    groupeRef.current = gi;
+    if (precedent === gi) return;
+    const sens = gi > precedent ? 1 : -1;
+    frameRef.current?.animate(
+      [
+        { transform: `perspective(1400px) rotateY(${sens * 38}deg) scale(0.92)`, opacity: 0.35 },
+        { transform: 'perspective(1400px) rotateY(0deg) scale(1)', opacity: 1 },
+      ],
+      // Court et sans rebond : c'est une transition de lecture, pas un effet.
+      { duration: 340, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
+    );
+  }, [gi]);
 
   // Mesure du cadre : les textes sont positionnés en proportion, il faut sa taille réelle.
   useEffect(() => {
@@ -154,13 +195,14 @@ export function StoryViewer({
   }, [story, ready, isVideo, next]);
 
   // Pause : le média doit suivre, sinon la vidéo continue derrière une barre figée.
+  // ⚠️ La liste des vues déplié met AUSSI en pause : la story passerait pendant qu'on la lit.
   useEffect(() => {
-    pausedRef.current = paused;
+    pausedRef.current = paused || listeOuverte || !!profilOuvert;
     const v = videoRef.current;
     if (!v) return;
-    if (paused) v.pause();
+    if (pausedRef.current) v.pause();
     else void v.play().catch(() => {});
-  }, [paused]);
+  }, [paused, listeOuverte, profilOuvert]);
 
   // Clavier : flèches et Échap, attendus dans un navigateur.
   useEffect(() => {
@@ -317,23 +359,123 @@ export function StoryViewer({
 
         {/* « Vu par », sur mes stories uniquement */}
         {isMine && (
-          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8">
-            <p className="text-sm text-white/90">
-              {t('stories.seen_by', { count: viewers?.length ?? story.viewCount ?? 0 })}
-            </p>
-            {viewers && viewers.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {viewers.slice(0, 8).map((v) => (
-                  <span key={v.id} className="flex items-center gap-1.5">
-                    <Avatar name={v.viewer.name} photoUrl={v.viewer.photoUrl} size={22} />
-                    <span className="text-xs text-white/70">{v.viewer.name}</span>
+          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/85 to-transparent px-4 pb-4 pt-10">
+            {/*
+              ⚠️ Le bloc entier est cliquable, pas seulement le chevron : une pile d'avatars
+              suivie d'un « > » se lit comme un bouton, et viser la petite flèche seule serait
+              une cible inutilement étroite.
+            */}
+            <button
+              type="button"
+              disabled={!viewers?.length}
+              onClick={(e) => {
+                // ⚠️ Sans cela, le clic traverse jusqu'aux zones de navigation posées
+                // derrière et fait passer la story au lieu d'ouvrir la liste.
+                e.stopPropagation();
+                setListeOuverte(true);
+              }}
+              className="flex w-full items-center gap-2 rounded-xl px-1 py-1 text-left disabled:cursor-default"
+            >
+              <span className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium text-white/95">
+                  {t('stories.seen_by', { count: viewers?.length ?? story.viewCount ?? 0 })}
+                </span>
+                {viewers && viewers.length > 0 && (
+                  /* Pile d'avatars : ils se CHEVAUCHENT (marge négative) et l'ordre visuel
+                     est inversé pour que le premier reste au-dessus de la pile. */
+                  <span className="flex items-center">
+                    {viewers.slice(0, 5).map((v, i) => (
+                      <span
+                        key={v.id}
+                        className="rounded-full ring-2 ring-black/60"
+                        style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 5 - i }}
+                      >
+                        <Avatar name={v.viewer.name} photoUrl={v.viewer.photoUrl} size={26} />
+                      </span>
+                    ))}
+                    {viewers.length > 5 && (
+                      <span className="ml-2 text-xs text-white/60">+{viewers.length - 5}</span>
+                    )}
                   </span>
-                ))}
-              </div>
-            )}
+                )}
+              </span>
+              {!!viewers?.length && (
+                <IconChevron size={18} className="ml-auto shrink-0 text-white/60" />
+              )}
+            </button>
           </div>
         )}
+
+        {/* Liste complète des vues */}
+        {listeOuverte && viewers && (
+          <>
+            <div
+              className="absolute inset-0 z-30 bg-black/50"
+              onClick={(e) => {
+                e.stopPropagation();
+                setListeOuverte(false);
+              }}
+            />
+            {/*
+              Panneau glissé depuis le bas — la place naturelle d'une liste secondaire dans un
+              cadre vertical, et le geste que le mobile utilise déjà pour ses viewers.
+            */}
+            <div
+              className="absolute bottom-0 left-0 right-0 z-40 max-h-[65%] overflow-y-auto rounded-t-2xl bg-zinc-900/95 backdrop-blur"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 flex items-center justify-between bg-zinc-900/95 px-4 py-3">
+                <span className="text-sm font-semibold text-white">
+                  {t('stories.seen_by', { count: viewers.length })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setListeOuverte(false)}
+                  aria-label={t('common.close')}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 hover:bg-white/10"
+                >
+                  <IconClose size={16} />
+                </button>
+              </div>
+              <ul className="pb-3">
+                {viewers.map((v) => (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      onClick={() => setProfilOuvert(v.viewer.id)}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-white/10"
+                    >
+                      <Avatar name={v.viewer.name} photoUrl={v.viewer.photoUrl} size={38} />
+                      <span className="min-w-0 flex-1 truncate text-sm text-white">
+                        {v.viewer.name}
+                      </span>
+                      <span className="shrink-0 text-xs text-white/50">
+                        {storyAge(v.createdAt)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
+
+      {/*
+        ⚠️ Hors du cadre de la story : posé dedans, il serait rogné par l'`overflow-hidden` et
+        tourné par l'animation de changement de personne.
+      */}
+      {profilOuvert && (
+        <UserProfileDialog
+          userId={profilOuvert}
+          onClose={() => setProfilOuvert(null)}
+          onOpenConversation={(conversationId) => {
+            setProfilOuvert(null);
+            onClose();
+            router.push(`/chat/${conversationId}`);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -383,5 +383,13 @@
     "read_receipts": "Okundu bilgisi",
     "read_receipts_hint": "Kapalıyken okumalarınız bildirilmez — ve başkalarınınkini de göremezsiniz. İletildi bilgisi açık kalır.",
     "failed": "Ayarlarınız yüklenemedi."
+  },
+  "notifications": {
+    "title": "Tarayıcı bildirimleri",
+    "state_default": "Etkinleştir",
+    "state_granted": "Açık",
+    "state_denied": "Engellendi",
+    "denied_hint": "Reddettiniz. Bu site için tarayıcı ayarlarınızdan yeniden izin verin.",
+    "granted_hint": "Bu sekme ön planda değilken yeni mesajlar size bildirilir."
   }
 }

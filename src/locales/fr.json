@@ -383,5 +383,13 @@
     "read_receipts": "Accusés de lecture",
     "read_receipts_hint": "Désactivé, vos lectures ne sont plus signalées — et vous ne voyez plus celles des autres. Les accusés de réception restent actifs.",
     "failed": "Impossible de charger vos réglages."
+  },
+  "notifications": {
+    "title": "Notifications du navigateur",
+    "state_default": "Activer",
+    "state_granted": "Activées",
+    "state_denied": "Bloquées",
+    "denied_hint": "Vous les avez refusées. Réautorisez-les dans les réglages de votre navigateur pour ce site.",
+    "granted_hint": "Vous serez prévenu des nouveaux messages quand cet onglet n'est pas au premier plan."
   }
 }

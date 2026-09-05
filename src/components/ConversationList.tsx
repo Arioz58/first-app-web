@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '@/components/Avatar';
 import {
   anchorFromEvent,
@@ -30,6 +30,7 @@ import {
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { SearchResults } from '@/components/SearchResults';
+import { notify, notificationState, registerNotificationWorker } from '@/lib/webNotifications';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
 import { fetchFriendRequests } from '@/lib/friends';
@@ -109,6 +110,15 @@ export function ConversationList() {
     typeof window === 'undefined' ? null : getUserId(),
   );
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  /**
+   * Miroir de la liste, lu par l'écouteur socket.
+   *
+   * ⚠️ Indispensable pour décider d'une notification SANS le faire dans la fonction de mise
+   * à jour d'état. React 19 en mode strict exécute ces fonctions DEUX FOIS pour débusquer
+   * les effets de bord : la notification partait en double, constaté au test. Une fonction
+   * de mise à jour doit être pure — c'est le contrat, pas une précaution.
+   */
+  const convRef = useRef<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -215,6 +225,40 @@ export function ConversationList() {
       conversationId: string;
       message: LastMessage;
     }) => {
+      /**
+       * Notification du navigateur — décidée AVANT la mise à jour d'état, sur le miroir.
+       *
+       * ⚠️ Seulement quand l'onglet n'est PAS visible : visible, la liste se réordonne et la
+       * pastille bouge sous les yeux, une bulle système par-dessus serait du bruit.
+       *
+       * ⚠️ C'est la seule alerte possible ici. L'onglet ouvert garde un socket, donc le
+       * serveur considère la personne « en ligne » et n'envoie AUCUN push — pas même à son
+       * téléphone. Sans cela, ouvrir le client web rendait silencieux.
+       */
+      const conv = convRef.current.find((c) => c.id === conversationId);
+      if (
+        conv &&
+        message.senderId !== getUserId() &&
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'hidden' &&
+        !isMuted(conv)
+      ) {
+        const nom = conversationName(conv, meId);
+        const expediteur = conv.members.find((m) => m.userId === message.senderId)?.user;
+        const apercu = messagePreview(message);
+        void notify({
+          // En groupe, le titre est le GROUPE et le corps porte l'expéditeur — même règle
+          // que les notifications du mobile.
+          title: conv.type === 'group' ? nom : expediteur?.name ?? nom,
+          body:
+            conv.type === 'group'
+              ? `${expediteur?.name ?? ''} : ${apercu.text}`.trim()
+              : apercu.text,
+          icon: conversationPhoto(conv, meId) ?? expediteur?.photoUrl ?? null,
+          conversationId,
+        });
+      }
+
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c.id === conversationId);
         if (idx === -1) {
@@ -247,6 +291,14 @@ export function ConversationList() {
      */
     const onFriendRequest = () => setFriendRequests((n) => n + 1);
 
+    /**
+     * ⚠️ Réenregistré au montage quand la permission est déjà accordée : l'enregistrement
+     * d'un service worker ne survit pas forcément d'une session à l'autre, et sans lui
+     * `showNotification` n'a personne à qui parler — les notifications seraient silencieuses
+     * sans le moindre message d'erreur.
+     */
+    if (notificationState() === 'granted') void registerNotificationWorker();
+
     socket.on('friend_request_received', onFriendRequest);
     socket.on('conversation_updated', onUpdate);
     socket.on('added_to_group', load);
@@ -258,7 +310,7 @@ export function ConversationList() {
       socket.off('added_to_group', load);
       socket.off('removed_from_group', load);
     };
-  }, [router, load, activeId]);
+  }, [router, load, activeId, meId]);
 
   // Même règle que le rendu : la conversation ouverte ne compte pas, sinon l'en-tête
   // annoncerait des non-lus que la liste affiche à zéro.
@@ -389,6 +441,11 @@ export function ConversationList() {
       .filter((c) => !c.archivedAt && conversationName(c, meId).toLowerCase().includes(q))
       .slice(0, 8);
   }, [conversations, isSearching, searchTerm, meId]);
+
+  // Écriture de ref dans un effet : autorisée, contrairement à une écriture au rendu.
+  useEffect(() => {
+    convRef.current = conversations;
+  }, [conversations]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();

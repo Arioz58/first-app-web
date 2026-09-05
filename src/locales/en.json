@@ -383,5 +383,13 @@
     "read_receipts": "Read receipts",
     "read_receipts_hint": "When off, your reads are no longer reported — and you no longer see other people's. Delivery receipts stay on.",
     "failed": "Could not load your settings."
+  },
+  "notifications": {
+    "title": "Browser notifications",
+    "state_default": "Enable",
+    "state_granted": "On",
+    "state_denied": "Blocked",
+    "denied_hint": "You declined them. Re-allow them in your browser settings for this site.",
+    "granted_hint": "You'll be alerted to new messages when this tab isn't in the foreground."
   }
 }

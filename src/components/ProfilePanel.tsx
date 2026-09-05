@@ -11,12 +11,18 @@ import {
   IconBlock,
   IconChevron,
   IconLock,
+  IconBell,
   IconDark,
   IconLeave,
   IconLight,
   IconSystem,
 } from '@/components/icons';
 import { logout } from '@/lib/auth';
+import {
+  notificationState,
+  requestNotifications,
+  type NotificationState,
+} from '@/lib/webNotifications';
 import { fetchBlocked, unblockUser } from '@/lib/messages';
 import { PrivacyPanel } from '@/components/PrivacyPanel';
 import { type Me } from '@/lib/messages';
@@ -51,6 +57,14 @@ export function ProfilePanel({
   const { t, i18n } = useTranslation();
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  /**
+   * ⚠️ Initialisée par une fonction et non lue au rendu : `Notification.permission` n'existe
+   * pas côté serveur, et l'y lire ferait diverger le rendu serveur du rendu navigateur
+   * (erreur d'hydratation).
+   */
+  const [notifState, setNotifState] = useState<NotificationState>(() =>
+    typeof window === 'undefined' ? 'unsupported' : notificationState(),
+  );
   const [blocked, setBlocked] = useState<{ id: string; name: string; photoUrl: string | null }[]>(
     [],
   );
@@ -241,6 +255,39 @@ export function ProfilePanel({
             </span>
             <IconChevron size={16} className="text-slate-400" />
           </button>
+          {/*
+            Notifications du navigateur.
+
+            ⚠️ La demande DOIT partir d'un clic : les navigateurs refusent une demande
+            spontanée au chargement, et Firefox la rejette sans rien afficher — un refus
+            qu'on prendrait à tort pour un « non » de la personne.
+
+            ⚠️ Une fois refusée, la permission ne peut plus être redemandée par la page :
+            seul l'utilisateur peut revenir dessus dans les réglages du navigateur. On le dit
+            plutôt que de laisser un bouton qui ne ferait plus rien.
+          */}
+          {notifState !== 'unsupported' && (
+            <button
+              disabled={notifState !== 'default'}
+              onClick={() => {
+                void requestNotifications().then(setNotifState);
+              }}
+              className="mb-2 flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:hover:bg-transparent dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <IconBell size={16} />
+              {t('notifications.title')}
+              <span className="ml-auto text-xs text-slate-400">
+                {t(`notifications.state_${notifState}`)}
+              </span>
+            </button>
+          )}
+          {notifState === 'denied' && (
+            <p className="mb-2 px-2 text-xs text-slate-400">{t('notifications.denied_hint')}</p>
+          )}
+          {notifState === 'granted' && (
+            <p className="mb-2 px-2 text-xs text-slate-400">{t('notifications.granted_hint')}</p>
+          )}
+
           <button
             onClick={() => setBlockedOpen(true)}
             className="mb-2 flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"

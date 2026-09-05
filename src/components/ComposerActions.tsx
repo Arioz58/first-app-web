@@ -28,9 +28,45 @@ export type ComposerAction = {
   onSelect: () => void;
 };
 
-/** Taille d'une pastille d'action et écart entre elles — la colonne se calcule dessus. */
+/** Taille d'une pastille d'action. */
 const TAILLE = 42;
-const ECART = 10;
+
+/**
+ * Géométrie de l'arc, en coordonnées polaires depuis le CENTRE du bouton.
+ *
+ * ⚠️ L'arc s'ouvre vers le HAUT et la DROITE. Le composeur est en bas de l'écran et le bouton
+ * contre le bord gauche : vers le bas il sortirait de la fenêtre, vers la gauche il n'y a pas
+ * de place. Le premier angle est volontairement au-dessus de l'horizontale (28°) pour que la
+ * pastille la plus basse dégage la barre de saisie au lieu de la recouvrir.
+ */
+const RAYON = 225;
+const ANGLE_BAS = 24;
+const ANGLE_HAUT = 80;
+
+/*
+ * ⚠️ Le rayon est dicté par l'ESPACEMENT, pas choisi à l'œil. Cinq pastilles de 42 px
+ * réparties sur 56° doivent rester séparées : l'écart entre deux centres vaut
+ * `rayon × (angle total en radians) / (n - 1)`, soit ici 225 × 0.977 / 4 ≈ 55 px — 13 px de
+ * jour entre deux pastilles. Avec le rayon initial de 132, cet écart tombait à 41 px et les
+ * pastilles se touchaient.
+ *
+ * ⚠️ L'angle haut s'arrête à 80° et non à la verticale : au-delà, la pastille du sommet passe
+ * à gauche du bouton, qui est déjà contre le bord du panneau — et son libellé, posé à gauche,
+ * sortait de l'écran.
+ */
+
+/**
+ * Position d'une pastille sur l'arc.
+ *
+ * ⚠️ `y` est NÉGATIF vers le haut : l'axe des ordonnées du navigateur descend, alors que
+ * l'angle d'un cercle trigonométrique monte. Oublier ce signe déploie l'arc sous le bouton,
+ * hors de l'écran.
+ */
+const positionArc = (index: number, total: number) => {
+  const t = total <= 1 ? 0 : index / (total - 1);
+  const angle = ((ANGLE_BAS + (ANGLE_HAUT - ANGLE_BAS) * t) * Math.PI) / 180;
+  return { x: Math.cos(angle) * RAYON, y: -Math.sin(angle) * RAYON };
+};
 
 export function ComposerActions({
   open,
@@ -85,65 +121,78 @@ export function ComposerActions({
       <AnimatePresence>
         {open && (
           <motion.ul
-            className="absolute bottom-full left-0 z-50 mb-3 flex flex-col-reverse"
-            style={{ gap: ECART }}
+            /*
+              ⚠️ Conteneur de taille NULLE, ancré sur le centre du bouton : chaque pastille est
+              placée par un décalage depuis ce point. C'est ce qui leur permet de partir
+              exactement du « + » — un conteneur avec ses propres dimensions les ferait naître
+              d'un de ses coins.
+            */
+            className="absolute bottom-5 left-5 z-50 h-0 w-0"
             initial="ferme"
             animate="ouvert"
             exit="ferme"
             variants={{
               /**
                * ⚠️ La cascade s'inverse à la fermeture (`staggerDirection: -1`) : les actions
-               * rentrent dans le bouton en commençant par la plus éloignée. Sans cela, la
-               * colonne se replie à l'envers de la façon dont elle s'est ouverte, et le
-               * mouvement paraît accidentel.
+               * rentrent dans le bouton en commençant par la plus haute. Sans cela, l'arc se
+               * replie à l'envers de la façon dont il s'est ouvert.
                */
-              ouvert: { transition: { staggerChildren: 0.04 } },
-              ferme: { transition: { staggerChildren: 0.03, staggerDirection: -1 } },
+              ouvert: { transition: { staggerChildren: 0.045 } },
+              ferme: { transition: { staggerChildren: 0.035, staggerDirection: -1 } },
             }}
           >
-            {actions.map((action) => (
-              <motion.li
-                key={action.key}
-                /* ⚠️ `group` sur la LIGNE et non sur le bouton : le libellé est son voisin,
-                   pas son descendant, et `group-hover` ne l'atteignait jamais. */
-                className="group flex items-center gap-2"
-                variants={{
-                  /**
-                   * ⚠️ Les actions partent DU BOUTON (`y: 14`, échelle réduite) et non du
-                   * vide : c'est ce qui donne l'impression qu'elles en sortent, au lieu
-                   * d'apparaître en l'air au-dessus de lui.
-                   */
-                  ferme: { opacity: 0, y: 14, scale: 0.6 },
-                  ouvert: { opacity: 1, y: 0, scale: 1, transition: soft },
-                }}
-              >
-                <motion.button
-                  type="button"
-                  onClick={() => {
-                    onOpenChange(false);
-                    action.onSelect();
+            {actions.map((action, i) => {
+              const { x, y } = positionArc(i, actions.length);
+              return (
+                <motion.li
+                  key={action.key}
+                  /* ⚠️ `group` sur la LIGNE et non sur le bouton : le libellé est son voisin,
+                     pas son descendant, et `group-hover` ne l'atteindrait jamais. */
+                  className="group absolute hover:z-10"
+                  style={{ left: -TAILLE / 2, top: -TAILLE / 2, width: TAILLE, height: TAILLE }}
+                  variants={{
+                    /**
+                     * ⚠️ Départ à (0, 0) et à l'échelle 0.3 : les pastilles SORTENT du bouton
+                     * au lieu d'apparaître à leur place. C'est tout ce qui distingue un menu
+                     * qui se déploie d'un menu qui s'affiche.
+                     */
+                    ferme: { x: 0, y: 0, scale: 0.3, opacity: 0 },
+                    ouvert: { x, y, scale: 1, opacity: 1, transition: soft },
                   }}
-                  whileHover={{ scale: 1.09 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={snappy}
-                  aria-label={action.label}
-                  style={{ width: TAILLE, height: TAILLE }}
-                  className="flex items-center justify-center rounded-full bg-white text-[#1E40AF] shadow-lg ring-1 ring-slate-200 dark:bg-zinc-800 dark:text-blue-300 dark:ring-zinc-700"
                 >
-                  <action.icon size={18} />
-                </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={() => {
+                      onOpenChange(false);
+                      action.onSelect();
+                    }}
+                    whileHover={{ scale: 1.12 }}
+                    whileTap={{ scale: 0.9 }}
+                    transition={snappy}
+                    aria-label={action.label}
+                    className="flex h-full w-full items-center justify-center rounded-full bg-white text-[#1E40AF] shadow-lg ring-1 ring-slate-200 dark:bg-zinc-800 dark:text-blue-300 dark:ring-zinc-700"
+                  >
+                    <action.icon size={18} />
+                  </motion.button>
 
-                {/*
-                  Libellé en infobulle, révélé au survol de la LIGNE entière.
+                  {/*
+                    Libellé À GAUCHE de la pastille, révélé au survol.
 
-                  ⚠️ `pointer-events-none` : l'infobulle recouvre la conversation, et sans
-                  cela elle intercepterait les clics destinés à ce qu'il y a derrière.
-                */}
-                <span className="pointer-events-none whitespace-nowrap rounded-lg bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/95 dark:text-zinc-900">
-                  {action.label}
-                </span>
-              </motion.li>
-            ))}
+                    ⚠️ `pointer-events-none` : il déborde sur la conversation et sur les autres
+                    pastilles, et sans cela il intercepterait leurs clics.
+
+                    ⚠️ Un seul libellé est visible à la fois (au survol) : posés en permanence,
+                    ceux des pastilles hautes et basses se chevaucheraient, l'arc les rapprochant
+                    horizontalement.
+                  */}
+                  {/* ⚠️ `hover:z-10` sur la ligne : sans lui, le libellé d'une pastille basse
+                      passait DERRIÈRE les pastilles voisines, l'arc les faisant se recouvrir. */}
+                  <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/95 dark:text-zinc-900">
+                    {action.label}
+                  </span>
+                </motion.li>
+              );
+            })}
           </motion.ul>
         )}
       </AnimatePresence>

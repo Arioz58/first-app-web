@@ -496,6 +496,8 @@ export function ConversationList() {
         /* Les pastilles vivent sur la barre : c'est le seul endroit visible depuis n'importe
            quelle vue. */
         badges={{ chats: unreadTotal, friends: friendRequests }}
+        me={me}
+        onOpenProfile={() => setProfileOpen(true)}
       />
 
       {/* ⚠️ La colonne de contenu est en `min-w-0` : sans elle, un nom de conversation long
@@ -871,26 +873,11 @@ export function ConversationList() {
       </>
       )}
 
-      {/* ⚠️ Pied de colonne COMMUN aux trois vues, hors de la zone qui défile : la vignette
-          doit rester atteignable quelle que soit la vue et la position dans une longue liste. */}
-      <button
-        onClick={() => setProfileOpen(true)}
-        aria-label="Vous"
-        className="flex shrink-0 items-center gap-3 border-t border-slate-200 px-4 py-3 text-left hover:bg-slate-50 dark:border-zinc-800 dark:hover:bg-zinc-800/60"
-      >
-        {me ? (
-          <Avatar name={me.name} photoUrl={me.photoUrl} size={36} />
-        ) : (
-          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200 dark:bg-zinc-800" />
-        )}
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-slate-900 dark:text-zinc-100">
-            {me?.name ?? '\u00A0'}
-          </span>
-          <span className="block text-xs text-slate-400">Vous</span>
-        </span>
-      </button>
+      </div>
 
+      {/* ⚠️ Remontés ici avec le retrait du pied de colonne : ces deux panneaux vivaient dans
+          le même bloc et avaient été emportés avec lui. Ils recouvrent la colonne ENTIÈRE,
+          barre de navigation comprise — d'où leur place hors de la colonne de contenu. */}
       {requestsOpen && (
         <MessageRequestsPanel
           meId={meId}
@@ -914,8 +901,6 @@ export function ConversationList() {
           }}
         />
       )}
-
-      </div>
 
       {profileOpen && <ProfilePanel me={me} onClose={() => setProfileOpen(false)} />}
 

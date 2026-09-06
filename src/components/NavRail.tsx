@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
+import { Avatar } from '@/components/Avatar';
 import { IconChat, IconSparkle, IconUsers } from '@/components/icons';
 import { damped, listItem, morph, snappy, staggeredList } from '@/lib/motion';
 
@@ -27,15 +28,36 @@ const ENTREES: { vue: Vue; icone: typeof IconChat; cle: string }[] = [
   { vue: 'stories', icone: IconSparkle, cle: 'nav.stories' },
 ];
 
+/**
+ * Libellé révélé au survol, à DROITE de l'icône.
+ *
+ * ⚠️ Même traitement que les actions du composeur, mais du côté opposé : la barre est contre
+ * le bord gauche, un libellé posé à sa gauche sortirait de l'écran.
+ *
+ * ⚠️ `pointer-events-none` : il déborde sur la colonne de contenu, et sans cela il
+ * intercepterait les clics destinés à ce qu'il y a derrière.
+ */
+function Bulle({ texte }: { texte: string }) {
+  return (
+    <span className="pointer-events-none absolute left-full top-1/2 z-20 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-zinc-100/95 dark:text-zinc-900">
+      {texte}
+    </span>
+  );
+}
+
 export function NavRail({
   vue,
   onChange,
   badges,
+  me,
+  onOpenProfile,
 }: {
   vue: Vue;
   onChange: (v: Vue) => void;
   /** Compteurs affichés en pastille. Une valeur nulle n'affiche rien. */
   badges?: Partial<Record<Vue, number>>;
+  me: { name: string; photoUrl: string | null } | null;
+  onOpenProfile: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -46,7 +68,17 @@ export function NavRail({
    * ⚠️ `shrink-0` : elle ne doit pas se comprimer quand la liste à côté manque de place.
    */
   return (
-    <nav className="flex shrink-0 flex-col items-center px-2.5 pt-4">
+    /*
+      ⚠️ `relative z-20` sur la BARRE : ses infobulles débordent sur la colonne de contenu,
+      qui vient APRÈS elle dans le document et se peignait donc par-dessus — le libellé
+      apparaissait tronqué, coupé net par le champ de recherche. Un `z-index` sur l'infobulle
+      seule n'y suffit pas : sans contexte d'empilement remonté sur la barre, il ne joue qu'à
+      l'intérieur de celle-ci.
+
+      ⚠️ Reste SOUS les panneaux (`z-30`, profil et demandes de messages), qui doivent
+      recouvrir la barre elle-même.
+    */
+    <nav className="relative z-20 flex shrink-0 flex-col items-center justify-between px-2.5 py-4">
       {/*
         ⚠️ La pilule ARRIVE au montage, ses icônes l'une après l'autre. Sans cela elle est
         simplement « déjà là » au chargement, alors que tout le reste de l'application se
@@ -76,11 +108,11 @@ export function NavRail({
               whileHover={actif ? undefined : { scale: 1.12 }}
               whileTap={{ scale: 0.9 }}
               transition={snappy}
-              title={t(cle)}
               aria-label={t(cle)}
               aria-current={actif ? 'page' : undefined}
-              className="relative flex h-11 w-11 items-center justify-center rounded-full"
+              className="group relative flex h-11 w-11 items-center justify-center rounded-full"
             >
+              <Bulle texte={t(cle)} />
               {/*
                 ⚠️ L'indicateur est UN SEUL élément partagé (`layoutId`) : il se déplace d'une
                 icône à l'autre. En rendre un par bouton et le montrer/cacher donnerait un
@@ -138,6 +170,37 @@ export function NavRail({
           );
         })}
       </motion.div>
+
+      {/*
+        ⚠️ Le profil est DANS la colonne de la barre mais HORS de la pilule, et c'est
+        volontaire : il n'est pas une destination de même rang que les trois autres. Celles-ci
+        changent le contenu de la colonne ; lui ouvre un panneau qui la RECOUVRE. Dans la
+        pilule, avec le même traitement, il annoncerait un quatrième onglet — et il faudrait
+        alors trancher un cas bancal : l'indicateur actif se pose-t-il dessus ? S'il se pose,
+        il ment ; s'il ne se pose pas, le contrôle devient incohérent avec lui-même.
+
+        ⚠️ Le nom du compte, visible en permanence dans l'ancien pied de colonne, n'est plus
+        que dans l'infobulle. C'est la contrepartie assumée du gain de place : c'est ainsi
+        qu'on remarquait être connecté avec le mauvais compte.
+      */}
+      <motion.button
+        type="button"
+        onClick={onOpenProfile}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        transition={snappy}
+        aria-label={t('list.you')}
+        className="group relative flex h-11 w-11 items-center justify-center rounded-full"
+      >
+        <Bulle texte={me ? `${me.name} · ${t('list.you')}` : t('list.you')} />
+        {me ? (
+          <Avatar name={me.name} photoUrl={me.photoUrl} size={36} />
+        ) : (
+          <span className="h-9 w-9 animate-pulse rounded-full bg-slate-200 dark:bg-zinc-800" />
+        )}
+      </motion.button>
     </nav>
   );
 }

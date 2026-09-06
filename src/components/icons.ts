@@ -72,6 +72,7 @@ export {
   Image as IconPhoto,
   FileText as IconDocument,
   MessageSquare as IconChat,
+  Sparkles as IconSparkle,
   Music as IconAudio,
   Type as IconText,
   FileImage as IconGif,

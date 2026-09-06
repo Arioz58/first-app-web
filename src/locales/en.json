@@ -414,11 +414,18 @@
     "publish_failed": "Publishing failed.",
     "bg_none": "No background",
     "bg_translucent": "Translucent",
-    "bg_solid": "Solid"
+    "bg_solid": "Solid",
+    "count": "{{count}} story",
+    "empty": "No stories yet."
   },
   "mute": {
     "8_hours": "8 hours",
     "1_week": "1 week",
     "always": "Always"
+  },
+  "nav": {
+    "chats": "Chats",
+    "friends": "Friends",
+    "stories": "Stories"
   }
 }

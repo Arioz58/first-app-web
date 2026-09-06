@@ -25,12 +25,12 @@ import {
   IconPin,
   IconPlus,
   IconStar,
-  IconUsers,
   IconVideo,
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { SearchResults } from '@/components/SearchResults';
-import { StoriesBar } from '@/components/StoriesBar';
+import { NavRail, type Vue } from '@/components/NavRail';
+import { StoriesPage } from '@/components/StoriesPage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { soft } from '@/lib/motion';
 import { notify, notificationState, registerNotificationWorker } from '@/lib/webNotifications';
@@ -143,7 +143,14 @@ export function ConversationList() {
   );
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [friendsOpen, setFriendsOpen] = useState(false);
+  /**
+   * Vue affichée dans la colonne.
+   *
+   * ⚠️ Remplace `friendsOpen` : les amis étaient un panneau qui RECOUVRAIT la liste, avec sa
+   * propre croix de fermeture. Devenus une destination de même rang que les conversations, ils
+   * n'ont plus à se refermer — on en sort en allant ailleurs.
+   */
+  const [vue, setVue] = useState<Vue>('chats');
   /** Onglet sur lequel ouvrir le dialogue « + » — « Par numéro » quand on vient des Amis. */
   const [newChatMode, setNewChatMode] = useState<'direct' | 'phone'>('direct');
   /**
@@ -482,7 +489,36 @@ export function ConversationList() {
 
 
   return (
-    <aside className="relative flex w-full shrink-0 flex-col border-r border-slate-200 bg-white md:w-[380px] dark:border-zinc-800 dark:bg-zinc-900">
+    <aside className="relative flex w-full shrink-0 flex-row border-r border-slate-200 bg-white md:w-[444px] dark:border-zinc-800 dark:bg-zinc-900">
+      <NavRail
+        vue={vue}
+        onChange={setVue}
+        /* Les pastilles vivent sur la barre : c'est le seul endroit visible depuis n'importe
+           quelle vue. */
+        badges={{ chats: unreadTotal, friends: friendRequests }}
+      />
+
+      {/* ⚠️ La colonne de contenu est en `min-w-0` : sans elle, un nom de conversation long
+          élargirait le conteneur flex au lieu d'être tronqué, et pousserait la barre hors de
+          l'écran. */}
+      <div className="relative flex min-w-0 flex-1 flex-col">
+      {vue === 'stories' ? (
+        <StoriesPage me={me} />
+      ) : vue === 'friends' ? (
+        <FriendsPanel
+          onOpenProfile={setProfileUserId}
+          onOpenConversation={(convId) => {
+            load();
+            router.push(`/chat/${convId}`);
+          }}
+          onFindPeople={() => {
+            setNewChatMode('phone');
+            setNewChatOpen(true);
+          }}
+          onCountChange={setFriendRequests}
+        />
+      ) : (
+      <>
       <header className="flex items-center justify-between px-4 py-4">
         <h1 className="text-2xl font-bold text-[#1E40AF] dark:text-blue-400">
           {t('list.title')}
@@ -493,19 +529,9 @@ export function ConversationList() {
           )}
         </h1>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setFriendsOpen(true)}
-            title="Amis"
-            aria-label="Amis"
-            className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-          >
-            <IconUsers size={19} />
-            {friendRequests > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {friendRequests > 9 ? '9+' : friendRequests}
-              </span>
-            )}
-          </button>
+          {/* ⚠️ Le bouton « Amis » a quitté l'en-tête : sa destination vit désormais dans la
+              barre de navigation, avec sa pastille. Le garder ici aurait laissé deux chemins
+              vers le même endroit, dont un seul indiquerait où l'on se trouve. */}
           <button
             onClick={() => {
               setNewChatMode('direct');
@@ -528,10 +554,6 @@ export function ConversationList() {
           className="w-full rounded-xl bg-slate-100 px-4 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
         />
       </div>
-
-      {/* ⚠️ Comme sur mobile, seulement sur « Toutes » : sur un filtre ou pendant une
-          recherche, une barre de stories n'a aucun rapport avec ce qui est listé en dessous. */}
-      {!isSearching && filter === 'all' && <StoriesBar me={me} />}
 
       {/* ⚠️ Masqués pendant une recherche : la recherche parcourt TOUTES les conversations,
           afficher en même temps un filtre actif annoncerait un périmètre qui n'est pas
@@ -846,8 +868,11 @@ export function ConversationList() {
         );
       })()}
 
-      {/* ⚠️ Pied de colonne, HORS de la zone qui défile : la vignette doit rester
-          atteignable quelle que soit la position dans une longue liste. */}
+      </>
+      )}
+
+      {/* ⚠️ Pied de colonne COMMUN aux trois vues, hors de la zone qui défile : la vignette
+          doit rester atteignable quelle que soit la vue et la position dans une longue liste. */}
       <button
         onClick={() => setProfileOpen(true)}
         aria-label="Vous"
@@ -890,25 +915,7 @@ export function ConversationList() {
         />
       )}
 
-      {friendsOpen && (
-        <FriendsPanel
-          onOpenProfile={setProfileUserId}
-          onClose={() => setFriendsOpen(false)}
-          onOpenConversation={(convId) => {
-            // La conversation peut être neuve : on recharge pour qu'elle figure dans la liste.
-            load();
-            router.push(`/chat/${convId}`);
-          }}
-          onFindPeople={() => {
-            // ⚠️ On referme le panneau AVANT d'ouvrir le dialogue : les deux se posent au
-            // même endroit, les laisser coexister empilerait deux couches sur la colonne.
-            setFriendsOpen(false);
-            setNewChatMode('phone');
-            setNewChatOpen(true);
-          }}
-          onCountChange={setFriendRequests}
-        />
-      )}
+      </div>
 
       {profileOpen && <ProfilePanel me={me} onClose={() => setProfileOpen(false)} />}
 

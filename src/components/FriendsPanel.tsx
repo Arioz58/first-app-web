@@ -40,7 +40,12 @@ export function FriendsPanel({
   onFindPeople,
   onCountChange,
 }: {
-  onClose: () => void;
+  /**
+   * ⚠️ OPTIONNEL depuis que les amis sont une DESTINATION de la barre de navigation et non
+   * plus un panneau posé par-dessus la liste. Une destination ne se referme pas : on en sort
+   * en allant ailleurs. La flèche de retour n'apparaît donc que si un appelant en fournit une.
+   */
+  onClose?: () => void;
   onOpenConversation: (conversationId: string) => void;
   /** Ouvre le profil de quelqu'un — la fenêtre est portée par la liste. */
   onOpenProfile: (userId: string) => void;
@@ -113,7 +118,7 @@ export function FriendsPanel({
     run(`chat:${userId}`, () =>
       startDirectConversation(userId).then((c) => {
         onOpenConversation(c.id);
-        onClose();
+        onClose?.();
       }),
     );
 
@@ -179,15 +184,28 @@ export function FriendsPanel({
   );
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900">
+    /*
+      ⚠️ `absolute inset-0` seulement quand il RECOUVRE la liste (appelé avec `onClose`). En
+      destination il occupe simplement la colonne : superposé, il masquerait le pied de colonne
+      et la barre de navigation.
+    */
+    <div
+      className={
+        onClose
+          ? 'absolute inset-0 z-30 flex flex-col bg-white dark:bg-zinc-900'
+          : 'flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-900'
+      }
+    >
       <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
-        <button
-          onClick={onClose}
-          aria-label={tr('list.back_to_chats')}
-          className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
-        >
-          <IconBack size={20} />
-        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            aria-label={tr('list.back_to_chats')}
+            className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+          >
+            <IconBack size={20} />
+          </button>
+        )}
         <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">{tr('friends.title')}</h1>
       </header>
 

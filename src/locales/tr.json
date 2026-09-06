@@ -414,11 +414,18 @@
     "publish_failed": "Paylaşım başarısız oldu.",
     "bg_none": "Arka plansız",
     "bg_translucent": "Yarı saydam",
-    "bg_solid": "Dolu"
+    "bg_solid": "Dolu",
+    "count": "{{count}} hikâye",
+    "empty": "Henüz hikâye yok."
   },
   "mute": {
     "8_hours": "8 saat",
     "1_week": "1 hafta",
     "always": "Her zaman"
+  },
+  "nav": {
+    "chats": "Sohbetler",
+    "friends": "Arkadaşlar",
+    "stories": "Hikâyeler"
   }
 }

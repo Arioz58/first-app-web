@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@/components/Avatar';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { IconChevron, IconClose, IconTrash } from '@/components/icons';
 import {
@@ -70,6 +71,8 @@ export function StoryViewer({
   const [listeOuverte, setListeOuverte] = useState(false);
   /** Profil ouvert depuis la liste des vues. */
   const [profilOuvert, setProfilOuvert] = useState<string | null>(null);
+  /** ⚠️ Supprimer une story est DÉFINITIF et ne se défait pas : la confirmation est due. */
+  const [suppression, setSuppression] = useState(false);
 
   const frameRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -199,12 +202,12 @@ export function StoryViewer({
   // Pause : le média doit suivre, sinon la vidéo continue derrière une barre figée.
   // ⚠️ La liste des vues déplié met AUSSI en pause : la story passerait pendant qu'on la lit.
   useEffect(() => {
-    pausedRef.current = paused || listeOuverte || !!profilOuvert;
+    pausedRef.current = paused || listeOuverte || !!profilOuvert || suppression;
     const v = videoRef.current;
     if (!v) return;
     if (pausedRef.current) v.pause();
     else void v.play().catch(() => {});
-  }, [paused, listeOuverte, profilOuvert]);
+  }, [paused, listeOuverte, profilOuvert, suppression]);
 
   // Clavier : flèches et Échap, attendus dans un navigateur.
   useEffect(() => {
@@ -286,9 +289,11 @@ export function StoryViewer({
           <span className="text-xs text-white/60">{storyAge(story.createdAt)}</span>
           {isMine && (
             <button
-              onClick={supprimer}
+              onClick={() => setSuppression(true)}
               aria-label={t('stories.delete')}
-              className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
+              /* ⚠️ ROUGE : c'est la seule action destructrice de l'écran, au milieu de
+                 commandes blanches et neutres. Rien ne la distinguait auparavant. */
+              className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-red-400 hover:bg-red-500/20"
             >
               <IconTrash size={17} />
             </button>
@@ -505,6 +510,19 @@ export function StoryViewer({
         ⚠️ Hors du cadre de la story : posé dedans, il serait rogné par l'`overflow-hidden` et
         tourné par l'animation de changement de personne.
       */}
+      <ConfirmDialog
+        open={suppression}
+        title={t('stories.delete')}
+        message={t('stories.delete_confirm')}
+        confirmLabel={t('stories.delete_action')}
+        danger
+        onConfirm={() => {
+          setSuppression(false);
+          supprimer();
+        }}
+        onClose={() => setSuppression(false)}
+      />
+
       {profilOuvert && (
         <UserProfileDialog
           userId={profilOuvert}

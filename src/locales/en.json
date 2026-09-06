@@ -426,7 +426,9 @@
     "bg_translucent": "Translucent",
     "bg_solid": "Solid",
     "count": "{{count}} story",
-    "empty": "No stories yet."
+    "empty": "No stories yet.",
+    "delete_confirm": "This story will be permanently deleted, including for people who have already seen it.",
+    "delete_action": "Delete"
   },
   "mute": {
     "8_hours": "8 hours",

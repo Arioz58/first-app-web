@@ -426,7 +426,9 @@
     "bg_translucent": "Yarı saydam",
     "bg_solid": "Dolu",
     "count": "{{count}} hikâye",
-    "empty": "Henüz hikâye yok."
+    "empty": "Henüz hikâye yok.",
+    "delete_confirm": "Bu hikâye kalıcı olarak silinecek, daha önce görenler için de.",
+    "delete_action": "Sil"
   },
   "mute": {
     "8_hours": "8 saat",

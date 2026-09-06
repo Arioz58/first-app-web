@@ -16,7 +16,6 @@ import {
   IconDown,
   IconMic,
   IconPin,
-  IconSearch,
   IconSend,
   IconSpinner,
   IconUp,
@@ -52,6 +51,13 @@ import {
 import { ACCEPT, mediaKindOf, uploadFile } from '@/lib/upload';
 import { marquerVus, oublierVus } from '@/lib/seenMessages';
 import { AnimatePresence, motion } from 'framer-motion';
+import { MorphIcon } from 'morphicons/react';
+/**
+ * ⚠️ Depuis `lucide` et non `lucide-react` : le morphing consomme les DONNÉES de l'icône (son
+ * `IconNode`), pas un composant. `lucide-react` n'expose pas ces données — ses composants ne
+ * portent que `$$typeof` et `render`.
+ */
+import { Search as SearchNode, X as XNode } from 'lucide';
 import { damped } from '@/lib/motion';
 import type { BubbleActions } from '@/components/MessageBubble';
 import { ForwardDialog } from '@/components/ForwardDialog';
@@ -1439,7 +1445,7 @@ export default function ThreadPage() {
           ⚠️ Aucune animation de TAILLE de l'en-tête, seulement du contenu qui s'échange.
         */}
         <AnimatePresence mode="popLayout" initial={false}>
-        {search ? (
+        {search && (
           <motion.div
             key="recherche"
             initial={{ opacity: 0, x: 14, scale: 0.97 }}
@@ -1502,30 +1508,29 @@ export default function ThreadPage() {
                 </button>
               </>
             )}
-            <button
-              onClick={() => setSearch(null)}
-              className="px-1 text-slate-500"
-              aria-label={t('thread.close_search')}
-            >
-              <IconClose size={16} />
-            </button>
           </motion.div>
-        ) : (
-          <motion.button
-            key="loupe"
-            onClick={() => setSearch({ term: '', results: [], index: 0 })}
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.7 }}
-            whileTap={{ scale: 0.88 }}
-            transition={damped}
-            className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
-            aria-label={t('search.placeholder')}
-          >
-            <IconSearch size={18} />
-          </motion.button>
         )}
         </AnimatePresence>
+
+        {/*
+          ⚠️ UN SEUL bouton, qui PERSISTE dans les deux états : c'est la condition d'un
+          morphing. Auparavant la loupe et la croix étaient deux éléments distincts que
+          `AnimatePresence` échangeait — l'un sortait, l'autre entrait, et il n'y avait rien à
+          transformer. Ici l'élément reste, seule sa forme change.
+
+          ⚠️ `reducedMotion="user"` : la bibliothèque ignore `prefers-reduced-motion` PAR
+          DÉFAUT (son mode « never »). Sans ce réglage, elle contredirait le `MotionConfig`
+          posé à la racine, qui respecte le choix du système pour tout le reste.
+        */}
+        <motion.button
+          onClick={() => setSearch(search ? null : { term: '', results: [], index: 0 })}
+          whileTap={{ scale: 0.88 }}
+          transition={damped}
+          className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+          aria-label={t(search ? 'thread.close_search' : 'search.placeholder')}
+        >
+          <MorphIcon icon={search ? XNode : SearchNode} size={18} reducedMotion="user" />
+        </motion.button>
       </header>
 
       {!pinBarHidden && pinnedRows.length > 0 && (

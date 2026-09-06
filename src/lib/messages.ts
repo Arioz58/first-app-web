@@ -370,11 +370,12 @@ export const fetchBlocked = () =>
 
 export type ReportCategory = 'spam' | 'impersonation' | 'inappropriate' | 'other';
 
-export const REPORT_CATEGORIES: { key: ReportCategory; label: string }[] = [
-  { key: 'spam', label: 'Spam' },
-  { key: 'impersonation', label: 'Usurpation d’identité' },
-  { key: 'inappropriate', label: 'Contenu inapproprié' },
-  { key: 'other', label: 'Autre' },
+/** ⚠️ Des CLÉS i18n : en dur, ces libellés restaient en français quelle que soit la langue. */
+export const REPORT_CATEGORIES: { key: ReportCategory; labelKey: string }[] = [
+  { key: 'spam', labelKey: 'moderation.spam' },
+  { key: 'impersonation', labelKey: 'moderation.impersonation' },
+  { key: 'inappropriate', labelKey: 'moderation.inappropriate' },
+  { key: 'other', labelKey: 'moderation.other' },
 ];
 
 export const reportUser = (userId: string, category: ReportCategory) =>

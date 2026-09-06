@@ -79,7 +79,16 @@
     "block": "Engelle",
     "unblock": "Engeli kaldır",
     "report": "Şikayet et",
-    "block_confirm": "Bu kullanıcı engellensin mi?"
+    "block_confirm": "Bu kullanıcı engellensin mi?",
+    "spam": "Spam",
+    "impersonation": "Kimlik taklidi",
+    "inappropriate": "Uygunsuz içerik",
+    "other": "Diğer",
+    "report_title": "Bu kişiyi bildir",
+    "block_title": "Bu kişiyi engelle",
+    "block_action": "Engelle",
+    "leave_title": "Gruptan ayrıl",
+    "leave_action": "Ayrıl"
   },
   "filters": {
     "all": "Tümü",
@@ -160,7 +169,8 @@
     "back": "Geri",
     "loading": "Yükleniyor…",
     "no_results": "Sonuç yok.",
-    "logout": "Çıkış yap"
+    "logout": "Çıkış yap",
+    "cancel": "İptal"
   },
   "login": {
     "title": "Nexa Web'e giriş",

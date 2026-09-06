@@ -79,7 +79,16 @@
     "block": "Block",
     "unblock": "Unblock",
     "report": "Report",
-    "block_confirm": "Block this user?"
+    "block_confirm": "Block this user?",
+    "spam": "Spam",
+    "impersonation": "Impersonation",
+    "inappropriate": "Inappropriate content",
+    "other": "Other",
+    "report_title": "Report this contact",
+    "block_title": "Block this contact",
+    "block_action": "Block",
+    "leave_title": "Leave group",
+    "leave_action": "Leave"
   },
   "filters": {
     "all": "All",
@@ -160,7 +169,8 @@
     "back": "Back",
     "loading": "Loading…",
     "no_results": "No results.",
-    "logout": "Log out"
+    "logout": "Log out",
+    "cancel": "Cancel"
   },
   "login": {
     "title": "Sign in to Nexa Web",

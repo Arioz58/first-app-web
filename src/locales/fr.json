@@ -79,7 +79,16 @@
     "block": "Bloquer",
     "unblock": "Débloquer",
     "report": "Signaler",
-    "block_confirm": "Bloquer cet utilisateur ?"
+    "block_confirm": "Bloquer cet utilisateur ?",
+    "spam": "Spam",
+    "impersonation": "Usurpation d’identité",
+    "inappropriate": "Contenu inapproprié",
+    "other": "Autre",
+    "report_title": "Signaler ce contact",
+    "block_title": "Bloquer ce contact",
+    "block_action": "Bloquer",
+    "leave_title": "Quitter le groupe",
+    "leave_action": "Quitter"
   },
   "filters": {
     "all": "Toutes",
@@ -160,7 +169,8 @@
     "back": "Retour",
     "loading": "Chargement…",
     "no_results": "Aucun résultat.",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "cancel": "Annuler"
   },
   "login": {
     "title": "Connexion à Nexa Web",

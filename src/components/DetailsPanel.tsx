@@ -5,6 +5,7 @@ import { damped } from '@/lib/motion';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 
 import { ChoiceDialog } from '@/components/ChoiceDialog';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 import {
   IconAddMember,
@@ -79,7 +80,6 @@ import {
   type ConvMeta,
   type MediaCounts,
   type Message,
-  type ReportCategory,
   type UserProfile,
 } from '@/lib/messages';
 
@@ -157,6 +157,9 @@ export function DetailsPanel({
   const [muteOpen, setMuteOpen] = useState(false);
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  /** ⚠️ Remplace `window.confirm`, qui BLOQUE le navigateur et ne se traduit pas. */
+  const [blockConfirm, setBlockConfirm] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [pins, setPins] = useState<Message[]>([]);
   const [starred, setStarred] = useState<Message[]>([]);
   const [blocked, setBlocked] = useState(false);
@@ -728,19 +731,9 @@ export function DetailsPanel({
                   suivant. Empêcher son départ laisserait quelqu'un prisonnier de son groupe. */}
               <button
                 disabled={busy}
-                onClick={() => {
-                  if (!window.confirm(t('details.leave_group_confirm'))) return;
-                  setBusy(true);
-                  void leaveGroup(meta.id)
-                    .then(() => {
-                      onClose();
-                      // La conversation disparaît de la liste : c'est elle qui fait foi.
-                      onChanged();
-                      router.push('/chat');
-                    })
-                    .catch((e) => window.alert(e.message))
-                    .finally(() => setBusy(false));
-                }}
+                /* ⚠️ Converti lui aussi : laisser un `window.confirm` natif au milieu de
+                   boîtes de dialogue soignées se remarque plus qu'une absence d'animation. */
+                onClick={() => setLeaveConfirm(true)}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <IconLeave size={15} />
@@ -754,50 +747,28 @@ export function DetailsPanel({
         {!isGroup && other && (
           <Section title={t('details.management')}>
             <div className="px-4">
-              {reportOpen ? (
-                REPORT_CATEGORIES.map((c) => (
-                  <button
-                    key={c.key}
-                    disabled={busy}
-                    onClick={() => {
-                      setBusy(true);
-                      setReportOpen(false);
-                      void reportUser(other.userId, c.key as ReportCategory)
-                        .then(() => window.alert(t('details.report_sent')))
-                        .catch((e) => window.alert(e.message))
-                        .finally(() => setBusy(false));
-                    }}
-                    className="block w-full rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    {c.label}
-                  </button>
-                ))
-              ) : (
-                <>
+              <>
                   <button
                     disabled={busy}
                     onClick={() => {
-                      // ⚠️ Confirmation obligatoire : bloquer SUPPRIME l'amitié et annule les
-                      // demandes en attente côté serveur. Ce n'est pas un simple masquage,
-                      // et l'action ne se défait pas d'un clic.
-                      if (
-                        !blocked &&
-                        !window.confirm(
-                          t('details.block_confirm_named', { name: profile?.name ?? t('details.this_contact') }),
-                        )
-                      )
-                        return;
-                      setBusy(true);
-                      const call = blocked
-                        ? unblockUser(other.userId)
-                        : blockUser(other.userId);
-                      void call
-                        .then(() => {
-                          setBlocked(!blocked);
-                          onChanged();
-                        })
-                        .catch((e) => window.alert(e.message))
-                        .finally(() => setBusy(false));
+                      /**
+                       * ⚠️ DÉBLOQUER ne demande rien : l'action se défait d'un clic et ne
+                       * détruit rien. BLOQUER, si — il supprime l'amitié et annule les
+                       * demandes en attente côté serveur. Confirmer les deux ferait du
+                       * dialogue une formalité qu'on cliquerait sans lire.
+                       */
+                      if (blocked) {
+                        setBusy(true);
+                        void unblockUser(other.userId)
+                          .then(() => {
+                            setBlocked(false);
+                            onChanged();
+                          })
+                          .catch((e) => window.alert(e.message))
+                          .finally(() => setBusy(false));
+                      } else {
+                        setBlockConfirm(true);
+                      }
                     }}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
@@ -812,8 +783,7 @@ export function DetailsPanel({
                     <IconReport size={15} />
                     {t('moderation.report')}
                   </button>
-                </>
-              )}
+              </>
             </div>
           </Section>
         )}
@@ -907,6 +877,77 @@ export function DetailsPanel({
       onSelect={(v) => void setEphemeral(meta.id, v).catch(() => {})}
       onClose={() => setEphemeralOpen(false)}
     />
+
+    {/*
+      Signalement : les quatre catégories passent par la même boîte que les autres réglages à
+      choix. Elles remplaçaient auparavant les boutons sur place, sans titre ni sortie possible.
+    */}
+    {other && (
+      <ChoiceDialog
+        open={reportOpen}
+        title={t('moderation.report_title')}
+        options={REPORT_CATEGORIES.map((c) => ({ label: t(c.labelKey), value: c.key }))}
+        onSelect={(categorie) => {
+          setBusy(true);
+          void reportUser(other.userId, categorie)
+            .then(() => window.alert(t('details.report_sent')))
+            .catch((e) => window.alert(e.message))
+            .finally(() => setBusy(false));
+        }}
+        onClose={() => setReportOpen(false)}
+      />
+    )}
+
+    {other && (
+      <ConfirmDialog
+        open={blockConfirm}
+        title={t('moderation.block_title')}
+        /* ⚠️ Le message dit ce que le blocage FAIT — supprimer l'amitié, annuler les demandes
+           en attente — et non « êtes-vous sûr ». Une question sans conséquence énoncée ne se
+           lit pas : on clique. */
+        message={t('details.block_confirm_named', { name: profile?.name ?? t('details.this_contact') })}
+        confirmLabel={t('moderation.block_action')}
+        danger
+        busy={busy}
+        onConfirm={() => {
+          setBlockConfirm(false);
+          setBusy(true);
+          void blockUser(other.userId)
+            .then(() => {
+              setBlocked(true);
+              onChanged();
+            })
+            .catch((e) => window.alert(e.message))
+            .finally(() => setBusy(false));
+        }}
+        onClose={() => setBlockConfirm(false)}
+      />
+    )}
+
+    {isGroup && (
+      <ConfirmDialog
+        open={leaveConfirm}
+        title={t('moderation.leave_title')}
+        message={t('details.leave_group_confirm')}
+        confirmLabel={t('moderation.leave_action')}
+        danger
+        busy={busy}
+        onConfirm={() => {
+          setLeaveConfirm(false);
+          setBusy(true);
+          void leaveGroup(meta.id)
+            .then(() => {
+              onClose();
+              // La conversation disparaît de la liste : c'est elle qui fait foi.
+              onChanged();
+              router.push('/chat');
+            })
+            .catch((e) => window.alert(e.message))
+            .finally(() => setBusy(false));
+        }}
+        onClose={() => setLeaveConfirm(false)}
+      />
+    )}
 
     {isGroup && admin && (
       <ChoiceDialog

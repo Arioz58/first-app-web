@@ -1,10 +1,10 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
 import { IconChat, IconSparkle, IconUsers } from '@/components/icons';
-import { morph, snappy } from '@/lib/motion';
+import { damped, listItem, morph, snappy, staggeredList } from '@/lib/motion';
 
 /**
  * Barre de navigation en pilule — conversations, amis, stories.
@@ -47,7 +47,21 @@ export function NavRail({
    */
   return (
     <nav className="flex shrink-0 flex-col items-center px-2.5 pt-4">
-      <div className="flex flex-col gap-1 rounded-full bg-slate-100 p-1.5 shadow-sm ring-1 ring-slate-200/70 dark:bg-zinc-800 dark:ring-zinc-700/70">
+      {/*
+        ⚠️ La pilule ARRIVE au montage, ses icônes l'une après l'autre. Sans cela elle est
+        simplement « déjà là » au chargement, alors que tout le reste de l'application se
+        présente en venant de quelque part.
+
+        ⚠️ `damped` sur la pilule (une surface) et ressort sur les icônes (de petits objets) :
+        même règle que partout — le dépassement se lit comme du ressort sur ce qui est petit,
+        comme un tremblement sur ce qui est large.
+      */}
+      <motion.div
+        variants={staggeredList(ENTREES.length)}
+        initial="hidden"
+        animate="show"
+        className="flex flex-col gap-1 rounded-full bg-slate-100 p-1.5 shadow-sm ring-1 ring-slate-200/70 dark:bg-zinc-800 dark:ring-zinc-700/70"
+      >
         {ENTREES.map(({ vue: v, icone: Icone, cle }) => {
           const actif = v === vue;
           const compte = badges?.[v] ?? 0;
@@ -56,6 +70,10 @@ export function NavRail({
               key={v}
               type="button"
               onClick={() => onChange(v)}
+              variants={listItem}
+              /* ⚠️ Pas de survol sur l'entrée ACTIVE : elle est déjà mise en avant par son
+                 indicateur, et l'agrandir encore la ferait déborder de la pilule. */
+              whileHover={actif ? undefined : { scale: 1.12 }}
               whileTap={{ scale: 0.9 }}
               transition={snappy}
               title={t(cle)}
@@ -78,23 +96,48 @@ export function NavRail({
                   className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-900"
                 />
               )}
-              <Icone
-                size={19}
-                className={`relative ${
-                  actif
-                    ? 'text-[#1E40AF] dark:text-blue-400'
-                    : 'text-slate-500 dark:text-zinc-400'
-                }`}
-              />
-              {compte > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                  {compte > 9 ? '9+' : compte}
-                </span>
-              )}
+              {/*
+                ⚠️ Les icônes INACTIVES sont légèrement en retrait (0.9). Au changement de vue,
+                le ressort fait donc « éclore » la nouvelle et se retirer l'ancienne — un
+                mouvement obtenu sans image-clé ni état supplémentaire, juste par la différence
+                entre deux tailles au repos.
+              */}
+              <motion.span
+                animate={{ scale: actif ? 1 : 0.9 }}
+                transition={snappy}
+                className="relative flex"
+              >
+                <Icone
+                  size={19}
+                  className={
+                    actif
+                      ? 'text-[#1E40AF] dark:text-blue-400'
+                      : 'text-slate-500 dark:text-zinc-400'
+                  }
+                />
+              </motion.span>
+              {/*
+                ⚠️ La pastille ARRIVE et REPART au lieu d'apparaître d'un coup : c'est le seul
+                élément de la barre qui change sans qu'on ait rien fait — un message reçu, une
+                demande d'ami — et ce mouvement est ce qui attire l'œil vers lui.
+              */}
+              <AnimatePresence>
+                {compte > 0 && (
+                  <motion.span
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={damped}
+                    className="absolute -right-0.5 -top-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+                  >
+                    {compte > 9 ? '9+' : compte}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </motion.button>
           );
         })}
-      </div>
+      </motion.div>
     </nav>
   );
 }

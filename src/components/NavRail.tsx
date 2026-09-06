@@ -62,8 +62,8 @@ export function NavRail({
   const { t } = useTranslation();
 
   /*
-   * ⚠️ Alignée EN HAUT et non centrée : centrée dans une colonne pleine hauteur, la pilule
-   * flottait au milieu d'un vide, loin du contenu qu'elle commande.
+   * ⚠️ Alignée EN HAUT : centrée dans une colonne pleine hauteur, la pilule flottait au
+   * milieu d'un vide, loin du contenu qu'elle commande.
    *
    * ⚠️ `shrink-0` : elle ne doit pas se comprimer quand la liste à côté manque de place.
    */
@@ -78,7 +78,7 @@ export function NavRail({
       ⚠️ Reste SOUS les panneaux (`z-30`, profil et demandes de messages), qui doivent
       recouvrir la barre elle-même.
     */
-    <nav className="relative z-20 flex shrink-0 flex-col items-center justify-between px-2.5 py-4">
+    <nav className="relative z-20 flex shrink-0 flex-col items-center px-2.5 pt-4">
       {/*
         ⚠️ La pilule ARRIVE au montage, ses icônes l'une après l'autre. Sans cela elle est
         simplement « déjà là » au chargement, alors que tout le reste de l'application se
@@ -169,38 +169,36 @@ export function NavRail({
             </motion.button>
           );
         })}
+
+        {/*
+          ⚠️ Un FILET sépare le profil des trois destinations, dans la même pilule.
+
+          Le profil n'est pas une destination de même rang : les trois autres changent le
+          CONTENU de la colonne, lui ouvre un panneau qui la RECOUVRE. Sans cette séparation,
+          la pilule annoncerait quatre onglets équivalents — et l'indicateur actif, qui ne se
+          pose jamais sur le profil, paraîtrait défaillant plutôt que délibéré.
+        */}
+        <span className="mx-2 my-0.5 h-px bg-slate-300/70 dark:bg-zinc-600/70" />
+
+        <motion.button
+          type="button"
+          onClick={onOpenProfile}
+          variants={listItem}
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.9 }}
+          transition={snappy}
+          aria-label={t('nav.you')}
+          className="group relative flex h-11 w-11 items-center justify-center rounded-full"
+        >
+          <Bulle texte={me ? `${me.name} · ${t('nav.you')}` : t('nav.you')} />
+          {me ? (
+            <Avatar name={me.name} photoUrl={me.photoUrl} size={34} />
+          ) : (
+            <span className="h-8 w-8 animate-pulse rounded-full bg-slate-200 dark:bg-zinc-700" />
+          )}
+        </motion.button>
       </motion.div>
 
-      {/*
-        ⚠️ Le profil est DANS la colonne de la barre mais HORS de la pilule, et c'est
-        volontaire : il n'est pas une destination de même rang que les trois autres. Celles-ci
-        changent le contenu de la colonne ; lui ouvre un panneau qui la RECOUVRE. Dans la
-        pilule, avec le même traitement, il annoncerait un quatrième onglet — et il faudrait
-        alors trancher un cas bancal : l'indicateur actif se pose-t-il dessus ? S'il se pose,
-        il ment ; s'il ne se pose pas, le contrôle devient incohérent avec lui-même.
-
-        ⚠️ Le nom du compte, visible en permanence dans l'ancien pied de colonne, n'est plus
-        que dans l'infobulle. C'est la contrepartie assumée du gain de place : c'est ainsi
-        qu'on remarquait être connecté avec le mauvais compte.
-      */}
-      <motion.button
-        type="button"
-        onClick={onOpenProfile}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        transition={snappy}
-        aria-label={t('list.you')}
-        className="group relative flex h-11 w-11 items-center justify-center rounded-full"
-      >
-        <Bulle texte={me ? `${me.name} · ${t('list.you')}` : t('list.you')} />
-        {me ? (
-          <Avatar name={me.name} photoUrl={me.photoUrl} size={36} />
-        ) : (
-          <span className="h-9 w-9 animate-pulse rounded-full bg-slate-200 dark:bg-zinc-800" />
-        )}
-      </motion.button>
     </nav>
   );
 }

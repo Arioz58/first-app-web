@@ -436,6 +436,7 @@
   "nav": {
     "chats": "Discussions",
     "friends": "Amis",
-    "stories": "Stories"
+    "stories": "Actus",
+    "you": "Vous"
   }
 }

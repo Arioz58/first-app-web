@@ -436,6 +436,7 @@
   "nav": {
     "chats": "Sohbetler",
     "friends": "Arkadaşlar",
-    "stories": "Hikâyeler"
+    "stories": "Güncellemeler",
+    "you": "Sen"
   }
 }

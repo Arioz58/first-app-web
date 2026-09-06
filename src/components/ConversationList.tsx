@@ -32,7 +32,7 @@ import { SearchResults } from '@/components/SearchResults';
 import { NavRail, type Vue } from '@/components/NavRail';
 import { StoriesPage } from '@/components/StoriesPage';
 import { AnimatePresence, motion } from 'framer-motion';
-import { soft } from '@/lib/motion';
+import { damped, soft } from '@/lib/motion';
 import { notify, notificationState, registerNotificationWorker } from '@/lib/webNotifications';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { MessageRequestsPanel } from '@/components/MessageRequestsPanel';
@@ -151,6 +151,31 @@ export function ConversationList() {
    * n'ont plus à se refermer — on en sort en allant ailleurs.
    */
   const [vue, setVue] = useState<Vue>('chats');
+  /**
+   * Sens du glissement, déduit de l'ORDRE des destinations dans la barre.
+   *
+   * ⚠️ Calculé DANS LE GESTIONNAIRE de clic, qui connaît l'ancienne et la nouvelle vue, et
+   * non au rendu depuis une ref : lire une ref pendant le rendu est interdit, et la mémoriser
+   * dans un état séparé ferait diverger les deux au premier rendu concurrent.
+   *
+   * ⚠️ Une transition qui va toujours du même côté ne dit rien ; en suivant le sens du
+   * déplacement dans la barre, elle confirme le geste qu'on vient de faire.
+   */
+  const [sens, setSens] = useState(1);
+  const changerVue = useCallback(
+    (v: Vue) => {
+      const ordre: Vue[] = ['chats', 'friends', 'stories'];
+      /**
+       * ⚠️ Les deux `setState` sont posés CÔTE À CÔTE. Glisser `setSens` DANS la fonction de
+       * mise à jour de `setVue` — pour y lire la vue courante — en ferait un effet de bord
+       * dans une fonction censée être pure, que React 19 en mode strict exécute deux fois.
+       * C'est exactement ce qui faisait partir les notifications en double.
+       */
+      setSens(ordre.indexOf(v) >= ordre.indexOf(vue) ? 1 : -1);
+      setVue(v);
+    },
+    [vue],
+  );
   /** Onglet sur lequel ouvrir le dialogue « + » — « Par numéro » quand on vient des Amis. */
   const [newChatMode, setNewChatMode] = useState<'direct' | 'phone'>('direct');
   /**
@@ -492,7 +517,7 @@ export function ConversationList() {
     <aside className="relative flex w-full shrink-0 flex-row border-r border-slate-200 bg-white md:w-[444px] dark:border-zinc-800 dark:bg-zinc-900">
       <NavRail
         vue={vue}
-        onChange={setVue}
+        onChange={changerVue}
         /* Les pastilles vivent sur la barre : c'est le seul endroit visible depuis n'importe
            quelle vue. */
         badges={{ chats: unreadTotal, friends: friendRequests }}
@@ -504,6 +529,28 @@ export function ConversationList() {
           élargirait le conteneur flex au lieu d'être tronqué, et pousserait la barre hors de
           l'écran. */}
       <div className="relative flex min-w-0 flex-1 flex-col">
+      {/*
+        ⚠️ `mode="wait"` : la vue sortante s'en va AVANT que l'entrante n'arrive. En
+        simultané, les deux se superposeraient dans une colonne étroite et l'on verrait deux
+        listes se traverser — illisible.
+
+        ⚠️ La `key` porte la vue : sans elle, `AnimatePresence` ne verrait qu'un seul enfant
+        qui change de contenu, et n'aurait rien à faire entrer ni sortir.
+      */}
+      <AnimatePresence mode="wait" initial={false} custom={sens}>
+      <motion.div
+        key={vue}
+        custom={sens}
+        variants={{
+          hidden: (d: number) => ({ opacity: 0, x: d * 28 }),
+          show: { opacity: 1, x: 0, transition: damped },
+          exit: (d: number) => ({ opacity: 0, x: d * -28, transition: { duration: 0.13 } }),
+        }}
+        initial="hidden"
+        animate="show"
+        exit="exit"
+        className="flex min-h-0 flex-1 flex-col"
+      >
       {vue === 'stories' ? (
         <StoriesPage me={me} />
       ) : vue === 'friends' ? (
@@ -872,6 +919,8 @@ export function ConversationList() {
 
       </>
       )}
+      </motion.div>
+      </AnimatePresence>
 
       </div>
 

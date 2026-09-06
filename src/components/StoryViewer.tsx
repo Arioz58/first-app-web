@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { backdrop, morph } from '@/lib/motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { backdrop, damped, listItem, morph, staggeredList } from '@/lib/motion';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
@@ -423,9 +423,13 @@ export function StoryViewer({
         )}
 
         {/* Liste complète des vues */}
+        <AnimatePresence>
         {listeOuverte && viewers && (
           <>
-            <div
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="absolute inset-0 z-30 bg-black/50"
               onClick={(e) => {
                 e.stopPropagation();
@@ -436,7 +440,19 @@ export function StoryViewer({
               Panneau glissé depuis le bas — la place naturelle d'une liste secondaire dans un
               cadre vertical, et le geste que le mobile utilise déjà pour ses viewers.
             */}
-            <div
+            {/*
+              ⚠️ Le panneau MONTE depuis le bas, le bord d'où il vient — et non un simple
+              fondu : c'est ce mouvement qui dit qu'il sort de la pilule « Vu par » posée juste
+              en dessous.
+
+              ⚠️ `damped` : sur une surface de cette taille, le dépassement d'un ressort
+              devient un tremblement et brouille les noms le temps du rebond.
+            */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={damped}
               className="absolute bottom-0 left-0 right-0 z-40 max-h-[65%] overflow-y-auto rounded-t-2xl bg-zinc-900/95 backdrop-blur"
               onClick={(e) => e.stopPropagation()}
             >
@@ -453,9 +469,16 @@ export function StoryViewer({
                   <IconClose size={16} />
                 </button>
               </div>
-              <ul className="pb-3">
+              {/* Les noms arrivent l'un après l'autre, cascade bornée : sur cinquante
+                  viewers, un décalage fixe ferait attendre devant une liste déjà chargée. */}
+              <motion.ul
+                variants={staggeredList(viewers.length)}
+                initial="hidden"
+                animate="show"
+                className="pb-3"
+              >
                 {viewers.map((v) => (
-                  <li key={v.id}>
+                  <motion.li key={v.id} variants={listItem}>
                     <button
                       type="button"
                       onClick={() => setProfilOuvert(v.viewer.id)}
@@ -469,12 +492,13 @@ export function StoryViewer({
                         {storyAge(v.createdAt)}
                       </span>
                     </button>
-                  </li>
+                  </motion.li>
                 ))}
-              </ul>
-            </div>
+              </motion.ul>
+            </motion.div>
           </>
         )}
+        </AnimatePresence>
       </motion.div>
 
       {/*

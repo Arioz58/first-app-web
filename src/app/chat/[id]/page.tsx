@@ -1430,8 +1430,23 @@ export default function ThreadPage() {
         </div>
         </button>
 
+        {/*
+          ⚠️ `mode="popLayout"` : l'élément sortant quitte la mise en page IMMÉDIATEMENT, si
+          bien que l'en-tête ne s'élargit ni ne grandit pendant la bascule. Sa géométrie doit
+          rester identique — la barre de recherche REMPLACE l'en-tête, et toute variation de
+          hauteur ferait sauter le fil de discussion derrière.
+
+          ⚠️ Aucune animation de TAILLE de l'en-tête, seulement du contenu qui s'échange.
+        */}
+        <AnimatePresence mode="popLayout" initial={false}>
         {search ? (
-          <div className="flex items-center gap-2">
+          <motion.div
+            key="recherche"
+            initial={{ opacity: 0, x: 14, scale: 0.97 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 14, scale: 0.97 }}
+            transition={damped}
+            className="flex items-center gap-2">
             <input
               autoFocus
               value={search.term}
@@ -1494,16 +1509,23 @@ export default function ThreadPage() {
             >
               <IconClose size={16} />
             </button>
-          </div>
+          </motion.div>
         ) : (
-          <button
+          <motion.button
+            key="loupe"
             onClick={() => setSearch({ term: '', results: [], index: 0 })}
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            whileTap={{ scale: 0.88 }}
+            transition={damped}
             className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
             aria-label={t('search.placeholder')}
           >
             <IconSearch size={18} />
-          </button>
+          </motion.button>
         )}
+        </AnimatePresence>
       </header>
 
       {!pinBarHidden && pinnedRows.length > 0 && (

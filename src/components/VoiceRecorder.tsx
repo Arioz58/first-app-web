@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { IconTrash } from '@/components/icons';
+import { snappy } from '@/lib/motion';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -31,17 +34,44 @@ const fmt = (s: number) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
-export function VoiceRecorder({
-  onSend,
-  onCancel,
-}: {
-  /** Reçoit le fichier et sa durée. L'envoi lui-même reste à l'appelant. */
-  onSend: (file: File, durationMs: number) => void;
-  onCancel: () => void;
-}) {
+/**
+ * Commande exposée au composeur.
+ *
+ * ⚠️ L'envoi est déclenché de l'EXTÉRIEUR parce que le bouton d'envoi n'appartient plus à
+ * l'enregistreur : c'est le bouton du composeur, qui morphe du micro vers l'avion sans jamais
+ * être démonté. Un enregistreur qui dessinerait le sien casserait cette continuité — l'ancien
+ * bouton disparaissait et un second apparaissait à côté.
+ */
+export type VoiceHandle = { envoyer: () => void };
+
+export const VoiceRecorder = forwardRef<
+  VoiceHandle,
+  {
+    /** Reçoit le fichier et sa durée. L'envoi lui-même reste à l'appelant. */
+    onSend: (file: File, durationMs: number) => void;
+    onCancel: () => void;
+    /**
+     * Micro indisponible ou refusé.
+     *
+     * ⚠️ Remonté au parent au lieu d'être affiché ici : sans micro il n'y a pas
+     * d'enregistrement, donc pas d'état « en train d'enregistrer » à tenir. Garder la barre
+     * à l'écran pour y loger un message laissait le bouton d'envoi promettre un vocal qui
+     * n'existait pas.
+     */
+    onError: (message: string) => void;
+  }
+>(function VoiceRecorder({ onSend, onCancel, onError }, ref) {
   const { t } = useTranslation();
   const [seconds, setSeconds] = useState(0);
-  const [error, setError] = useState('');
+  /**
+   * Niveaux sonores RÉELS, relevés au micro (`AnalyserNode`), et non un décor animé.
+   *
+   * ⚠️ Une onde inventée serait un mensonge : elle bougerait pareil dans le silence et en
+   * parlant, et donnerait à croire que l'enregistrement capte quelque chose alors qu'il peut
+   * être muet — micro coupé au niveau du système, mauvaise entrée choisie. C'est précisément
+   * ce qu'un retour visuel doit permettre de vérifier.
+   */
+  const [niveaux, setNiveaux] = useState<number[]>([]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const startedAtRef = useRef(0);
@@ -51,11 +81,11 @@ export function VoiceRecorder({
   useEffect(() => {
     let stream: MediaStream | null = null;
     /**
-     * ⚠️ Un micro déjà refusé fait échouer `getUserMedia` IMMÉDIATEMENT, donc `setError`
-     * partirait de façon synchrone dans l'effet — rendu en cascade, interdit par React 19.
-     * Le `queueMicrotask` garantit que l'état est posé après le commit.
+     * ⚠️ Un micro déjà refusé fait échouer `getUserMedia` IMMÉDIATEMENT, donc l'état du
+     * parent changerait de façon synchrone pendant l'effet — rendu en cascade, interdit par
+     * React 19. Le `queueMicrotask` garantit que la remontée a lieu après le commit.
      */
-    const fail = (msg: string) => queueMicrotask(() => setError(msg));
+    const fail = (msg: string) => queueMicrotask(() => onError(msg));
 
     void (async () => {
       try {
@@ -100,7 +130,7 @@ export function VoiceRecorder({
     };
     // ⚠️ `t` dans les dépendances : le message d'erreur doit suivre un changement de langue,
     // et l'omettre figerait le texte dans celle du montage.
-  }, [onSend, onCancel, t]);
+  }, [onSend, onCancel, onError, t]);
 
   // Chronomètre.
   useEffect(() => {
@@ -108,40 +138,120 @@ export function VoiceRecorder({
     return () => clearInterval(id);
   }, []);
 
-  const stop = (cancel: boolean) => {
-    cancelledRef.current = cancel;
-    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
-    if (cancel) onCancel();
-  };
+  /**
+   * Relève l'amplitude du micro ~20 fois par seconde.
+   *
+   * ⚠️ Fenêtre GLISSANTE de 40 barres : sur un vocal d'une minute, tout garder donnerait
+   * mille barres d'un pixel, illisibles. On montre les deux dernières secondes, comme le fait
+   * le mobile.
+   *
+   * ⚠️ Le contexte audio est fermé au démontage : laissé ouvert, il retient le micro et le
+   * témoin d'enregistrement du navigateur reste allumé après l'envoi.
+   */
+  useEffect(() => {
+    let ctx: AudioContext | null = null;
+    let raf = 0;
+    let stoppe = false;
 
-  if (error) {
-    return (
-      <div className="flex flex-1 items-center gap-3 px-2">
-        <p className="flex-1 text-sm text-red-500">{error}</p>
-        <button onClick={onCancel} className="text-sm text-slate-500">
-          {t('common.close')}
-        </button>
-      </div>
-    );
-  }
+    void (async () => {
+      try {
+        const flux = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (stoppe) {
+          flux.getTracks().forEach((p) => p.stop());
+          return;
+        }
+        ctx = new AudioContext();
+        const analyseur = ctx.createAnalyser();
+        analyseur.fftSize = 512;
+        ctx.createMediaStreamSource(flux).connect(analyseur);
+        const tampon = new Uint8Array(analyseur.frequencyBinCount);
+        let dernier = 0;
+
+        const boucle = (maintenant: number) => {
+          raf = requestAnimationFrame(boucle);
+          if (maintenant - dernier < 50) return;
+          dernier = maintenant;
+          analyseur.getByteTimeDomainData(tampon);
+          /**
+           * ⚠️ Amplitude EFFICACE (RMS) et non le pic : un seul échantillon extrême ferait
+           * bondir la barre sur un claquement, alors que la moyenne quadratique suit ce qu'on
+           * entend réellement.
+           */
+          let somme = 0;
+          for (let i = 0; i < tampon.length; i++) {
+            const v = (tampon[i] - 128) / 128;
+            somme += v * v;
+          }
+          const rms = Math.sqrt(somme / tampon.length);
+          // ⚠️ Racine : la perception du volume n'est pas linéaire, et sans elle le tracé
+          // paraît plat pour une voix normale.
+          setNiveaux((n) => [...n.slice(-39), Math.min(1, Math.sqrt(rms) * 1.8)]);
+          if (stoppe) cancelAnimationFrame(raf);
+        };
+        raf = requestAnimationFrame(boucle);
+      } catch {
+        // Micro indisponible : l'enregistrement lui-même signale déjà l'erreur.
+      }
+    })();
+
+    return () => {
+      stoppe = true;
+      cancelAnimationFrame(raf);
+      void ctx?.close().catch(() => {});
+    };
+  }, []);
+
+  const stop = useCallback(
+    (cancel: boolean) => {
+      cancelledRef.current = cancel;
+      if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+      if (cancel) onCancel();
+    },
+    [onCancel],
+  );
+
+  /** ⚠️ Ne dépend que de rappels stables : le composeur garde la même poignée pendant tout
+      l'enregistrement, et son bouton d'envoi ne pointe jamais vers une version périmée. */
+  useImperativeHandle(ref, () => ({ envoyer: () => stop(false) }), [stop]);
 
   return (
-    <div className="flex flex-1 items-center gap-3 px-2">
+    /* ⚠️ `min-h-11` : la barre du composeur est alignée en bas (`items-end`), et une bande
+       plus courte que le bouton d'envoi le ferait remonter au démarrage de l'enregistrement. */
+    <div className="flex min-h-11 flex-1 items-center gap-3 px-2">
       <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
       <span className="font-mono text-sm text-slate-600 dark:text-zinc-300">{fmt(seconds)}</span>
-      <span className="flex-1 text-sm text-slate-400">{t('voice.recording')}</span>
-      <button
+
+      {/*
+        Onde en direct. ⚠️ `items-center` avec des barres qui grandissent des DEUX côtés :
+        une onde ancrée en bas se lit comme un graphique, pas comme du son.
+      */}
+      <div className="flex h-8 flex-1 items-center gap-[2px] overflow-hidden">
+        {niveaux.length === 0 ? (
+          <span className="text-sm text-slate-400">{t('voice.recording')}</span>
+        ) : (
+          niveaux.map((n, i) => (
+            <span
+              key={i}
+              className="w-[3px] shrink-0 rounded-full bg-[#1E40AF] dark:bg-blue-400"
+              /* ⚠️ Hauteur MINIMALE de 3 px : à zéro, la barre disparaît et l'onde se troue
+                 dans les silences au lieu de s'aplatir. */
+              style={{ height: Math.max(3, n * 30) }}
+            />
+          ))
+        )}
+      </div>
+
+      {/* ⚠️ Une CORBEILLE plutôt que le mot « Annuler » : l'action est destructrice, et une
+          icône rouge se distingue au premier coup d'œil du bouton d'envoi juste à côté. */}
+      <motion.button
         onClick={() => stop(true)}
-        className="rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+        whileTap={{ scale: 0.88 }}
+        transition={snappy}
+        aria-label={t('cancel')}
+        className="flex h-9 w-9 items-center justify-center rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
       >
-        {t('cancel')}
-      </button>
-      <button
-        onClick={() => stop(false)}
-        className="rounded-full bg-[#1E40AF] px-4 py-1.5 text-sm font-semibold text-white"
-      >
-        {t('voice.send')}
-      </button>
+        <IconTrash size={17} />
+      </motion.button>
     </div>
   );
-}
+});

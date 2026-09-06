@@ -1,5 +1,9 @@
 'use client';
 
+import { MorphIcon } from 'morphicons/react';
+import { Bell as BellNode, BellOff as BellOffNode } from 'lucide';
+import type { IconNode } from 'morphicons/react';
+
 import { motion } from 'framer-motion';
 import { damped } from '@/lib/motion';
 import { useMediaQuery } from '@/lib/useMediaQuery';
@@ -10,8 +14,6 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   IconAddMember,
   IconAdmin,
-  IconBell,
-  IconBellOff,
   IconBlock,
   IconChevron,
   IconCamera,
@@ -492,8 +494,11 @@ export function DetailsPanel({
                   .catch(() => {})
               }
             />
+            {/* ⚠️ État et non action, à l'inverse de la ligne « Sourdine » plus bas : cette
+                tuile dit où l'on en est (comme l'étoile qui se remplit), l'autre annonce ce que
+                le clic va faire. Les deux cloches sont donc inversées, volontairement. */}
             <QuickAction
-              icon={isMuted(conversation) ? IconBellOff : IconBell}
+              morph={isMuted(conversation) ? BellOffNode : BellNode}
               label={t('details.mute_short')}
               soonLabel={t('details.soon')}
               onClick={() => {
@@ -680,17 +685,15 @@ export function DetailsPanel({
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
-                {isMuted(conversation) ? (
-                  <>
-                    <IconBell size={15} />
-                    {t('details.reactivate_notifs')}
-                  </>
-                ) : (
-                  <>
-                    <IconBellOff size={15} />
-                    {t('details.mute_for')}
-                  </>
-                )}
+{/* ⚠️ La cloche MORPHE au lieu d'échanger deux icônes : c'est la même commande qui
+                    change d'état — le cas où un morphing dit quelque chose. La barre qui la
+                    traverse se dessine, au lieu d'apparaître. */}
+                <MorphIcon
+                  icon={isMuted(conversation) ? BellNode : BellOffNode}
+                  size={15}
+                  reducedMotion="user"
+                />
+                {t(isMuted(conversation) ? 'details.reactivate_notifs' : 'details.mute_for')}
               </button>
             </div>
           )}
@@ -972,6 +975,7 @@ export function DetailsPanel({
 
 function QuickAction({
   icon: Icon,
+  morph,
   iconClassName,
   label,
   soonLabel,
@@ -979,7 +983,13 @@ function QuickAction({
   disabled,
 }: {
   /** ⚠️ Le COMPOSANT d'icône, pas une chaîne : c'est un SVG, il se rend, il ne s'écrit pas. */
-  icon: typeof IconStar;
+  icon?: typeof IconStar;
+  /**
+   * Tracé lucide brut, quand la tuile change d'état et doit MORPHER plutôt qu'échanger deux
+   * dessins. ⚠️ Distinct d'`icon` parce que ce sont deux choses différentes : l'un est un
+   * composant qui se rend, l'autre une donnée que `MorphIcon` interpole.
+   */
+  morph?: IconNode;
   /** Remplissage/teinte quand l'icône marque un état actif (favori posé, par exemple). */
   iconClassName?: string;
   /**
@@ -998,7 +1008,11 @@ function QuickAction({
       title={disabled ? soonLabel : label}
       className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-slate-200 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
     >
-      <Icon size={18} className={iconClassName} />
+      {morph ? (
+        <MorphIcon icon={morph} size={18} reducedMotion="user" className={iconClassName} />
+      ) : (
+        Icon && <Icon size={18} className={iconClassName} />
+      )}
       {label}
     </button>
   );

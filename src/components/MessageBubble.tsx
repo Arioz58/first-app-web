@@ -1,5 +1,7 @@
 'use client';
 
+import { AudioMessage } from '@/components/AudioMessage';
+
 import { motion } from 'framer-motion';
 import { bubble } from '@/lib/motion';
 import { dejaVu, marquerVus } from '@/lib/seenMessages';
@@ -545,7 +547,7 @@ function MediaContent({
   }
 
   if (item.mediaType === 'audio') {
-    return <audio src={item.mediaUrl} controls className="mb-1 w-64" />;
+    return <AudioMessage src={item.mediaUrl} durationMs={item.durationMs} mine={isMe} />;
   }
 
   return (

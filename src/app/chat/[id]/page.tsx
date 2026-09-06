@@ -11,12 +11,9 @@ import {
   IconDocument,
   IconPhoto,
   IconBack,
-  IconCheck,
   IconClose,
   IconDown,
-  IconMic,
   IconPin,
-  IconSend,
   IconSpinner,
   IconUp,
 } from '@/components/icons';
@@ -57,14 +54,14 @@ import { MorphIcon } from 'morphicons/react';
  * `IconNode`), pas un composant. `lucide-react` n'expose pas ces données — ses composants ne
  * portent que `$$typeof` et `render`.
  */
-import { Search as SearchNode, X as XNode } from 'lucide';
+import { Check as CheckNode, Mic as MicNode, Search as SearchNode, SendHorizontal as SendNode, X as XNode } from 'lucide';
 import { damped } from '@/lib/motion';
 import type { BubbleActions } from '@/components/MessageBubble';
 import { ForwardDialog } from '@/components/ForwardDialog';
 import GifPicker from '@/components/GifPicker';
 import CameraCapture from '@/components/CameraCapture';
 import { ComposerActions, type ComposerAction } from '@/components/ComposerActions';
-import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { VoiceRecorder, type VoiceHandle } from '@/components/VoiceRecorder';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import { fetchConversations, type Conversation } from '@/lib/conversations';
 import { connectSocket } from '@/lib/socket';
@@ -190,6 +187,17 @@ export default function ThreadPage() {
   /** Messages à transférer — un album en compte plusieurs pour une seule bulle. */
   const [forwarding, setForwarding] = useState<Message[] | null>(null);
   const [recording, setRecording] = useState(false);
+  const voiceRef = useRef<VoiceHandle>(null);
+  /**
+   * ⚠️ Rappels STABLES et non des flèches posées dans le JSX : l'effet qui tient le
+   * `MediaRecorder` les a en dépendances, et une nouvelle fonction à chaque rendu du fil
+   * (un message reçu suffit) relancerait l'enregistrement en cours de route.
+   */
+  const annulerVocal = useCallback(() => setRecording(false), []);
+  const erreurVocal = useCallback((message: string) => {
+    window.alert(message);
+    setRecording(false);
+  }, []);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1723,10 +1731,6 @@ export default function ThreadPage() {
         <div className="border-t border-slate-200 bg-white px-4 py-4 text-center text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-900">
           {t('details.read_only')}
         </div>
-      ) : recording ? (
-        <div className="flex items-center border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-          <VoiceRecorder onSend={sendVoice} onCancel={() => setRecording(false)} />
-        </div>
       ) : (
       <form
         onSubmit={send}
@@ -1754,6 +1758,22 @@ export default function ThreadPage() {
           pastilles se parcourt d'un coup d'œil là où une liste demande de lire. Les libellés
           restent accessibles au survol et par `aria-label`.
         */}
+        {/*
+          ⚠️ Seul le CENTRE de la barre bascule en mode enregistrement — le bouton de droite,
+          lui, reste le même élément. C'est ce qui permet au micro de se transformer en avion
+          d'envoi au lieu d'être remplacé : auparavant toute la barre était échangée contre
+          celle de l'enregistreur, et le bouton d'envoi du vocal était un second bouton, posé
+          ailleurs, avec sa propre apparence.
+        */}
+        {recording ? (
+          <VoiceRecorder
+            ref={voiceRef}
+            onSend={sendVoice}
+            onCancel={annulerVocal}
+            onError={erreurVocal}
+          />
+        ) : (
+        <>
         <ComposerActions
           open={actionsOuvertes}
           onOpenChange={setActionsOuvertes}
@@ -1776,50 +1796,44 @@ export default function ThreadPage() {
           placeholder={t('chat.message_placeholder')}
           className="max-h-32 flex-1 resize-none rounded-2xl bg-slate-100 px-4 py-2.5 text-base outline-none dark:bg-zinc-800 dark:text-zinc-100"
         />
+        </>
+        )}
         {/* ⚠️ Micro quand le champ est vide, envoi sinon — et jamais de micro en mode
             édition : on modifie du texte, pas un vocal. */}
         {/*
-          ⚠️ `mode="popLayout"` : l'icône sortante quitte la mise en page immédiatement, si
-          bien que l'entrante prend sa place sans que le bouton ne s'élargisse un instant.
-          Sans cela, le composeur tressaute à chaque première lettre tapée.
+          ⚠️ UN SEUL bouton pour les trois états — valider une modification, envoyer, ou
+          enregistrer un vocal. Avant, `AnimatePresence` échangeait deux boutons distincts :
+          l'un sortait, l'autre entrait, et le composeur tressautait le temps de la bascule.
+          Ici l'élément reste en place, seule sa forme change.
 
-          ⚠️ La rotation accompagne le changement — micro/envoi ne sont pas deux états du
-          même bouton mais deux gestes différents, et la permutation doit se voir.
+          ⚠️ Le `type` suit l'état : `submit` pour envoyer ou valider, `button` pour démarrer
+          l'enregistrement ou le conclure. Laisser `submit` en permanence ferait soumettre le
+          formulaire — donc envoyer un message vide — au moment où l'on veut parler.
+
+          ⚠️ Pendant l'enregistrement il montre l'avion et NON un carré d'arrêt : ce clic ne
+          met pas en pause, il envoie le vocal. Le seul moyen de s'arrêter sans envoyer est la
+          corbeille, à gauche.
         */}
-        <AnimatePresence mode="popLayout" initial={false}>
-          {text.trim() || editing ? (
-            <motion.button
-              key="envoyer"
-              type="submit"
-              disabled={!text.trim()}
-              initial={{ opacity: 0, scale: 0.7, rotate: -35 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.7, rotate: 35 }}
-              whileTap={{ scale: 0.9 }}
-              transition={damped}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-              aria-label={t(editing ? 'thread.validate' : 'thread.send')}
-            >
-              {editing ? <IconCheck size={20} /> : <IconSend size={19} />}
-            </motion.button>
-          ) : (
-            <motion.button
-              key="micro"
-              type="button"
-              onClick={() => setRecording(true)}
-              disabled={uploading}
-              initial={{ opacity: 0, scale: 0.7, rotate: 35 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.7, rotate: -35 }}
-              whileTap={{ scale: 0.9 }}
-              transition={damped}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
-              aria-label={t('thread.record')}
-            >
-              <IconMic size={19} />
-            </motion.button>
+        <motion.button
+          type={!recording && (text.trim() || editing) ? 'submit' : 'button'}
+          disabled={recording ? false : text.trim() || editing ? !text.trim() : uploading}
+          onClick={() => {
+            if (recording) voiceRef.current?.envoyer();
+            else if (!text.trim() && !editing) setRecording(true);
+          }}
+          whileTap={{ scale: 0.9 }}
+          transition={damped}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1E40AF] text-white disabled:opacity-40"
+          aria-label={t(
+            editing ? 'thread.validate' : recording || text.trim() ? 'thread.send' : 'thread.record',
           )}
-        </AnimatePresence>
+        >
+          <MorphIcon
+            icon={editing ? CheckNode : recording || text.trim() ? SendNode : MicNode}
+            size={19}
+            reducedMotion="user"
+          />
+        </motion.button>
       </form>
       )}
       {cameraOpen && (

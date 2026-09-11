@@ -1,4 +1,5 @@
 import { ConversationList } from '@/components/ConversationList';
+import { ToastStack } from '@/components/ToastStack';
 
 /**
  * Disposition deux colonnes de la messagerie, façon WhatsApp Web.
@@ -17,6 +18,10 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     <main className="flex h-dvh bg-slate-50 dark:bg-zinc-950">
       <ConversationList />
       {children}
+      {/* ⚠️ Ici et non dans une page : le layout survit aux navigations, donc un bandeau
+          reste lisible quand on passe d'une conversation à l'autre — et c'est justement
+          quand on change d'écran qu'il a quelque chose à dire. */}
+      <ToastStack />
     </main>
   );
 }

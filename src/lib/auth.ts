@@ -1,5 +1,6 @@
 import { apiRequest } from './api';
 import { clearSession, getAccessToken, getRefreshToken, isTokenExpired, saveSession } from './storage';
+import { clearToasts } from './toasts';
 
 export type AuthUser = {
   id: string;
@@ -42,6 +43,8 @@ export const verifyCode = async (phone: string, code: string, name?: string) => 
 };
 
 export const logout = () => {
+  // Les bandeaux du compte quitté mèneraient à des conversations devenues inaccessibles.
+  clearToasts();
   clearSession();
 };
 

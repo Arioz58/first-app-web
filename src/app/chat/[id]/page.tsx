@@ -66,6 +66,7 @@ import { DetailsPanel } from '@/components/DetailsPanel';
 import { fetchConversations, type Conversation } from '@/lib/conversations';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
+import { dismissToastsFor } from '@/lib/toasts';
 
 /** Distance au bas en deçà de laquelle on considère l'utilisateur « en bas ». */
 /**
@@ -348,6 +349,10 @@ export default function ThreadPage() {
 
   // --- Chargement initial ---
   useEffect(() => {
+    // ⚠️ Le bandeau de CETTE conversation n'a plus lieu d'être : on est dedans. Nécessaire
+    // même s'il se ferme au clic, car on peut arriver ici par la liste, une recherche ou une
+    // notification — il inviterait alors à ouvrir l'écran déjà ouvert.
+    dismissToastsFor(id);
     setSessionExpiredHandler(() => router.replace('/login'));
     if (!hasSession()) {
       router.replace('/login');

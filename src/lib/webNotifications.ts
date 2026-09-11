@@ -1,11 +1,20 @@
 /**
  * Notifications du navigateur.
  *
- * ⚠️ POURQUOI c'est nécessaire, au-delà du confort : le serveur n'envoie de notification
- * push qu'aux utilisateurs HORS LIGNE (`isUserOnline`), et « en ligne » veut dire « au moins
- * un socket ouvert ». Un onglet web laissé ouvert — même en arrière-plan, même sur un autre
- * bureau — suffit donc à rendre quelqu'un « en ligne » et à PRIVER SON TÉLÉPHONE de ses
- * notifications. Sans ce module, ouvrir le client web revenait à se rendre silencieux.
+ * ⚠️ POURQUOI c'est nécessaire, au-delà du confort : le serveur n'envoie pas de notification
+ * push à cet onglet — il n'en existe pas pour un navigateur ici (voir plus bas). Seul le
+ * socket déjà ouvert peut donc prévenir la personne devant son ordinateur.
+ *
+ * ⚠️ CE MODULE NE COUVRE QUE L'ONGLET EN ARRIÈRE-PLAN. Onglet au premier plan, c'est le
+ * bandeau dans la page qui prend le relais (`components/ToastStack.tsx`) : une bulle système
+ * par-dessus une fenêtre qu'on regarde serait du bruit, et les deux ensemble diraient deux
+ * fois la même chose. C'est la liste des conversations qui choisit le canal.
+ *
+ * ⚠️ HISTORIQUE, à ne pas reperdre : jusqu'au 10/09, un onglet ouvert suffisait à faire
+ * passer la personne pour « en ligne » et PRIVAIT SON TÉLÉPHONE de ses notifications. Depuis,
+ * le serveur distingue les plateformes (`platform` au handshake, `isUserOnMobile`) et le
+ * téléphone garde les siennes. Ce module reste indispensable pour autant : le navigateur, lui,
+ * ne reçoit toujours rien du serveur.
  *
  * ⚠️ Ce n'est PAS du Web Push : rien n'est envoyé par le serveur, tout part du socket déjà
  * ouvert par l'onglet. Conséquence assumée — onglet fermé, pas de notification web ; c'est

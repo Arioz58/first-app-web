@@ -440,5 +440,8 @@
     "friends": "Amis",
     "stories": "Actus",
     "you": "Vous"
+  },
+  "toast": {
+    "expand": "Afficher toutes les notifications"
   }
 }

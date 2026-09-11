@@ -61,11 +61,13 @@ import {
   type Conversation,
   type Friend,
   type LastMessage,
+  type MessageAlert,
   type PreviewKind,
 } from '@/lib/conversations';
 import { fetchMe, searchAllMessages, type Me, type MessageHit } from '@/lib/messages';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
+import { showToast } from '@/lib/toasts';
 
 type Filter = 'all' | 'unread' | 'favorites' | 'groups' | 'archived';
 
@@ -256,42 +258,48 @@ export function ConversationList() {
     const onUpdate = ({
       conversationId,
       message,
+      alert,
     }: {
       conversationId: string;
       message: LastMessage;
+      alert?: MessageAlert;
     }) => {
       /**
-       * Notification du navigateur — décidée AVANT la mise à jour d'état, sur le miroir.
+       * ALERTE — décidée AVANT la mise à jour d'état, sur le miroir.
        *
-       * ⚠️ Seulement quand l'onglet n'est PAS visible : visible, la liste se réordonne et la
-       * pastille bouge sous les yeux, une bulle système par-dessus serait du bruit.
+       * ⚠️ C'est le SERVEUR qui dit s'il y a matière à prévenir (champ `alert`) : lui seul
+       * connaît la sourdine de chaque membre, l'état d'une demande de message et le premier
+       * média d'un album — sans quoi dix photos donneraient dix alertes. Il compose aussi le
+       * titre et le corps, pour que le navigateur, le bandeau et le téléphone disent la même
+       * chose du même message.
        *
-       * ⚠️ C'est la seule alerte possible ici. L'onglet ouvert garde un socket, donc le
-       * serveur considère la personne « en ligne » et n'envoie AUCUN push — pas même à son
-       * téléphone. Sans cela, ouvrir le client web rendait silencieux.
+       * ⚠️ Les deux canaux sont EXCLUSIFS, selon que l'onglet est au premier plan ou non :
+       * - onglet caché → notification du navigateur. C'est la seule alerte possible : le
+       *   socket de cet onglet fait passer la personne « en ligne », et sans elle ouvrir le
+       *   client web rendait silencieux ;
+       * - onglet visible → bandeau dans la page, sauf si la conversation est déjà ouverte,
+       *   où le message arrive sous les yeux.
+       * Afficher les deux ferait dire deux fois la même chose au même moment.
        */
-      const conv = convRef.current.find((c) => c.id === conversationId);
-      if (
-        conv &&
-        message.senderId !== getUserId() &&
-        typeof document !== 'undefined' &&
-        document.visibilityState === 'hidden' &&
-        !isMuted(conv)
-      ) {
-        const nom = conversationName(conv, meId);
-        const expediteur = conv.members.find((m) => m.userId === message.senderId)?.user;
-        const apercu = messagePreview(message);
-        void notify({
-          // En groupe, le titre est le GROUPE et le corps porte l'expéditeur — même règle
-          // que les notifications du mobile.
-          title: conv.type === 'group' ? nom : expediteur?.name ?? nom,
-          body:
-            conv.type === 'group'
-              ? `${expediteur?.name ?? ''} : ${apercu.text}`.trim()
-              : apercu.text,
-          icon: conversationPhoto(conv, meId) ?? expediteur?.photoUrl ?? null,
-          conversationId,
-        });
+      if (alert) {
+        const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+        if (hidden) {
+          void notify({
+            title: alert.title,
+            body: alert.body,
+            icon: alert.photoUrl,
+            conversationId,
+          });
+        } else if (conversationId !== activeId) {
+          showToast({
+            key: conversationId,
+            title: alert.title,
+            body: alert.body,
+            photoUrl: alert.photoUrl,
+            isGroup: alert.isGroup,
+            href: `/chat/${conversationId}`,
+          });
+        }
       }
 
       setConversations((prev) => {

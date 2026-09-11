@@ -43,6 +43,7 @@ export {
   Clock as IconClock,
   // Actions
   ChevronRight as IconChevron,
+  ChevronDown as IconChevronDown,
   X as IconClose,
   ArrowLeft as IconBack,
   ArrowUp as IconUp,

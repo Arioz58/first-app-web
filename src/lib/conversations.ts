@@ -26,6 +26,26 @@ export type LastMessage = {
   batchId?: string | null;
 };
 
+/**
+ * De quoi prévenir d'un message, composé PAR LE SERVEUR et joint à `conversation_updated`.
+ *
+ * ⚠️ Le champ n'est présent que s'il y a matière à alerter : le serveur écarte lui-même
+ * l'expéditeur, les conversations en sourdine, les demandes de message non acceptées et les
+ * médias suivants d'un album. Ces règles ne peuvent pas vivre côté client, qui ne connaît
+ * pas forcément la conversation concernée.
+ *
+ * ⚠️ Mêmes valeurs que la notification push : un même message se présente à l'identique sur
+ * le téléphone, dans l'onglet et dans la page.
+ */
+export type MessageAlert = {
+  /** Nom du groupe, ou de l'expéditeur en conversation directe. */
+  title: string;
+  /** Résumé du message, précédé de l'expéditeur en groupe. */
+  body: string;
+  photoUrl: string | null;
+  isGroup: boolean;
+};
+
 export type Conversation = {
   id: string;
   type: 'direct' | 'group';

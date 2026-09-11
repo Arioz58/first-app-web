@@ -41,7 +41,13 @@ export type ApiError = Error & { status?: number };
  */
 let refreshing: Promise<string | null> | null = null;
 
-const refreshAccessToken = async (): Promise<string | null> => {
+/**
+ * ⚠️ EXPORTÉ pour le socket, qui porte son jeton dans son handshake et doit pouvoir le
+ * renouveler lui-même. Il passe par cette fonction-ci, et non par la sienne, précisément pour
+ * partager la promesse en vol : le serveur invalide l'ancien jeton de rafraîchissement à
+ * chaque usage, donc deux renouvellements simultanés en déconnecteraient un.
+ */
+export const refreshAccessToken = async (): Promise<string | null> => {
   if (refreshing) return refreshing;
 
   refreshing = (async () => {

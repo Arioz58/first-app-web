@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
+import { refreshAccessToken } from './api';
 import { BASE_URL } from './config';
-import { getAccessToken } from './storage';
+import { getAccessToken, isTokenExpired } from './storage';
 
 /**
  * Client Socket.io — portage de `lib/socket.ts` du mobile, simplifié.
@@ -34,6 +35,45 @@ export const connectSocket = (): Socket => {
     transports: ['websocket'],
     reconnection: true,
   });
+
+  /**
+   * Jeton relu AVANT CHAQUE TENTATIVE de reconnexion.
+   *
+   * ⚠️ `auth` est figé à la création du socket. Le jeton d'accès ne vit que 15 minutes, et une
+   * requête API a pu le renouveler entre-temps : sans cette relecture, toutes les tentatives
+   * repartiraient avec celui d'il y a une heure.
+   */
+  socket.io.on('reconnect_attempt', () => {
+    if (socket) socket.auth = { token: getAccessToken(), platform: 'web' };
+  });
+
+  /**
+   * Handshake refusé : on renouvelle le jeton et on RELANCE la connexion.
+   *
+   * ⚠️ MESURÉ le 11/09, et c'est le cœur du problème : socket.io ne retente PAS après un refus
+   * du middleware d'authentification. Une seule tentative, puis plus rien — le temps réel
+   * mourait donc en silence dès que le jeton expirait (onglet laissé ouvert, veille, ou
+   * simple redémarrage du serveur qui force une reconnexion). Symptôme côté client : plus
+   * aucun message n'arrive tout seul, et il faut RECHARGER LA PAGE — ce qui renouvelle le
+   * jeton au premier appel d'API et crée un socket neuf.
+   *
+   * ⚠️ On ne renouvelle QUE si le jeton est effectivement expiré : une erreur de connexion
+   * alors qu'il est valide veut dire que le serveur est injoignable, et il n'y a rien à
+   * renouveler. C'est aussi ce qui empêche la boucle — au second passage le jeton est frais,
+   * donc on s'arrête.
+   */
+  socket.on('connect_error', async (err) => {
+    const current = getAccessToken();
+    if (current && !isTokenExpired(current)) {
+      console.warn('[Socket] Connexion refusée :', err.message);
+      return;
+    }
+    const fresh = await refreshAccessToken();
+    if (!fresh || !socket) return;
+    socket.auth = { token: fresh, platform: 'web' };
+    socket.connect();
+  });
+
   return socket;
 };
 

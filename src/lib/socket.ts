@@ -21,7 +21,16 @@ export const connectSocket = (): Socket => {
 
   const token = getAccessToken();
   socket = io(BASE_URL, {
-    auth: { token },
+    /**
+     * ⚠️ `platform: 'web'` est ce qui garde le TÉLÉPHONE notifié.
+     *
+     * Le serveur n'envoyait pas de notification à qui avait déjà la conversation ouverte
+     * quelque part — et un onglet laissé ouvert comptait. Ouvrir Nexa Web rendait donc son
+     * propre téléphone muet. Déclaré comme web, ce socket ne compte plus dans ce calcul :
+     * le navigateur affiche sa propre notification (`webNotifications.ts`), le téléphone
+     * garde les siennes.
+     */
+    auth: { token, platform: 'web' },
     transports: ['websocket'],
     reconnection: true,
   });

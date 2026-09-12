@@ -1631,7 +1631,19 @@ export default function ThreadPage() {
             Dites bonjour à {title} !
           </p>
         ) : (
-          <div className="mx-auto flex max-w-3xl flex-col">
+          <div
+            /*
+             * ⚠️ LARGEUR ÉLARGIE (11/09, demande du client : « sur PC la conversation est
+             * toujours en mode téléphone »). Elle était plafonnée à 768 px, si bien que la
+             * colonne restait étroite au milieu d'un écran d'ordinateur, avec du vide de
+             * chaque côté.
+             *
+             * ⚠️ Un plafond subsiste, à 1100 px : sans lui, sur un très grand écran, une bulle
+             * « moi » et la suivante venue d'en face se retrouvent aux deux extrémités et la
+             * conversation cesse de se lire comme un échange.
+             */
+            className="mx-auto flex w-full max-w-[1100px] flex-col"
+          >
             {!hasOlder && (
               <p className="pb-4 text-center text-xs text-slate-400">
                 Début de la conversation
@@ -1739,7 +1751,16 @@ export default function ThreadPage() {
       ) : (
       <form
         onSubmit={send}
-        className="relative flex items-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+        /*
+         * ⚠️ Le fond et le liseré restent PLEINE LARGEUR — c'est une barre, elle doit toucher
+         * les deux bords — mais son CONTENU s'aligne sur la colonne des messages (1100 px).
+         * Sans cela, depuis l'élargissement du fil, le champ de saisie et ses boutons
+         * débordaient largement des bulles qu'ils prolongent.
+         *
+         * ⚠️ Le retrait latéral vaut la moitié de l'espace excédentaire, et jamais moins que
+         * la marge d'origine : sur un écran étroit, rien ne change.
+         */
+        className="relative flex items-end gap-2 border-t border-slate-200 bg-white py-3 px-[max(1rem,calc((100%-1100px)/2))] dark:border-zinc-800 dark:bg-zinc-900"
       >
         {gifOpen && <GifPicker onClose={() => setGifOpen(false)} onSelect={sendGif} />}
         <input

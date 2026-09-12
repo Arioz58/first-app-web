@@ -525,11 +525,24 @@ function MediaContent({
           ⚠️ L'identifiant est celui du MESSAGE : il doit désigner un média et un seul, sinon
           deux photos identiques dans le fil se disputeraient la transformation.
         */}
+        {/*
+          ⚠️ LA LARGEUR EST CONTRAINTE, PAS SEULEMENT LA HAUTEUR (11/09, remarque du client :
+          « le format de la photo est visible mais beaucoup en longueur »).
+
+          Seule `max-h-80` était posée : une photo prise au téléphone (9:16) voyait sa hauteur
+          ramenée à 320 px, donc sa largeur à 180 — une bande étroite et haute. Une photo
+          large, elle, s'étalait sans limite. En fixant la largeur et en plafonnant la hauteur,
+          les deux formats occupent une place comparable, comme sur WhatsApp.
+
+          ⚠️ `object-contain` et non `object-cover` : recadrer gagnerait quelques pixels de
+          largeur sur les formats extrêmes, au prix d'un sujet coupé sans prévenir. Une photo
+          très haute garde donc ses proportions et laisse un peu de place à ses côtés.
+        */}
         <motion.img
           layoutId={`media-${item.id}`}
           src={item.mediaUrl}
           alt=""
-          className="max-h-80 rounded-lg object-cover"
+          className="h-auto w-[min(20rem,100%)] max-h-[30rem] rounded-lg object-contain"
         />
       </button>
     );
@@ -541,7 +554,11 @@ function MediaContent({
         {/* ⚠️ Sans `controls` : la vidéo est une VIGNETTE ici, elle se lit dans la
             visionneuse. Des contrôles sur la bulle captureraient le clic et l'on ne pourrait
             plus l'ouvrir en grand ni passer aux médias suivants. */}
-        <video src={item.mediaUrl} className="max-h-80 rounded-lg" />
+        {/* Même cadre que les photos : une vidéo verticale souffrait du même défaut. */}
+        <video
+          src={item.mediaUrl}
+          className="h-auto w-[min(20rem,100%)] max-h-[30rem] rounded-lg object-contain"
+        />
       </button>
     );
   }

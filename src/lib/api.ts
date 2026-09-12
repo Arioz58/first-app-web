@@ -35,9 +35,15 @@ export type ApiError = Error & { status?: number };
  *
  * L'écran web charge plusieurs ressources en parallèle (conversations, profil, drapeaux) :
  * si le jeton vient d'expirer, elles reçoivent toutes un 401 en même temps et déclencheraient
- * chacune leur propre refresh. Le serveur invalidant l'ancien jeton de rafraîchissement à
- * chaque usage, la première réussirait et les suivantes déconnecteraient l'utilisateur.
- * On partage donc la promesse en vol.
+ * chacune leur propre refresh — autant d'allers-retours inutiles, au moment précis où l'écran
+ * attend déjà. On partage donc la promesse en vol.
+ *
+ * ⚠️ CORRECTION D'UN COMMENTAIRE FAUX (11/09) : il était écrit ici que le serveur invalide
+ * l'ancien jeton de rafraîchissement, et que les renouvellements concurrents déconnectaient
+ * donc l'utilisateur. C'est inexact — `POST /auth/refresh` vérifie la signature et renvoie un
+ * nouvel accès, sans faire tourner le jeton ni invalider l'ancien (voir `auth.service.ts`).
+ * Deux renouvellements simultanés réussissent tous les deux. Ne pas bâtir de raisonnement de
+ * sécurité sur une rotation qui n'existe pas.
  */
 let refreshing: Promise<string | null> | null = null;
 

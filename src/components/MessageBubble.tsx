@@ -213,8 +213,21 @@ export function MessageBubble({
             {item.content}
           </p>
         ) : (
+          /*
+            ⚠️ 37.5rem = 600 px, porté de 32rem (512 px) le 13/09.
+
+            Élargir la COLONNE du fil à 1100 px n'avait rien changé aux bulles : `80%` d'un
+            conteneur de 1100 px valant 880, le `min` retenait toujours 512. Les bulles
+            étaient donc seulement ÉCARTÉES, avec du vide au milieu — d'où « qu'est-ce qui
+            change alors ? ».
+
+            ⚠️ Et pas davantage : à la taille de police du fil, 600 px font environ 80
+            caractères par ligne, soit la limite haute de ce qui se lit sans effort (la plage
+            confortable est 45-75). Au-delà, l'œil peine à retrouver le début de la ligne
+            suivante — une bulle plus large serait moins lisible, pas plus « bureau ».
+          */
           <div
-            className={`max-w-[min(32rem,80%)] rounded-2xl px-3.5 py-2 shadow-sm ${
+            className={`max-w-[min(37.5rem,80%)] rounded-2xl px-3.5 py-2 shadow-sm ${
               isMe
                 ? 'bg-[#1E40AF] text-white'
                 : 'bg-white text-slate-900 dark:bg-zinc-800 dark:text-zinc-100'
@@ -537,12 +550,20 @@ function MediaContent({
           ⚠️ `object-contain` et non `object-cover` : recadrer gagnerait quelques pixels de
           largeur sur les formats extrêmes, au prix d'un sujet coupé sans prévenir. Une photo
           très haute garde donc ses proportions et laisse un peu de place à ses côtés.
+
+          ⚠️ CADRE AGRANDI le 13/09 : 20rem × 30rem (320 × 480) → 25rem × 36rem (400 × 576).
+          C'est ici que se jouait vraiment le « sur PC on dirait un téléphone » : une photo
+          verticale s'affichait à ~270 × 480, un timbre-poste au milieu de 1100 px de large.
+
+          ⚠️ LES DEUX VALEURS doivent bouger ENSEMBLE. Une photo verticale est limitée par sa
+          HAUTEUR : n'élargir que le cadre ne l'aurait pas agrandie d'un pixel. C'est le
+          piège exact du correctif précédent, où seule la hauteur était contrainte.
         */}
         <motion.img
           layoutId={`media-${item.id}`}
           src={item.mediaUrl}
           alt=""
-          className="h-auto w-[min(20rem,100%)] max-h-[30rem] rounded-lg object-contain"
+          className="h-auto w-[min(25rem,100%)] max-h-[36rem] rounded-lg object-contain"
         />
       </button>
     );
@@ -557,7 +578,7 @@ function MediaContent({
         {/* Même cadre que les photos : une vidéo verticale souffrait du même défaut. */}
         <video
           src={item.mediaUrl}
-          className="h-auto w-[min(20rem,100%)] max-h-[30rem] rounded-lg object-contain"
+          className="h-auto w-[min(25rem,100%)] max-h-[36rem] rounded-lg object-contain"
         />
       </button>
     );

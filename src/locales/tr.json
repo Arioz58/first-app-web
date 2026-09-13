@@ -483,5 +483,10 @@
     "send_title": "Konumumu gönder",
     "send_action": "Bu konumu gönder",
     "searching": "Adres aranıyor…"
+  },
+  "live": {
+    "title": "Canlı konum",
+    "others_sharing": "{{count}} kişi konumunu paylaşıyor",
+    "stale": "Donmuş konum · {{time}}"
   }
 }

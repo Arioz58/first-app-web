@@ -483,5 +483,10 @@
     "send_title": "Envoyer ma position",
     "send_action": "Envoyer cette position",
     "searching": "Recherche de l’adresse…"
+  },
+  "live": {
+    "title": "Position en direct",
+    "others_sharing": "{{count}} personne partage sa position",
+    "stale": "Position figée · {{time}}"
   }
 }

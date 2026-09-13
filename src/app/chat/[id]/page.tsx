@@ -3,6 +3,8 @@
 import { MediaViewer } from '@/components/MediaViewer';
 import { QuotedPreview } from '@/components/QuotedPreview';
 import { LocationPicker } from '@/components/LocationPicker';
+import { LiveLocationView } from '@/components/LiveLocationView';
+import { fetchLiveLocations, type LiveLocation } from '@/lib/liveLocation';
 import { ChoiceDialog } from '@/components/ChoiceDialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
@@ -142,6 +144,9 @@ export default function ThreadPage() {
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
+  /** Positions partagées en direct dans cette conversation — lecture seule côté web. */
+  const [liveShares, setLiveShares] = useState<LiveLocation[]>([]);
+  const [liveOpen, setLiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [meta, setMeta] = useState<ConvMeta | null>(null);
@@ -739,6 +744,25 @@ export default function ThreadPage() {
     socket.on('message_deleted', onDeleted);
     socket.on('message_reaction', onReaction);
 
+    /**
+     * POSITIONS EN DIRECT — lecture seule côté web.
+     *
+     * ⚠️ `live_location` sert au DÉMARRAGE d'un partage comme à chaque relevé : on remplace
+     * la ligne de la personne si elle existe, on l'ajoute sinon. Le serveur n'émet pas deux
+     * événements distincts, et c'est heureux — un client qui n'a pas vu le début devrait
+     * sinon deviner lequel s'applique.
+     */
+    const onLive = (p: LiveLocation & { conversationId: string }) => {
+      if (p.conversationId !== id) return;
+      setLiveShares((prev) => [...prev.filter((x) => x.userId !== p.userId), p]);
+    };
+    const onLiveEnded = (p: { conversationId: string; userId: string }) => {
+      if (p.conversationId !== id) return;
+      setLiveShares((prev) => prev.filter((x) => x.userId !== p.userId));
+    };
+    socket.on('live_location', onLive);
+    socket.on('live_location_ended', onLiveEnded);
+
     return () => {
       socket.emit('leave_conversation', id);
       socket.off('presence_update', onPresence);
@@ -755,8 +779,32 @@ export default function ThreadPage() {
       socket.off('peer_typing', onTyping);
       socket.off('message_deleted', onDeleted);
       socket.off('message_reaction', onReaction);
+      socket.off('live_location', onLive);
+      socket.off('live_location_ended', onLiveEnded);
     };
   }, [id, meId, scrollToBottom, meta, router]);
+
+  /**
+   * Partages en cours à l'ouverture.
+   *
+   * ⚠️ Un seul chargement : le socket entretient la liste ensuite. Interroger périodiquement
+   * referait le polling qu'on a retiré partout ailleurs, pour une information que le serveur
+   * pousse déjà.
+   */
+  useEffect(() => {
+    let annule = false;
+    void fetchLiveLocations(id)
+      .then((l) => {
+        if (!annule) setLiveShares(l);
+      })
+      .catch(() => {});
+    return () => {
+      annule = true;
+      // ⚠️ Vidé en changeant de conversation : sans cela, le bandeau d'une conversation
+      // s'afficherait au-dessus d'une autre.
+      setLiveShares([]);
+    };
+  }, [id]);
 
   // Masquage automatique de l'indicateur de frappe, comme sur mobile (5 s).
   useEffect(() => {
@@ -1820,6 +1868,19 @@ export default function ThreadPage() {
 
       </div>
 
+      {/* ⚠️ Au-dessus du composeur et non dans le fil : un partage en cours est un ÉTAT de la
+          conversation, pas un message — il n'a pas de place dans la chronologie, et se
+          perdrait au défilement. */}
+      {liveShares.length > 0 && (
+        <button
+          onClick={() => setLiveOpen(true)}
+          className="flex w-full items-center gap-2 border-t border-slate-200 bg-blue-50 px-4 py-2 text-sm text-[#1E40AF] dark:border-zinc-800 dark:bg-blue-950/40 dark:text-blue-300"
+        >
+          <IconLocation size={16} />
+          {t('live.others_sharing', { count: liveShares.length })}
+        </button>
+      )}
+
       {(replyTo || editing) && (
         <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-800/60">
           {/* ⚠️ MÊME composant que dans la bulle : icône et vignette du média cité comprises.
@@ -2009,6 +2070,10 @@ export default function ThreadPage() {
       cours annulées). Les dupliquer dans un menu, c'est les rendre trop faciles à
       déclencher par erreur — l'entrée « Infos » y mène en un clic.
     */}
+    {liveOpen && liveShares.length > 0 && (
+      <LiveLocationView shares={liveShares} onClose={() => setLiveOpen(false)} />
+    )}
+
     <LocationPicker
       open={locationOpen}
       onClose={() => setLocationOpen(false)}

@@ -483,5 +483,10 @@
     "send_title": "Send my location",
     "send_action": "Send this location",
     "searching": "Looking up address…"
+  },
+  "live": {
+    "title": "Live location",
+    "others_sharing": "{{count}} person is sharing their location",
+    "stale": "Frozen · {{time}}"
   }
 }

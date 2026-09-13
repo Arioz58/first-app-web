@@ -89,4 +89,6 @@ export {
   // Menu de l'en-tête de conversation.
   Info as IconInfo,
   QrCode as IconQr,
+  // « Effacer la discussion » : une gomme, distincte de la corbeille qui la SUPPRIME.
+  Eraser as IconEraser,
 } from 'lucide-react';

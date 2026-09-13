@@ -24,14 +24,17 @@ import {
   IconPhoto,
   IconPin,
   IconPlus,
+  IconEraser,
   IconOffline,
   IconOnline,
+  IconTrash,
   IconStar,
   IconVideo,
 } from '@/components/icons';
 import { NewChatDialog } from '@/components/NewChatDialog';
 import { SearchResults } from '@/components/SearchResults';
 import { NavRail, type Vue } from '@/components/NavRail';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { StoriesPage } from '@/components/StoriesPage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { damped, soft } from '@/lib/motion';
@@ -45,6 +48,8 @@ import { setSessionExpiredHandler } from '@/lib/api';
 import { hasSession } from '@/lib/auth';
 import {
   archiveConversation,
+  clearConversation,
+  deleteConversation,
   conversationName,
   conversationPhoto,
   favoriteConversation,
@@ -242,6 +247,9 @@ export function ConversationList() {
   const [menuFor, setMenuFor] = useState<{ id: string; at: MenuAnchor } | null>(null);
   /** Conversation pour laquelle on choisit une durée de sourdine. */
   const [muteFor, setMuteFor] = useState<string | null>(null);
+  /** Conversation dont on demande l'effacement ou la suppression (confirmation ouverte). */
+  const [clearFor, setClearFor] = useState<string | null>(null);
+  const [deleteFor, setDeleteFor] = useState<string | null>(null);
 
   /** Coupure constatée : bandeau rouge, et la confirmation en attente est annulée. */
   const showOffline = useCallback(() => {
@@ -1052,6 +1060,26 @@ export function ConversationList() {
                     )
                   }
                 />
+                {/* ⚠️ Les deux seules actions de ce menu qui ne se rebasculent pas : elles
+                    passent donc par une confirmation, et sont marquées en rouge. */}
+                <MenuItem
+                  icon={IconEraser}
+                  label={t('conv_actions.clear')}
+                  danger
+                  onClick={() => {
+                    close();
+                    setClearFor(c.id);
+                  }}
+                />
+                <MenuItem
+                  icon={IconTrash}
+                  label={t('conv_actions.delete')}
+                  danger
+                  onClick={() => {
+                    close();
+                    setDeleteFor(c.id);
+                  }}
+                />
               </>
             )}
           </FloatingMenu>
@@ -1068,6 +1096,49 @@ export function ConversationList() {
       {/* ⚠️ Remontés ici avec le retrait du pied de colonne : ces deux panneaux vivaient dans
           le même bloc et avaient été emportés avec lui. Ils recouvrent la colonne ENTIÈRE,
           barre de navigation comprise — d'où leur place hors de la colonne de contenu. */}
+      {/*
+        ⚠️ Deux boîtes distinctes et deux messages distincts : « effacer » laisse la
+        conversation en place et vide, « supprimer » la retire de la liste jusqu'au prochain
+        message. Les confondre derrière un même texte, c'est promettre l'un et faire l'autre.
+      */}
+      <ConfirmDialog
+        open={!!clearFor}
+        title={t('conv_actions.clear')}
+        message={t('conv_actions.clear_confirm')}
+        confirmLabel={t('conv_actions.clear')}
+        danger
+        onConfirm={() => {
+          const id = clearFor;
+          setClearFor(null);
+          if (!id) return;
+          // ⚠️ RECHARGÉ et non corrigé sur place : l'aperçu, la date de tri et le compteur de
+          // non-lus changent tous les trois. Les recalculer ici dupliquerait la règle du
+          // serveur, qui fait foi.
+          void clearConversation(id).then(load).catch(() => load());
+        }}
+        onClose={() => setClearFor(null)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteFor}
+        title={t('conv_actions.delete')}
+        message={t('conv_actions.delete_confirm')}
+        confirmLabel={t('conv_actions.delete')}
+        danger
+        onConfirm={() => {
+          const id = deleteFor;
+          setDeleteFor(null);
+          if (!id) return;
+          // Retirée tout de suite : elle quitte la liste, il n'y a rien à attendre du serveur.
+          setConversations((prev) => prev.filter((c) => c.id !== id));
+          void deleteConversation(id).catch(() => load());
+          // ⚠️ Si c'est la conversation OUVERTE, on quitte l'écran : elle n'est plus dans la
+          // liste, et son fil ne renverrait plus rien.
+          if (activeId === id) router.push('/chat');
+        }}
+        onClose={() => setDeleteFor(null)}
+      />
+
       {requestsOpen && (
         <MessageRequestsPanel
           meId={meId}

@@ -26,6 +26,7 @@ import {
   IconPin,
   IconSpinner,
   IconUp,
+  IconEraser,
   IconLocation,
   IconTrash,
   // En-tête de conversation : appels (Mois 4, donc désactivés) et menu.
@@ -88,6 +89,7 @@ import { DetailsPanel } from '@/components/DetailsPanel';
 import {
   fetchConversations,
   clearConversation,
+  deleteConversation,
   muteConversation,
   muteOptions,
   type Conversation,
@@ -140,6 +142,7 @@ export default function ThreadPage() {
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [meta, setMeta] = useState<ConvMeta | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -2048,11 +2051,20 @@ export default function ThreadPage() {
       {/* ⚠️ Confirmé, contrairement aux réglages au-dessus : on ne revient pas en arrière.
           Et `danger` : c'est la seule entrée de ce menu qui retire quelque chose. */}
       <MenuItem
-        icon={IconTrash}
+        icon={IconEraser}
         label={t('conv_actions.clear')}
         danger
         onClick={() => {
           setClearOpen(true);
+          setHeaderMenu(null);
+        }}
+      />
+      <MenuItem
+        icon={IconTrash}
+        label={t('conv_actions.delete')}
+        danger
+        onClick={() => {
+          setDeleteOpen(true);
           setHeaderMenu(null);
         }}
       />
@@ -2075,6 +2087,25 @@ export default function ThreadPage() {
           .catch((e) => window.alert(e.message));
       }}
       onClose={() => setClearOpen(false)}
+    />
+
+    <ConfirmDialog
+      open={deleteOpen}
+      title={t('conv_actions.delete')}
+      message={t('conv_actions.delete_confirm')}
+      confirmLabel={t('conv_actions.delete')}
+      danger
+      onConfirm={() => {
+        void deleteConversation(id)
+          .then(() => {
+            // ⚠️ On QUITTE l'écran : la conversation ne figure plus dans la liste, et son fil
+            // ne renverrait plus rien. Y rester afficherait une page vide sans explication.
+            setDeleteOpen(false);
+            router.push('/chat');
+          })
+          .catch((e) => window.alert(e.message));
+      }}
+      onClose={() => setDeleteOpen(false)}
     />
 
     {/* ⚠️ Mêmes appels et même boîte que le panneau de détails : un second chemin qui

@@ -214,6 +214,18 @@ export const archiveConversation = (id: string, archived: boolean) =>
 export const clearConversation = (id: string) =>
   apiRequest(`/conversations/${id}/clear`, { method: 'POST' });
 
+/**
+ * Supprimer la discussion POUR MOI — elle quitte ma liste et son historique m'est masqué.
+ *
+ * ⚠️ À ne pas confondre avec `clearConversation` : celle-ci laisse la conversation en place,
+ * vide. Ici elle disparaît, mais REVIENT dès qu'un message y arrive — sinon la supprimer la
+ * ferait disparaître définitivement, messages futurs compris, sans que rien ne l'annonce.
+ *
+ * ⚠️ Rien n'est supprimé chez le correspondant : ses messages ne m'appartiennent pas.
+ */
+export const deleteConversation = (id: string) =>
+  apiRequest(`/conversations/${id}`, { method: 'DELETE' });
+
 export const muteConversation = (id: string, mutedUntil: string | null) =>
   apiRequest(`/conversations/${id}/mute`, { method: 'PATCH', body: { mutedUntil } });
 

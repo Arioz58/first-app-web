@@ -88,4 +88,5 @@ export {
   Crosshair as IconLocate,
   // Menu de l'en-tête de conversation.
   Info as IconInfo,
+  QrCode as IconQr,
 } from 'lucide-react';

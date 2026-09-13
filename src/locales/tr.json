@@ -337,7 +337,9 @@
     "change_photo": "Fotoğrafı değiştir",
     "remove_photo": "Fotoğrafı kaldır",
     "add_bio_hint": "Biyografi eklemek için tıklayın",
-    "remove_photo_confirm": "Fotoğrafınızın yerini baş harfiniz alacak. İstediğiniz zaman yenisini ekleyebilirsiniz."
+    "remove_photo_confirm": "Fotoğrafınızın yerini baş harfiniz alacak. İstediğiniz zaman yenisini ekleyebilirsiniz.",
+    "qr_title": "QR kodum",
+    "qr_hint": "Eklenmek için bu kodu okutun."
   },
   "newchat": {
     "chat": "Sohbet",

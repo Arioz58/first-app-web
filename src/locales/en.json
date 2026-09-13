@@ -337,7 +337,9 @@
     "change_photo": "Change photo",
     "remove_photo": "Remove photo",
     "add_bio_hint": "Click to add a bio",
-    "remove_photo_confirm": "Your photo will be replaced by your initial. You can add a new one at any time."
+    "remove_photo_confirm": "Your photo will be replaced by your initial. You can add a new one at any time.",
+    "qr_title": "My QR code",
+    "qr_hint": "Let others scan this code to add you."
   },
   "newchat": {
     "chat": "Chat",

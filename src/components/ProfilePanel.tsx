@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 
 import { useRouter } from 'next/navigation';
+import QRCode from 'qrcode';
 import { Avatar } from '@/components/Avatar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { updateMe } from '@/lib/messages';
@@ -17,6 +18,7 @@ import {
   IconBlock,
   IconCamera,
   IconEdit,
+  IconQr,
   IconChevron,
   IconLock,
   IconBell,
@@ -86,6 +88,9 @@ export function ProfilePanel({
   const [saving, setSaving] = useState(false);
   /** Confirmation avant de supprimer la photo : l'action est irréversible sans re-téléverser. */
   const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+  /** QR de profil, encodé à l'ouverture seulement : rien à préparer tant qu'on ne l'ouvre pas. */
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrData, setQrData] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [blocked, setBlocked] = useState<{ id: string; name: string; photoUrl: string | null }[]>(
@@ -104,6 +109,23 @@ export function ProfilePanel({
   useEffect(() => {
     void loadBlocked();
   }, [loadBlocked]);
+
+  useEffect(() => {
+    if (!qrOpen || !me) return;
+    /**
+     * ⚠️ Le lien est construit AU FORMAT que produit le mobile
+     * (`Linking.createURL('/user/<id>')` → `nexa://user/<id>`). Le scanner de l'app est
+     * tolérant — il extrait `user/<id>` par expression régulière — mais s'en écarter ferait
+     * dépendre ce QR d'un détail du scanner plutôt que du format convenu.
+     */
+    void QRCode.toDataURL(`nexa://user/${me.id}`, {
+      width: 320,
+      margin: 1,
+      color: { dark: '#0f172a', light: '#ffffff' },
+    })
+      .then(setQrData)
+      .catch(() => setQrData(''));
+  }, [qrOpen, me]);
 
   const pref = useThemePref();
   const router = useRouter();
@@ -267,6 +289,16 @@ export function ProfilePanel({
                 )}
               </button>
               <p className="mt-1 text-sm text-slate-400">{me.phone}</p>
+
+              {/* ⚠️ Sous l'identité et non dans les réglages : ce code EST le profil, c'est ce
+                  qu'on montre à quelqu'un en face pour se faire ajouter. */}
+              <button
+                onClick={() => setQrOpen(true)}
+                className="mt-3 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-[#1E40AF] hover:bg-slate-100 dark:hover:bg-zinc-800"
+              >
+                <IconQr size={16} />
+                {t('profile.qr_title')}
+              </button>
             </>
           ) : (
             <>
@@ -488,6 +520,51 @@ export function ProfilePanel({
           </motion.div>
         </motion.div>
       )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {qrOpen && (
+          <motion.div
+            variants={backdrop}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            onClick={() => setQrOpen(false)}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
+          >
+            <motion.div
+              variants={dialog}
+              onClick={(e) => e.stopPropagation()}
+              className="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-5 shadow-xl dark:bg-zinc-900"
+            >
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">
+                {t('profile.qr_title')}
+              </h3>
+              {/*
+                ⚠️ Fond BLANC en dur autour du code, même en thème sombre : un QR se lit par le
+                contraste entre ses modules et leur fond. Inversé, beaucoup de lecteurs ne le
+                décodent tout simplement pas. Même règle que `components/QrCode.tsx` sur mobile.
+              */}
+              <div className="mt-4 rounded-xl bg-white p-3">
+                {qrData ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={qrData} alt="" className="h-52 w-52" />
+                ) : (
+                  <div className="h-52 w-52 animate-pulse rounded bg-slate-100" />
+                )}
+              </div>
+              <p className="mt-3 text-center text-sm text-slate-500 dark:text-zinc-400">
+                {t('profile.qr_hint')}
+              </p>
+              <button
+                onClick={() => setQrOpen(false)}
+                className="mt-4 rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              >
+                {t('common.close')}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Suppression de la photo : demandée plutôt qu'exécutée. Il faut re-téléverser pour

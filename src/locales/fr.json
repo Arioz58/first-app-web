@@ -443,5 +443,10 @@
   },
   "toast": {
     "expand": "Afficher toutes les notifications"
+  },
+  "conversations_stale": {
+    "message": "Mise à jour impossible",
+    "retry": "Réessayer",
+    "reconnected": "Connexion rétablie"
   }
 }

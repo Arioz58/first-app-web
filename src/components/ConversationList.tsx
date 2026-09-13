@@ -24,6 +24,8 @@ import {
   IconPhoto,
   IconPin,
   IconPlus,
+  IconOffline,
+  IconOnline,
   IconStar,
   IconVideo,
 } from '@/components/icons';
@@ -89,6 +91,12 @@ const PREVIEW_ICON: Record<Exclude<PreviewKind, null>, typeof IconPhoto> = {
 
 
 /** ⚠️ Clés i18n et non libellés : traduits à l'affichage. */
+/**
+ * Durée d'affichage de la confirmation « connexion rétablie ». Même valeur que sur mobile :
+ * les deux clients doivent battre la même mesure.
+ */
+const BACK_ONLINE_MS = 3000;
+
 const FILTERS: { key: Filter; labelKey: string }[] = [
   { key: 'all', labelKey: 'filters.all' },
   { key: 'unread', labelKey: 'filters.unread' },
@@ -115,6 +123,23 @@ export function ConversationList() {
     typeof window === 'undefined' ? null : getUserId(),
   );
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  /**
+   * Bandeau de connexion : `offline` (rouge) → `back` (vert, bref) → rien. Porté au web
+   * depuis le mobile le 13/09 — il n'existait RIEN ici : ni bandeau, ni rechargement à la
+   * reconnexion. Une coupure de dix secondes suffisait donc à ce que les messages arrivés
+   * pendant restent invisibles jusqu'à un rechargement de page, sans que rien ne le signale.
+   */
+  const [banner, setBanner] = useState<'offline' | 'back' | null>(null);
+  /** Dit s'il y a eu coupure, donc s'il y a lieu d'afficher la confirmation verte. */
+  const wasOfflineRef = useRef(false);
+  /**
+   * ⚠️ Le socket a-t-il déjà réussi à se connecter ? Un `connect_error` au tout premier
+   * essai ne veut rien dire ici — la liste vient d'être chargée en HTTP, elle est fraîche, et
+   * le client retente de lui-même après avoir renouvelé son jeton. Sans ce test, un simple
+   * jeton expiré à l'ouverture collerait un bandeau d'erreur sur une liste à jour.
+   */
+  const hasConnectedRef = useRef(false);
+  const backTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * Miroir de la liste, lu par l'écouteur socket.
    *
@@ -218,17 +243,56 @@ export function ConversationList() {
   /** Conversation pour laquelle on choisit une durée de sourdine. */
   const [muteFor, setMuteFor] = useState<string | null>(null);
 
+  /** Coupure constatée : bandeau rouge, et la confirmation en attente est annulée. */
+  const showOffline = useCallback(() => {
+    if (backTimerRef.current) {
+      clearTimeout(backTimerRef.current);
+      backTimerRef.current = null;
+    }
+    wasOfflineRef.current = true;
+    setBanner('offline');
+  }, []);
+
+  // ⚠️ Minuteur annulé au démontage : un minuteur qui survit à son écran rappelle du code
+  // appartenant à un composant qui n'existe plus (mésaventure du 12/09 côté mobile).
+  useEffect(
+    () => () => {
+      if (backTimerRef.current) clearTimeout(backTimerRef.current);
+      backTimerRef.current = null;
+    },
+    [],
+  );
+
   const load = useCallback(() => {
     void (async () => {
       try {
         setConversations(sortConversations(await fetchConversations()));
+        /**
+         * ⚠️ La confirmation verte n'est montrée QUE si l'on revenait d'une coupure : sinon
+         * elle clignoterait à chaque chargement réussi, pour annoncer une bonne nouvelle que
+         * personne n'attendait.
+         */
+        if (wasOfflineRef.current) {
+          wasOfflineRef.current = false;
+          setBanner('back');
+          if (backTimerRef.current) clearTimeout(backTimerRef.current);
+          backTimerRef.current = setTimeout(() => {
+            backTimerRef.current = null;
+            setBanner(null);
+          }, BACK_ONLINE_MS);
+        } else {
+          setBanner(null);
+        }
       } catch {
-        // Panne réseau : on laisse la liste telle quelle plutôt que de la vider.
+        // Panne réseau : on laisse la liste telle quelle plutôt que de la vider — hors ligne,
+        // une liste d'il y a cinq minutes vaut mieux qu'une colonne vide. Le bandeau dit ce
+        // qu'il en est.
+        showOffline();
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [showOffline]);
 
   useEffect(() => {
     setSessionExpiredHandler(() => router.replace('/login'));
@@ -342,18 +406,65 @@ export function ConversationList() {
      */
     if (notificationState() === 'granted') void registerNotificationWorker();
 
+    /**
+     * COUPURE → bandeau, immédiatement.
+     *
+     * ⚠️ On lit l'ÉTAT DU SOCKET au lieu d'envoyer des requêtes pour découvrir que le serveur
+     * est injoignable : sans réessai périodique, un « échec » n'existe que s'il y a une
+     * requête — perdre le réseau ne produisait donc rien du tout, et la liste restait périmée
+     * en silence. Le socket, lui, le sait déjà.
+     *
+     * ⚠️ `io client disconnect` ignoré : c'est une coupure VOLONTAIRE de notre part (fin de
+     * session). Elle n'a rien d'un incident à signaler.
+     */
+    const onDisconnect = (reason: string) => {
+      if (reason === 'io client disconnect') return;
+      showOffline();
+    };
+
+    /** Reconnexion impossible alors qu'on avait déjà été connecté : c'est une vraie perte. */
+    const onConnectError = () => {
+      if (!hasConnectedRef.current) return;
+      showOffline();
+    };
+
+    /**
+     * RECONNEXION → on rattrape, en UNE requête.
+     *
+     * ⚠️ Ce n'est pas du polling : le client socket retente de lui-même (avec un délai qui
+     * s'allonge), on se contente d'écouter son succès. Le rattrapage est nécessaire car les
+     * `conversation_updated` émis pendant l'absence sont perdus — c'est précisément le
+     * « je dois rafraîchir pour voir les nouveaux messages » signalé par le client.
+     *
+     * ⚠️ Pas de garde « ne pas recharger si on vient de le faire » : un délai arbitraire
+     * ferait sauter un rattrapage légitime et laisserait un trou dans la liste, cette fois
+     * sans bandeau pour le dire.
+     */
+    const onConnect = () => {
+      hasConnectedRef.current = true;
+      load();
+    };
+
+    if (socket.connected) hasConnectedRef.current = true;
+
     socket.on('friend_request_received', onFriendRequest);
     socket.on('conversation_updated', onUpdate);
     socket.on('added_to_group', load);
     socket.on('removed_from_group', load);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
 
     return () => {
       socket.off('friend_request_received', onFriendRequest);
       socket.off('conversation_updated', onUpdate);
       socket.off('added_to_group', load);
       socket.off('removed_from_group', load);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
     };
-  }, [router, load, activeId, meId]);
+  }, [router, load, activeId, meId, showOffline]);
 
   // Même règle que le rendu : la conversation ouverte ne compte pas, sinon l'en-tête
   // annoncerait des non-lus que la liste affiche à zéro.
@@ -602,6 +713,28 @@ export function ConversationList() {
 
         </div>
       </header>
+
+      {/* ⚠️ Sous l'en-tête et HORS des bannières conditionnées au filtre « Toutes » : l'état
+          de la connexion doit se voir quel que soit l'endroit où l'on se trouve dans la
+          liste. */}
+      {banner === 'offline' && (
+        <button
+          onClick={load}
+          className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:bg-red-950/60 dark:text-red-300"
+        >
+          <IconOffline size={16} />
+          {t('conversations_stale.message')}
+          <span className="ml-auto text-xs font-semibold">{t('conversations_stale.retry')}</span>
+        </button>
+      )}
+      {/* ⚠️ Pas un bouton : le vert annonce un retour à la normale, il n'y a rien à
+          réessayer. Il s'efface seul. */}
+      {banner === 'back' && (
+        <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm text-green-700 dark:bg-green-950/60 dark:text-green-300">
+          <IconOnline size={16} />
+          {t('conversations_stale.reconnected')}
+        </div>
+      )}
 
       <div className="px-4 pb-3">
         <input

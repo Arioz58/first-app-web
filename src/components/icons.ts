@@ -77,4 +77,7 @@ export {
   Music as IconAudio,
   Type as IconText,
   FileImage as IconGif,
+  // Connexion — mêmes concepts que le bandeau du mobile (nuage barré / nuage validé).
+  CloudOff as IconOffline,
+  CloudCheck as IconOnline,
 } from 'lucide-react';

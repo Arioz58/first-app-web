@@ -443,5 +443,10 @@
   },
   "toast": {
     "expand": "Show all notifications"
+  },
+  "conversations_stale": {
+    "message": "Couldn't refresh",
+    "retry": "Retry",
+    "reconnected": "Back online"
   }
 }

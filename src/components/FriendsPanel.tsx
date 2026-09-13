@@ -9,18 +9,24 @@ import {
   acceptFriendRequest,
   cancelFriendRequest,
   fetchFriendRequests,
+  fetchSuggestions,
   refuseFriendRequest,
   removeFriend,
   type FriendRequest,
+  type Suggestion,
 } from '@/lib/friends';
+// ⚠️ `sendFriendRequest` vit dans `contacts` et non dans `friends` : c'est la recherche par
+// numéro qui l'a introduite en premier. Importée là où elle est, plutôt que dupliquée.
+import { sendFriendRequest } from '@/lib/contacts';
 
-type Tab = 'friends' | 'received' | 'sent';
+type Tab = 'friends' | 'received' | 'sent' | 'suggestions';
 
 /** ⚠️ Clés i18n et non libellés : traduits à l'affichage. */
 const TAB_KEY: Record<Tab, string> = {
   friends: 'friends.my_friends',
   received: 'friends.received',
   sent: 'friends.sent',
+  suggestions: 'friends.suggestions',
 };
 
 /**
@@ -70,6 +76,7 @@ export function FriendsPanel({
   const [friends, setFriends] = useState<Friend[]>([]);
   const [received, setReceived] = useState<FriendRequest[]>([]);
   const [sent, setSent] = useState<FriendRequest[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   /** Ligne en cours de traitement : évite le double clic sur « Accepter ». */
@@ -83,11 +90,21 @@ export function FriendsPanel({
    */
   const load = useCallback(
     () =>
-      Promise.all([fetchFriends(), fetchFriendRequests()])
-        .then(([f, [r, s]]) => {
+      /**
+       * ⚠️ Les suggestions sont chargées AVEC le reste et leur échec est absorbé
+       * séparément : c'est la seule des trois listes dont l'absence n'empêche rien. Les
+       * mettre dans le même `Promise.all` ferait échouer l'écran entier pour un confort.
+       */
+      Promise.all([
+        fetchFriends(),
+        fetchFriendRequests(),
+        fetchSuggestions().catch(() => [] as Suggestion[]),
+      ])
+        .then(([f, [r, s], sug]) => {
           setFriends(f);
           setReceived(r);
           setSent(s);
+          setSuggestions(sug);
           onCountChange(r.length);
         })
         // Réseau : on laisse les listes en l'état plutôt que de les vider.
@@ -209,12 +226,20 @@ export function FriendsPanel({
         <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">{tr('friends.title')}</h1>
       </header>
 
-      <div className="flex gap-2 px-4 py-3">
-        {(['friends', 'received', 'sent'] as Tab[]).map((t) => (
+      {/*
+        ⚠️ `overflow-x-auto` + `shrink-0` sur les pilules : à quatre onglets, la rangée ne tient
+        plus dans la colonne. Sans cela, le texte se coupe DANS la pilule (« Mes / amis » sur
+        deux lignes) — un bouton de cette forme ne doit jamais être coupé. Il défile plutôt que
+        de se déformer, et la largeur du panneau ou la langue n'y changent rien.
+        ⚠️ `scrollbar-none` : une barre de défilement sous quatre boutons serait plus visible
+        que le débordement qu'elle signale.
+      */}
+      <div className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {(['friends', 'received', 'sent', 'suggestions'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${
               tab === t
                 ? 'bg-[#1E40AF] text-white'
                 : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300'
@@ -224,7 +249,7 @@ export function FriendsPanel({
             {/* Pastille sur « Reçues » : c'est le seul onglet qui appelle une action. */}
             {t === 'received' && received.length > 0 && (
               <span
-                className={`rounded-full px-1.5 text-xs font-bold ${
+                className={`rounded-full px-1.5 text-[10px] font-bold ${
                   tab === t ? 'bg-white/25 text-white' : 'bg-red-500 text-white'
                 }`}
               >
@@ -294,6 +319,34 @@ export function FriendsPanel({
                     },
                   ],
                   new Date(r.createdAt).toLocaleDateString(),
+                ),
+              )}
+            </ul>
+          )
+        ) : tab === 'suggestions' ? (
+          suggestions.length === 0 ? (
+            empty(tr('friends.no_suggestions'))
+          ) : (
+            <ul>
+              {suggestions.map((sug) =>
+                row(
+                  sug,
+                  [
+                    {
+                      label: tr('friends.add'),
+                      kind: 'primary',
+                      // ⚠️ `run` RECHARGE tout après l'action : la personne quitte les
+                      // suggestions et rejoint les demandes envoyées. Retirer la ligne à la
+                      // main laisserait les deux listes à tenir d'un côté et le serveur de
+                      // l'autre.
+                      onClick: () => run(`add:${sug.id}`, () => sendFriendRequest(sug.id)),
+                    },
+                  ],
+                  // Le nombre d'amis en commun est la raison d'être de la suggestion : sans
+                  // lui, la liste ressemble à des inconnus tirés au hasard.
+                  sug.mutualFriendsCount > 0
+                    ? tr('friends.mutual_n', { count: sug.mutualFriendsCount })
+                    : undefined,
                 ),
               )}
             </ul>

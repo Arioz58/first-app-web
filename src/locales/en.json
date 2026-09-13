@@ -287,7 +287,11 @@
     "none_sent_hint": "Search for someone by phone number to add them.",
     "find_by_phone": "Add someone by phone number",
     "sent_on": "Sent on {{date}}",
-    "cancel_request": "Cancel"
+    "cancel_request": "Cancel",
+    "suggestions": "Suggested",
+    "no_suggestions": "No suggestions yet. Add friends to discover people you may know.",
+    "mutual_n": "{{count}} mutual friend(s)",
+    "add": "Add"
   },
   "phone": {
     "tab": "By phone number",

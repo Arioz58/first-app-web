@@ -287,7 +287,11 @@
     "none_sent_hint": "Cherchez quelqu'un par son numéro pour l'ajouter.",
     "find_by_phone": "Ajouter quelqu'un par son numéro",
     "sent_on": "Envoyée le {{date}}",
-    "cancel_request": "Annuler"
+    "cancel_request": "Annuler",
+    "suggestions": "Suggestions",
+    "no_suggestions": "Aucune suggestion pour le moment. Ajoutez des amis pour découvrir des personnes que vous connaissez peut-être.",
+    "mutual_n": "{{count}} ami(s) en commun",
+    "add": "Ajouter"
   },
   "phone": {
     "tab": "Par numéro",

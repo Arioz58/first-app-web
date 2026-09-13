@@ -17,6 +17,21 @@ export type FriendRequest = {
   user: Friend;
 };
 
+/**
+ * « Personnes que tu connais peut-être » — amis d'amis, triés par nombre d'amis en commun.
+ *
+ * ⚠️ Le serveur exclut déjà soi-même, les amis, les personnes bloquées et celles avec qui une
+ * demande est en cours : la liste reçue est directement affichable, sans filtrage côté client.
+ */
+export type Suggestion = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  mutualFriendsCount: number;
+};
+
+export const fetchSuggestions = () => apiRequest<Suggestion[]>('/friends/suggestions');
+
 export const fetchFriendRequests = () =>
   Promise.all([
     apiRequest<FriendRequest[]>('/friends/requests/received'),

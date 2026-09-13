@@ -287,7 +287,11 @@
     "none_sent_hint": "Eklemek için birini telefon numarasıyla arayın.",
     "find_by_phone": "Telefon numarasıyla birini ekle",
     "sent_on": "{{date}} tarihinde gönderildi",
-    "cancel_request": "İptal et"
+    "cancel_request": "İptal et",
+    "suggestions": "Öneriler",
+    "no_suggestions": "Henüz öneri yok. Tanıyabileceğiniz kişileri keşfetmek için arkadaş ekleyin.",
+    "mutual_n": "{{count}} ortak arkadaş",
+    "add": "Ekle"
   },
   "phone": {
     "tab": "Numarayla",

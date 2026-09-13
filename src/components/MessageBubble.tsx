@@ -1,6 +1,7 @@
 'use client';
 
 import { AudioMessage } from '@/components/AudioMessage';
+import { QuotedPreview } from '@/components/QuotedPreview';
 
 import { motion } from 'framer-motion';
 import { bubble } from '@/lib/motion';
@@ -233,24 +234,15 @@ export function MessageBubble({
                 : 'bg-white text-slate-900 dark:bg-zinc-800 dark:text-zinc-100'
             } ${!lastOfGroup ? (isMe ? 'rounded-br-md' : 'rounded-bl-md') : ''}`}
           >
+            {/* ⚠️ Même composant qu'au-dessus du champ de saisie : deux aperçus distincts
+                finiraient par résumer le même message de deux façons. */}
             {item.replyTo && (
-              <button
+              <QuotedPreview
+                quote={item.replyTo}
+                meId={meId}
+                onColored={isMe}
                 onClick={() => actions.onJumpTo(item.replyTo!.id)}
-                className={`mb-1.5 block w-full rounded-lg border-l-[3px] px-2 py-1 text-left text-sm ${
-                  isMe
-                    ? 'border-white/70 bg-white/15'
-                    : 'border-[#1E40AF] bg-black/5 dark:bg-white/10'
-                }`}
-              >
-                <span className={`block font-semibold ${isMe ? 'text-white' : 'text-[#1E40AF]'}`}>
-                  {item.replyTo.sender?.name ?? ''}
-                </span>
-                <span className={`block truncate ${isMe ? 'text-white/80' : 'text-slate-500'}`}>
-                  {item.replyTo.expired
-                    ? t('thread.expired')
-                    : item.replyTo.content ?? t('details.attachment')}
-                </span>
-              </button>
+              />
             )}
 
             <MediaContent

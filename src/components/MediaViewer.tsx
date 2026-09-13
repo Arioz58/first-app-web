@@ -5,8 +5,18 @@ import { backdrop, morph } from '@/lib/motion';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconBack, IconClose } from '@/components/icons';
-import { fetchMedia, type Message } from '@/lib/messages';
+import {
+  IconBack,
+  IconClose,
+  IconDownload,
+  IconForward,
+  IconLocate,
+  IconPin,
+  IconReact,
+  IconReply,
+  IconStar,
+} from '@/components/icons';
+import { fetchMedia, QUICK_REACTIONS, type Message } from '@/lib/messages';
 
 /**
  * Visionneuse plein écran, parcourant TOUS les médias de la conversation.
@@ -30,11 +40,34 @@ export function MediaViewer({
   conversationId,
   initial,
   onClose,
+  pinnedIds,
+  starredIds,
+  onPin,
+  onStar,
+  onReact,
+  onJumpTo,
+  onReply,
+  onForward,
 }: {
   conversationId: string;
   /** Le message sur lequel on a cliqué. Affiché immédiatement, avant tout chargement. */
   initial: Message;
   onClose: () => void;
+  /**
+   * Actions du fil, PASSÉES et non refaites ici.
+   *
+   * ⚠️ La visionneuse ne parle pas au serveur pour épingler ou réagir : elle appelle les
+   * mêmes fonctions que le menu contextuel d'une bulle. Dupliquer les appels aurait dupliqué
+   * les mises à jour optimistes, et les deux chemins auraient fini par diverger.
+   */
+  pinnedIds: string[];
+  starredIds: string[];
+  onPin: (m: Message) => void;
+  onStar: (m: Message) => void;
+  onReact: (m: Message, emoji: string) => void;
+  onJumpTo: (messageId: string) => void;
+  onReply: (m: Message) => void;
+  onForward: (m: Message) => void;
 }) {
   const { t } = useTranslation();
   /**
@@ -129,8 +162,60 @@ export function MediaViewer({
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [index]);
 
+  /** Palette de réactions ouverte (refermée à chaque changement de média). */
+  const [reacting, setReacting] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+  /**
+   * ⚠️ Remise à zéro PENDANT LE RENDU et non dans un effet (`react-hooks/set-state-in-effect`).
+   * Un effet s'exécute après la peinture : on afficherait une image du média suivant avec la
+   * palette du précédent encore ouverte, puis elle se refermerait — un clignotement.
+   */
+  const [shownIndex, setShownIndex] = useState(index);
+  if (shownIndex !== index) {
+    setShownIndex(index);
+    setReacting(false);
+    setDownloadError(false);
+  }
+
   const current = items[index];
+
+  /**
+   * TÉLÉCHARGEMENT — par `fetch` puis blob, et non par un simple `<a download>`.
+   *
+   * ⚠️ L'attribut `download` est IGNORÉ quand le fichier vient d'une autre origine : le
+   * navigateur se contenterait d'ouvrir l'image dans un onglet. Or les médias sont servis
+   * depuis S3/CloudFront, donc toujours une autre origine que l'application.
+   *
+   * ⚠️ Repli : si la requête échoue (CORS non autorisé sur l'origine de production, réseau),
+   * on ouvre le média dans un nouvel onglet plutôt que de ne rien faire — l'utilisateur peut
+   * alors l'enregistrer lui-même.
+   */
+  const download = useCallback(async () => {
+    if (!current?.mediaUrl) return;
+    const url = current.mediaUrl;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = current.fileName ?? url.split('/').pop() ?? 'media';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // ⚠️ Libéré, sinon le blob reste en mémoire jusqu'au rechargement de la page.
+      URL.revokeObjectURL(href);
+    } catch {
+      setDownloadError(true);
+      window.open(url, '_blank', 'noopener');
+    }
+  }, [current]);
+
   if (!current) return null;
+
+  const isPinned = pinnedIds.includes(current.id);
+  const isStarred = starredIds.includes(current.id);
 
   return (
     <motion.div
@@ -152,9 +237,115 @@ export function MediaViewer({
           {index + 1} / {items.length}
           {!exhausted && ' +'}
         </span>
-        <button onClick={onClose} aria-label={t('common.close')} className="rounded-lg p-2 hover:bg-white/10">
-          <IconClose size={22} />
-        </button>
+        {/*
+          BARRE D'ACTIONS — demande du client (point 10) : retrouver l'essentiel de ce qu'on
+          peut faire sur une photo ouverte en grand, comme sur WhatsApp Web.
+
+          ⚠️ Les clics sont ARRÊTÉS (`stopPropagation`) : le fond de la visionneuse ferme au
+          clic, et sans cela chaque action fermerait l'écran en même temps qu'elle agit.
+        */}
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <div className="relative">
+            <button
+              onClick={() => setReacting((v) => !v)}
+              aria-label={t('gallery.react')}
+              title={t('gallery.react')}
+              className="rounded-lg p-2 hover:bg-white/10"
+            >
+              <IconReact size={20} />
+            </button>
+            {reacting && (
+              <div className="absolute right-0 top-full z-10 mt-1 flex gap-1 rounded-full bg-zinc-800 px-2 py-1.5 shadow-lg">
+                {QUICK_REACTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => {
+                      onReact(current, emoji);
+                      setReacting(false);
+                    }}
+                    className="rounded-full px-1.5 text-xl leading-none transition hover:scale-125"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ⚠️ Répondre et Transférer FERMENT la visionneuse : le champ de saisie et la
+              fenêtre de transfert sont derrière elle. Agir sans la refermer donnerait
+              l'impression que le clic n'a rien fait. */}
+          <button
+            onClick={() => {
+              onClose();
+              onReply(current);
+            }}
+            aria-label={t('chat.reply')}
+            title={t('chat.reply')}
+            className="rounded-lg p-2 hover:bg-white/10"
+          >
+            <IconReply size={20} />
+          </button>
+
+          <button
+            onClick={() => {
+              onClose();
+              onForward(current);
+            }}
+            aria-label={t('chat.forward')}
+            title={t('chat.forward')}
+            className="rounded-lg p-2 hover:bg-white/10"
+          >
+            <IconForward size={20} />
+          </button>
+
+          {/* ⚠️ L'étoile se REMPLIT quand le média est en favori — elle dit un ÉTAT. Le libellé,
+              lui, annonce l'ACTION (« Mettre en favori » / « Retirer des favoris »). */}
+          <button
+            onClick={() => onStar(current)}
+            aria-label={t(isStarred ? 'chat.unstar' : 'chat.star')}
+            title={t(isStarred ? 'chat.unstar' : 'chat.star')}
+            className={`rounded-lg p-2 hover:bg-white/10 ${isStarred ? 'text-amber-300' : ''}`}
+          >
+            <IconStar size={20} className={isStarred ? 'fill-current' : undefined} />
+          </button>
+
+          <button
+            onClick={() => onPin(current)}
+            aria-label={t(isPinned ? 'chat.unpin' : 'chat.pin')}
+            title={t(isPinned ? 'chat.unpin' : 'chat.pin')}
+            className={`rounded-lg p-2 hover:bg-white/10 ${isPinned ? 'text-amber-300' : ''}`}
+          >
+            <IconPin size={20} />
+          </button>
+
+          {/* ⚠️ Ferme la visionneuse AVANT de sauter : le fil est derrière elle, et s'y
+              déplacer sans la refermer ne montrerait rien. */}
+          <button
+            onClick={() => {
+              onClose();
+              onJumpTo(current.id);
+            }}
+            aria-label={t('gallery.go_to_message')}
+            title={t('gallery.go_to_message')}
+            className="rounded-lg p-2 hover:bg-white/10"
+          >
+            <IconLocate size={20} />
+          </button>
+
+          <button
+            onClick={() => void download()}
+            aria-label={t('gallery.download')}
+            title={downloadError ? t('gallery.download_failed') : t('gallery.download')}
+            className={`rounded-lg p-2 hover:bg-white/10 ${downloadError ? 'text-red-400' : ''}`}
+          >
+            <IconDownload size={20} />
+          </button>
+
+          <button onClick={onClose} aria-label={t('common.close')} className="rounded-lg p-2 hover:bg-white/10">
+            <IconClose size={22} />
+          </button>
+        </div>
       </div>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center px-4">

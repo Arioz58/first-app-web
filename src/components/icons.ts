@@ -80,4 +80,10 @@ export {
   // Connexion — mêmes concepts que le bandeau du mobile (nuage barré / nuage validé).
   CloudOff as IconOffline,
   CloudCheck as IconOnline,
+  // Actions de la visionneuse plein écran.
+  Download as IconDownload,
+  Smile as IconReact,
+  // « Aller au message » : une cible, pas une flèche — on ne revient pas en arrière, on
+  // rejoint un point précis du fil.
+  Crosshair as IconLocate,
 } from 'lucide-react';

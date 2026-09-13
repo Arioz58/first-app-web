@@ -20,7 +20,14 @@
     "unstar": "Remove from starred",
     "unpin": "Unpin",
     "pin": "Pin",
-    "forward_n_to": "Forward {{count}} messages to"
+    "forward_n_to": "Forward {{count}} messages to",
+    "quote_you": "You",
+    "quote_expired": "Message expired",
+    "quote_photo": "Photo",
+    "quote_video": "Video",
+    "quote_audio": "Voice message",
+    "quote_document": "Document",
+    "quote_location": "Location"
   },
   "details": {
     "mute": "Notifications",
@@ -254,7 +261,11 @@
     "voice_note": "Voice message",
     "link": "Link",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "download": "Download",
+    "download_failed": "Download failed",
+    "go_to_message": "Go to message",
+    "react": "React"
   },
   "friends": {
     "title": "Friends",

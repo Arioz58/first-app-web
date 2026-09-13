@@ -1,6 +1,7 @@
 'use client';
 
 import { MediaViewer } from '@/components/MediaViewer';
+import { QuotedPreview } from '@/components/QuotedPreview';
 import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { useTranslation } from 'react-i18next';
 import { canManageMembers, type Role } from '@/lib/groups';
@@ -1715,16 +1716,20 @@ export default function ThreadPage() {
 
       {(replyTo || editing) && (
         <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-800/60">
-          <div className="min-w-0 flex-1 border-l-[3px] border-[#1E40AF] pl-2">
-            <p className="font-semibold text-[#1E40AF]">
-              {editing ? t('thread.edit_banner') : replyTo?.sender?.name}
-            </p>
-            {replyTo && !editing && (
-              <p className="truncate text-slate-500">
-                {replyTo.content ?? t('details.attachment')}
-              </p>
-            )}
-          </div>
+          {/* ⚠️ MÊME composant que dans la bulle : icône et vignette du média cité comprises.
+              Auparavant, répondre à une photo n'affichait ici que « Pièce jointe » — sans le
+              moindre indice de LAQUELLE. */}
+          {replyTo && !editing ? (
+            <div className="min-w-0 flex-1">
+              {/* ⚠️ Pas de `onDismiss` ici : la croix du bandeau, à droite, ferme déjà —
+                  et elle sert aussi au cas « modification ». Deux croix côte à côte. */}
+              <QuotedPreview quote={replyTo} meId={meId} />
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1 border-l-[3px] border-[#1E40AF] pl-2">
+              <p className="font-semibold text-[#1E40AF]">{t('thread.edit_banner')}</p>
+            </div>
+          )}
           <button
             onClick={() => {
               // Annuler une modification restaure ce qu'on écrivait AVANT d'y entrer.
@@ -1929,7 +1934,28 @@ export default function ThreadPage() {
     */}
     <AnimatePresence>
       {viewer && (
-        <MediaViewer conversationId={id} initial={viewer} onClose={() => setViewer(null)} />
+        <MediaViewer
+          conversationId={id}
+          initial={viewer}
+          onClose={() => setViewer(null)}
+          /* ⚠️ Les MÊMES actions que le menu contextuel d'une bulle, passées telles quelles :
+             une seconde implémentation aurait dupliqué les mises à jour optimistes, et les
+             deux chemins auraient fini par diverger. */
+          pinnedIds={flags.pinned}
+          starredIds={flags.starred}
+          onPin={actions.onPin}
+          onStar={actions.onStar}
+          onReact={react}
+          onJumpTo={jumpTo}
+          onReply={actions.onReply}
+          /*
+            ⚠️ PAS `actions.onForward` : depuis le FIL, transférer un album transfère la bulle
+            ENTIÈRE — on y désigne une bulle, pas une image. Depuis la visionneuse c'est
+            l'inverse : on regarde UNE photo, et embarquer ses voisines serait surprenant.
+            Même geste, deux intentions différentes selon l'endroit d'où il part.
+          */
+          onForward={(m) => setForwarding([m])}
+        />
       )}
     </AnimatePresence>
 

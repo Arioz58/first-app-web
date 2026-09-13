@@ -20,7 +20,14 @@
     "unstar": "Yıldızı kaldır",
     "unpin": "Sabitlemeyi kaldır",
     "pin": "Sabitle",
-    "forward_n_to": "{{count}} mesajı şuraya ilet"
+    "forward_n_to": "{{count}} mesajı şuraya ilet",
+    "quote_you": "Siz",
+    "quote_expired": "Mesajın süresi doldu",
+    "quote_photo": "Fotoğraf",
+    "quote_video": "Video",
+    "quote_audio": "Sesli mesaj",
+    "quote_document": "Belge",
+    "quote_location": "Konum"
   },
   "details": {
     "mute": "Bildirimler",
@@ -254,7 +261,11 @@
     "voice_note": "Sesli mesaj",
     "link": "Bağlantı",
     "previous": "Önceki",
-    "next": "Sonraki"
+    "next": "Sonraki",
+    "download": "İndir",
+    "download_failed": "İndirilemedi",
+    "go_to_message": "Mesaja git",
+    "react": "Tepki ver"
   },
   "friends": {
     "title": "Arkadaşlar",

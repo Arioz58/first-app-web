@@ -20,7 +20,14 @@
     "unstar": "Retirer des favoris",
     "unpin": "Désépingler",
     "pin": "Épingler",
-    "forward_n_to": "Transférer {{count}} messages à"
+    "forward_n_to": "Transférer {{count}} messages à",
+    "quote_you": "Vous",
+    "quote_expired": "Message expiré",
+    "quote_photo": "Photo",
+    "quote_video": "Vidéo",
+    "quote_audio": "Message vocal",
+    "quote_document": "Document",
+    "quote_location": "Position"
   },
   "details": {
     "mute": "Notifications",
@@ -254,7 +261,11 @@
     "voice_note": "Message vocal",
     "link": "Lien",
     "previous": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "download": "Télécharger",
+    "download_failed": "Téléchargement impossible",
+    "go_to_message": "Aller au message",
+    "react": "Réagir"
   },
   "friends": {
     "title": "Amis",

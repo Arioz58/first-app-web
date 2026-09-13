@@ -144,7 +144,8 @@
     "info_group": "Grup bilgileri",
     "clear": "Sohbeti temizle",
     "delete": "Sohbeti sil",
-    "delete_confirm": "Bu sohbet listenizden çıkacak ve geçmişi sizden gizlenecek. Karşı tarafta hiçbir şey silinmez; size yazarsa sohbet geri gelir."
+    "delete_confirm": "Bu sohbet listenizden çıkacak ve geçmişi sizden gizlenecek. Karşı tarafta hiçbir şey silinmez; size yazarsa sohbet geri gelir.",
+    "clear_confirm": "Bu sohbetteki mesajlar sizden gizlenecek. Sohbet listenizde kalır ve karşı tarafta hiçbir şey silinmez."
   },
   "media": {
     "uploading": "Gönderiliyor…"

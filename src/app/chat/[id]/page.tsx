@@ -4,6 +4,7 @@ import { MediaViewer } from '@/components/MediaViewer';
 import { QuotedPreview } from '@/components/QuotedPreview';
 import { LocationPicker } from '@/components/LocationPicker';
 import { ChoiceDialog } from '@/components/ChoiceDialog';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   anchorFromEvent,
   FloatingMenu,
@@ -26,6 +27,7 @@ import {
   IconSpinner,
   IconUp,
   IconLocation,
+  IconTrash,
   // En-tête de conversation : appels (Mois 4, donc désactivés) et menu.
   IconPhone,
   IconVideo,
@@ -85,6 +87,7 @@ import { VoiceRecorder, type VoiceHandle } from '@/components/VoiceRecorder';
 import { DetailsPanel } from '@/components/DetailsPanel';
 import {
   fetchConversations,
+  clearConversation,
   muteConversation,
   muteOptions,
   type Conversation,
@@ -136,6 +139,7 @@ export default function ThreadPage() {
   const [muteOpen, setMuteOpen] = useState(false);
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
 
   const [meta, setMeta] = useState<ConvMeta | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -2041,7 +2045,37 @@ export default function ThreadPage() {
           setHeaderMenu(null);
         }}
       />
+      {/* ⚠️ Confirmé, contrairement aux réglages au-dessus : on ne revient pas en arrière.
+          Et `danger` : c'est la seule entrée de ce menu qui retire quelque chose. */}
+      <MenuItem
+        icon={IconTrash}
+        label={t('conv_actions.clear')}
+        danger
+        onClick={() => {
+          setClearOpen(true);
+          setHeaderMenu(null);
+        }}
+      />
     </FloatingMenu>
+
+    <ConfirmDialog
+      open={clearOpen}
+      title={t('conv_actions.clear')}
+      message={t('conv_actions.clear_confirm')}
+      confirmLabel={t('conv_actions.clear')}
+      danger
+      onConfirm={() => {
+        void clearConversation(id)
+          .then(() => {
+            // ⚠️ Vidé tout de suite plutôt que rechargé : le serveur ne renverra plus rien,
+            // et une requête de plus ne ferait que retarder ce qu'on sait déjà.
+            setMessages([]);
+            setClearOpen(false);
+          })
+          .catch((e) => window.alert(e.message));
+      }}
+      onClose={() => setClearOpen(false)}
+    />
 
     {/* ⚠️ Mêmes appels et même boîte que le panneau de détails : un second chemin qui
         réimplémenterait le réglage finirait par en diverger. */}

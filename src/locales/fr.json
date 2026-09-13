@@ -144,7 +144,8 @@
     "info_group": "Infos du groupe",
     "clear": "Effacer la discussion",
     "delete": "Supprimer la discussion",
-    "delete_confirm": "Cette discussion quittera votre liste et son historique vous sera masqué. Rien n'est supprimé chez votre correspondant, et elle réapparaîtra s'il vous écrit."
+    "delete_confirm": "Cette discussion quittera votre liste et son historique vous sera masqué. Rien n'est supprimé chez votre correspondant, et elle réapparaîtra s'il vous écrit.",
+    "clear_confirm": "Les messages de cette discussion vous seront masqués. Elle reste dans votre liste, et rien n'est supprimé chez votre correspondant."
   },
   "media": {
     "uploading": "Envoi…"

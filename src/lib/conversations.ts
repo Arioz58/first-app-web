@@ -204,6 +204,16 @@ export const archiveConversation = (id: string, archived: boolean) =>
  * ⚠️ « Toujours » est une date lointaine (an 2999) et non une valeur spéciale : le serveur
  * compare simplement à maintenant, et un sentinelle évite un troisième état à gérer partout.
  */
+/**
+ * Effacer la discussion POUR MOI — l'historique est masqué, la conversation RESTE dans la
+ * liste. C'est ce qui la distingue de sa SUPPRESSION.
+ *
+ * ⚠️ Côté serveur, et non un réglage local : c'est ce qui permet au web de l'offrir, et à
+ * l'effacement de survivre à une réinstallation. Rien n'est supprimé chez le correspondant.
+ */
+export const clearConversation = (id: string) =>
+  apiRequest(`/conversations/${id}/clear`, { method: 'POST' });
+
 export const muteConversation = (id: string, mutedUntil: string | null) =>
   apiRequest(`/conversations/${id}/mute`, { method: 'PATCH', body: { mutedUntil } });
 

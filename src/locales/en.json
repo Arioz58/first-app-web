@@ -144,7 +144,8 @@
     "info_group": "Group info",
     "clear": "Clear chat",
     "delete": "Delete chat",
-    "delete_confirm": "This chat will leave your list and its history will be hidden from you. Nothing is deleted for the other person, and it will come back if they message you."
+    "delete_confirm": "This chat will leave your list and its history will be hidden from you. Nothing is deleted for the other person, and it will come back if they message you.",
+    "clear_confirm": "Messages in this chat will be hidden from you. It stays in your list, and nothing is deleted for the other person."
   },
   "media": {
     "uploading": "Sending…"

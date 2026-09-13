@@ -244,7 +244,12 @@ export function ConversationList() {
   const [me, setMe] = useState<Me | null>(null);
   /** Conversation dont le menu d'actions est ouvert. */
   /** Conversation dont le menu est ouvert, et où le poser (voir `FloatingMenu`). */
-  const [menuFor, setMenuFor] = useState<{ id: string; at: MenuAnchor } | null>(null);
+  /**
+   * ⚠️ `at` peut être `null` alors que la conversation reste désignée : c'est ce qui permet au
+   * menu de JOUER SA SORTIE. Le remettre entièrement à `null` démontait le composant, et
+   * l'animation de fermeture n'avait pas lieu d'être — elle disparaissait avec lui.
+   */
+  const [menuFor, setMenuFor] = useState<{ id: string; at: MenuAnchor | null } | null>(null);
   /** Conversation pour laquelle on choisit une durée de sourdine. */
   const [muteFor, setMuteFor] = useState<string | null>(null);
   /** Conversation dont on demande l'effacement ou la suppression (confirmation ouverte). */
@@ -984,7 +989,8 @@ export function ConversationList() {
         const c = conversations.find((x) => x.id === menuFor?.id);
         if (!c || !menuFor) return null;
         const close = () => {
-          setMenuFor(null);
+          // On efface l'ANCRE, pas la sélection : le menu reste monté le temps de se fermer.
+          setMenuFor((m) => (m ? { ...m, at: null } : null));
           setMuteFor(null);
         };
         const act = (patch: Partial<Conversation>, call: () => Promise<unknown>) => {

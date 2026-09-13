@@ -176,7 +176,11 @@ export function DetailsPanel({
    * la cible ET le point d'ancrage d'un coup. Séparés, une frame les montrerait désaccordés
    * — le menu du nouveau membre à l'ancienne position.
    */
-  const [memberMenu, setMemberMenu] = useState<{ userId: string; at: MenuAnchor } | null>(null);
+  // ⚠️ `at` nullable : on ferme le menu en effaçant l'ANCRE, pas la sélection, sinon le
+  // composant est démonté avant d'avoir pu jouer sa sortie (voir `FloatingMenu`).
+  const [memberMenu, setMemberMenu] = useState<{ userId: string; at: MenuAnchor | null } | null>(
+    null,
+  );
   /** Édition du nom + description : `null` = pas en cours. */
   const [edit, setEdit] = useState<{ name: string; description: string } | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -797,7 +801,7 @@ export function DetailsPanel({
       {(() => {
         const m = meta.members.find((x) => x.userId === memberMenu?.userId);
         if (!m || !memberMenu) return null;
-        const close = () => setMemberMenu(null);
+        const close = () => setMemberMenu((m) => (m ? { ...m, at: null } : null));
         return (
           <FloatingMenu anchor={memberMenu.at} onClose={close} width={220}>
             <p className="truncate border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-400 dark:border-zinc-700">

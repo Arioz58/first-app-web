@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { damped, menuItem } from '@/lib/motion';
 
 /**
@@ -136,9 +136,18 @@ export function FloatingMenu({
    * pour autant : le menu ne s'ouvre que sur une interaction, donc `anchor` vaut forcément
    * `null` côté serveur ET au premier rendu client — les deux rendus concordent.
    */
-  if (!anchor || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
+    /**
+     * ⚠️ `AnimatePresence` À L'INTÉRIEUR du composant, et la garde sur `anchor` DÉPLACÉE ici :
+     * les appelants démontent le menu dès qu'il se ferme (leur état repasse à `null`), si bien
+     * qu'aucune animation de sortie posée chez eux n'aurait le temps de jouer. En la tenant
+     * ici, le menu s'anime en se fermant quel que soit l'appelant — et les quatre menus de
+     * l'application se comportent pareil sans qu'aucun n'ait à y penser.
+     */
+    <AnimatePresence>
+    {anchor && (
     <motion.div
       ref={ref}
       role="menu"
@@ -164,9 +173,21 @@ export function FloatingMenu({
            */
           transition: { ...damped, staggerChildren: 0.025, delayChildren: 0.02 },
         },
+        /**
+         * ⚠️ La sortie est plus COURTE que l'entrée et sans ressort : à la fermeture on a
+         * déjà choisi, et une animation qui s'attarde donne l'impression que le menu résiste.
+         * Elle rentre vers son point d'ouverture, comme elle en était sortie.
+         */
+        exit: {
+          opacity: 0,
+          scale: 0.96,
+          y: -4,
+          transition: { duration: 0.12, ease: [0.4, 0, 1, 1] },
+        },
       }}
       initial="hidden"
       animate="show"
+      exit="exit"
       style={{
         transformOrigin: 'top left',
         left: pos?.x ?? anchor.x,
@@ -178,7 +199,9 @@ export function FloatingMenu({
       className="fixed z-[61] overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200 dark:bg-zinc-800 dark:ring-zinc-700"
     >
       {children}
-    </motion.div>,
+    </motion.div>
+    )}
+    </AnimatePresence>,
     document.body,
   );
 }

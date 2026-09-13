@@ -2,6 +2,13 @@
 
 import { MediaViewer } from '@/components/MediaViewer';
 import { QuotedPreview } from '@/components/QuotedPreview';
+import { ChoiceDialog } from '@/components/ChoiceDialog';
+import {
+  anchorFromEvent,
+  FloatingMenu,
+  MenuItem,
+  type MenuAnchor,
+} from '@/components/FloatingMenu';
 import { UserProfileDialog } from '@/components/UserProfileDialog';
 import { useTranslation } from 'react-i18next';
 import { canManageMembers, type Role } from '@/lib/groups';
@@ -17,6 +24,14 @@ import {
   IconPin,
   IconSpinner,
   IconUp,
+  // En-tête de conversation : appels (Mois 4, donc désactivés) et menu.
+  IconPhone,
+  IconVideo,
+  IconMore,
+  IconBell,
+  IconTimer,
+  IconInfo,
+  IconSearch,
 } from '@/components/icons';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -40,6 +55,8 @@ import {
   reactToMessage,
   sameGroup,
   searchInConversation,
+  setEphemeral,
+  EPHEMERAL_OPTIONS,
   starMessage,
   type ConvMeta,
   type Flags,
@@ -64,7 +81,12 @@ import CameraCapture from '@/components/CameraCapture';
 import { ComposerActions, type ComposerAction } from '@/components/ComposerActions';
 import { VoiceRecorder, type VoiceHandle } from '@/components/VoiceRecorder';
 import { DetailsPanel } from '@/components/DetailsPanel';
-import { fetchConversations, type Conversation } from '@/lib/conversations';
+import {
+  fetchConversations,
+  muteConversation,
+  muteOptions,
+  type Conversation,
+} from '@/lib/conversations';
 import { connectSocket } from '@/lib/socket';
 import { getUserId } from '@/lib/storage';
 import { dismissToastsFor } from '@/lib/toasts';
@@ -100,6 +122,17 @@ export default function ThreadPage() {
   const [meId] = useState<string | null>(() =>
     typeof window === 'undefined' ? null : getUserId(),
   );
+
+  /**
+   * Menu « ⋮ » de l'en-tête (point 11 du retour client).
+   *
+   * ⚠️ Les réglages qu'il propose ne sont PAS réimplémentés : sourdine et éphémères appellent
+   * les mêmes fonctions que le panneau de détails, avec la même boîte de dialogue. Le menu est
+   * un raccourci vers ce qui existe, pas un second chemin qui pourrait en diverger.
+   */
+  const [headerMenu, setHeaderMenu] = useState<MenuAnchor | null>(null);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const [ephemeralOpen, setEphemeralOpen] = useState(false);
 
   const [meta, setMeta] = useState<ConvMeta | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1545,6 +1578,45 @@ export default function ThreadPage() {
         >
           <MorphIcon icon={search ? XNode : SearchNode} size={18} reducedMotion="user" />
         </motion.button>
+
+        {/*
+          APPELS — demande du client (point 11) : retrouver sur le web les deux icônes de
+          l'en-tête, comme sur mobile.
+
+          ⚠️ DÉSACTIVÉS et non masqués : les appels sont au Mois 4. C'est exactement ce que
+          fait déjà le panneau de détails (`QuickAction … soonLabel disabled`), et annoncer la
+          fonctionnalité vaut mieux qu'un vide qui laisse croire qu'elle n'existera pas.
+          ⚠️ Masqués en GROUPE : un appel de groupe n'est pas au programme, même au Mois 4.
+        */}
+        {meta?.type === 'direct' && (
+          <>
+            <button
+              disabled
+              title={`${t('details.call')} · ${t('details.soon')}`}
+              aria-label={t('details.call')}
+              className="cursor-not-allowed rounded-lg px-2 py-1 text-slate-300 dark:text-zinc-600"
+            >
+              <IconPhone size={18} />
+            </button>
+            <button
+              disabled
+              title={`${t('details.video')} · ${t('details.soon')}`}
+              aria-label={t('details.video')}
+              className="cursor-not-allowed rounded-lg px-2 py-1 text-slate-300 dark:text-zinc-600"
+            >
+              <IconVideo size={18} />
+            </button>
+          </>
+        )}
+
+        <button
+          onClick={(e) => setHeaderMenu(anchorFromEvent(e))}
+          title={t('chat.menu')}
+          aria-label={t('chat.menu')}
+          className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+        >
+          <IconMore size={18} />
+        </button>
       </header>
 
       {!pinBarHidden && pinnedRows.length > 0 && (
@@ -1893,6 +1965,72 @@ export default function ThreadPage() {
       />
 
     </section>
+
+    {/*
+      MENU DE L'EN-TÊTE. Les entrées mènent à ce qui existe déjà : sourdine et éphémères
+      appellent les mêmes fonctions et la même boîte de dialogue que le panneau de détails.
+
+      ⚠️ Blocage et signalement restent dans le PANNEAU et ne sont pas repris ici : ils
+      portent une confirmation et des conséquences (l'amitié est rompue, les demandes en
+      cours annulées). Les dupliquer dans un menu, c'est les rendre trop faciles à
+      déclencher par erreur — l'entrée « Infos » y mène en un clic.
+    */}
+    <FloatingMenu anchor={headerMenu} onClose={() => setHeaderMenu(null)}>
+      <MenuItem
+        icon={IconInfo}
+        label={t(meta?.type === 'group' ? 'details.group_info' : 'details.contact_info')}
+        onClick={() => {
+          setDetailsOpen(true);
+          setHeaderMenu(null);
+        }}
+      />
+      <MenuItem
+        icon={IconSearch}
+        label={t('details.search')}
+        onClick={() => {
+          setSearch({ term: '', results: [], index: 0 });
+          setHeaderMenu(null);
+        }}
+      />
+      <MenuItem
+        icon={IconBell}
+        label={t('details.mute')}
+        onClick={() => {
+          setMuteOpen(true);
+          setHeaderMenu(null);
+        }}
+      />
+      <MenuItem
+        icon={IconTimer}
+        label={t('details.ephemeral')}
+        onClick={() => {
+          setEphemeralOpen(true);
+          setHeaderMenu(null);
+        }}
+      />
+    </FloatingMenu>
+
+    {/* ⚠️ Mêmes appels et même boîte que le panneau de détails : un second chemin qui
+        réimplémenterait le réglage finirait par en diverger. */}
+    <ChoiceDialog
+      open={muteOpen}
+      title={t('details.mute_title')}
+      options={muteOptions().map((o) => ({ label: t(o.labelKey), value: o.value }))}
+      /* ⚠️ `loadConvSettings` comme le panneau : sans lui, l'icône de sourdine de la liste
+         des conversations resterait à son ancien état jusqu'au prochain chargement. */
+      onSelect={(v) => void muteConversation(id, v).then(loadConvSettings).catch(() => {})}
+      onClose={() => setMuteOpen(false)}
+    />
+
+    <ChoiceDialog
+      open={ephemeralOpen}
+      title={t('ephemeral.title')}
+      options={EPHEMERAL_OPTIONS.map((o) => ({ label: t(o.labelKey), value: o.value }))}
+      /* La durée en cours est cochée : sans repère, on repose le réglage au hasard. */
+      current={meta?.ephemeralDuration ?? null}
+      onSelect={(v) => void setEphemeral(id, v).catch(() => {})}
+      onClose={() => setEphemeralOpen(false)}
+    />
 
     {/*
       ⚠️ `AnimatePresence` ici : c'est le parent qui décide de la présence du panneau. Laissé

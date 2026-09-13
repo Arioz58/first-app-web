@@ -27,7 +27,8 @@
     "quote_video": "Vidéo",
     "quote_audio": "Message vocal",
     "quote_document": "Document",
-    "quote_location": "Position"
+    "quote_location": "Position",
+    "menu": "Menu"
   },
   "details": {
     "mute": "Notifications",

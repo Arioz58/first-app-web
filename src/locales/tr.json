@@ -27,7 +27,8 @@
     "quote_video": "Video",
     "quote_audio": "Sesli mesaj",
     "quote_document": "Belge",
-    "quote_location": "Konum"
+    "quote_location": "Konum",
+    "menu": "Menü"
   },
   "details": {
     "mute": "Bildirimler",

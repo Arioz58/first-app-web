@@ -86,4 +86,6 @@ export {
   // « Aller au message » : une cible, pas une flèche — on ne revient pas en arrière, on
   // rejoint un point précis du fil.
   Crosshair as IconLocate,
+  // Menu de l'en-tête de conversation.
+  Info as IconInfo,
 } from 'lucide-react';

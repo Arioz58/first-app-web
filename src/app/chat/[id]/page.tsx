@@ -2,6 +2,7 @@
 
 import { MediaViewer } from '@/components/MediaViewer';
 import { QuotedPreview } from '@/components/QuotedPreview';
+import { LocationPicker } from '@/components/LocationPicker';
 import { ChoiceDialog } from '@/components/ChoiceDialog';
 import {
   anchorFromEvent,
@@ -24,6 +25,7 @@ import {
   IconPin,
   IconSpinner,
   IconUp,
+  IconLocation,
   // En-tête de conversation : appels (Mois 4, donc désactivés) et menu.
   IconPhone,
   IconVideo,
@@ -133,6 +135,7 @@ export default function ThreadPage() {
   const [headerMenu, setHeaderMenu] = useState<MenuAnchor | null>(null);
   const [muteOpen, setMuteOpen] = useState(false);
   const [ephemeralOpen, setEphemeralOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
 
   const [meta, setMeta] = useState<ConvMeta | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1269,6 +1272,29 @@ export default function ThreadPage() {
    * ⚠️ Mémoïsées : la liste est passée à un composant animé, et la recréer à chaque frappe
    * dans le champ relancerait la cascade d'ouverture.
    */
+  /**
+   * Envoi de la position CHOISIE sur la carte.
+   *
+   * ⚠️ L'adresse vient du sélecteur, qui l'a fait résoudre par notre serveur — elle voyage
+   * dans `content`, exactement comme celle que le mobile calcule sur l'appareil. Les deux
+   * clients produisent donc le même message, lisible de part et d'autre.
+   *
+   * ⚠️ `address` peut être `null` (service injoignable, point en pleine mer) : le message
+   * part quand même, et la bulle affiche « Position partagée » avec les coordonnées.
+   */
+  const sendLocation = useCallback(
+    (lat: number, lon: number, address: string | null) => {
+      connectSocket().emit('send_message', {
+        conversationId: id,
+        content: address ?? '',
+        type: 'location',
+        latitude: lat,
+        longitude: lon,
+      });
+    },
+    [id],
+  );
+
   const actionsComposeur: ComposerAction[] = useMemo(
     () => [
       { key: 'documents', label: t('attach.documents'), icon: IconDocument, onSelect: () => pickFiles(ACCEPT.documents) },
@@ -1276,6 +1302,7 @@ export default function ThreadPage() {
       { key: 'camera', label: t('attach.camera'), icon: IconCamera, onSelect: () => setCameraOpen(true) },
       { key: 'audio', label: t('attach.audio'), icon: IconAudio, onSelect: () => pickFiles(ACCEPT.audio) },
       { key: 'gif', label: t('attach.gif'), icon: IconGif, onSelect: () => setGifOpen(true) },
+      { key: 'location', label: t('attach.location'), icon: IconLocation, onSelect: () => setLocationOpen(true) },
     ],
     [t, pickFiles],
   );
@@ -1975,6 +2002,12 @@ export default function ThreadPage() {
       cours annulées). Les dupliquer dans un menu, c'est les rendre trop faciles à
       déclencher par erreur — l'entrée « Infos » y mène en un clic.
     */}
+    <LocationPicker
+      open={locationOpen}
+      onClose={() => setLocationOpen(false)}
+      onSend={sendLocation}
+    />
+
     <FloatingMenu anchor={headerMenu} onClose={() => setHeaderMenu(null)}>
       <MenuItem
         icon={IconInfo}

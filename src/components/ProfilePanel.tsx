@@ -1,17 +1,22 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { panel } from '@/lib/motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { backdrop, dialog, panel } from '@/lib/motion';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/Avatar';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { updateMe } from '@/lib/messages';
+import { uploadFile } from '@/lib/upload';
 import {
   IconBack,
   IconBlock,
+  IconCamera,
+  IconEdit,
   IconChevron,
   IconLock,
   IconBell,
@@ -45,17 +50,25 @@ const THEME_ICON: Record<ThemePref, typeof IconLight> = {
  * ouverte reste visible à droite, et revenir à la liste ne la ferme pas. Un onglet comme sur
  * mobile n'a pas de sens ici, où les deux colonnes coexistent.
  *
- * ⚠️ Périmètre volontairement réduit à ce qui a du sens dans un navigateur : apparence,
- * langue, confidentialité, utilisateurs bloqués, déconnexion. L'édition du nom, de la photo
- * et de la bio reste sur le mobile — l'appareil qui porte l'appareil photo.
+ * ⚠️ L'édition du nom, de la photo et de la bio était réservée au mobile (« l'appareil qui
+ * porte l'appareil photo »). Livrée ici le 13/09 à la demande du client : ne pas pouvoir
+ * changer sa photo depuis son ordinateur passe pour un manque, pas pour un choix — et le
+ * navigateur sait parfaitement lire un fichier local.
  */
 export function ProfilePanel({
   /** ⚠️ Fourni par la liste, qui l'a déjà chargé pour sa vignette — pas de seconde requête. */
   me,
   onClose,
+  onUpdated,
 }: {
   me: Me | null;
   onClose: () => void;
+  /**
+   * ⚠️ Le profil appartient au PARENT (la liste l'a chargé pour sa vignette). Après une
+   * modification, c'est lui qu'il faut mettre à jour : garder une copie locale ici ferait
+   * diverger la vignette de la colonne et la carte de ce panneau.
+   */
+  onUpdated: (me: Me) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -68,6 +81,13 @@ export function ProfilePanel({
   const [notifState, setNotifState] = useState<NotificationState>(() =>
     typeof window === 'undefined' ? 'unsupported' : notificationState(),
   );
+  /** Modale d'édition du nom et de la bio (les deux ensemble, comme sur mobile). */
+  const [editing, setEditing] = useState<{ name: string; bio: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  /** Confirmation avant de supprimer la photo : l'action est irréversible sans re-téléverser. */
+  const [removePhotoOpen, setRemovePhotoOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const [blocked, setBlocked] = useState<{ id: string; name: string; photoUrl: string | null }[]>(
     [],
   );
@@ -178,15 +198,74 @@ export function ProfilePanel({
           {/* Squelette tant que la requête n'a pas répondu, pour que la mise en page ne saute pas. */}
           {me ? (
             <>
-              <Avatar name={me.name} photoUrl={me.photoUrl} size={96} />
-              <h2 className="mt-3 text-xl font-semibold text-slate-900 dark:text-zinc-100">
-                {me.name}
-              </h2>
-              {me.profile?.bio && (
-                <p className="mt-2 text-center text-sm text-slate-500 dark:text-zinc-400">
-                  {me.profile.bio}
-                </p>
+              {/* ⚠️ Un `<input type="file">` CACHÉ, déclenché par le bouton : le champ natif
+                  ne se style pas, et son apparence diffère d'un navigateur à l'autre. */}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // ⚠️ Remis à zéro : sans cela, rechoisir LE MÊME fichier ne déclenche
+                  // aucun événement et l'utilisateur croit que le clic n'a rien fait.
+                  e.target.value = '';
+                  if (!file) return;
+                  setSaving(true);
+                  void uploadFile(file)
+                    .then((photoUrl) => updateMe({ photoUrl }))
+                    .then(onUpdated)
+                    .catch((err) => window.alert(err.message))
+                    .finally(() => setSaving(false));
+                }}
+              />
+
+              <button
+                disabled={saving}
+                onClick={() => fileRef.current?.click()}
+                title={t('profile.change_photo')}
+                className="relative rounded-full disabled:opacity-50"
+              >
+                <Avatar name={me.name} photoUrl={me.photoUrl} size={96} />
+                <span className="absolute bottom-0 right-0 rounded-full bg-[#1E40AF] p-1.5 text-white shadow">
+                  <IconCamera size={14} />
+                </span>
+              </button>
+
+              {me.photoUrl && (
+                <button
+                  disabled={saving}
+                  onClick={() => setRemovePhotoOpen(true)}
+                  className="mt-2 text-xs text-slate-400 hover:text-red-500 disabled:opacity-50"
+                >
+                  {t('profile.remove_photo')}
+                </button>
               )}
+
+              <button
+                onClick={() => setEditing({ name: me.name, bio: me.profile?.bio ?? '' })}
+                className="mt-3 flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                title={t('profile.edit_profile')}
+              >
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-zinc-100">
+                  {me.name}
+                </h2>
+                <IconEdit size={14} className="text-slate-400" />
+              </button>
+
+              {/* ⚠️ Cliquable même quand la bio est vide, et vers la MÊME boîte que le
+                  crayon : sans cela, l'invitation « ajouter une bio » n'ouvrait rien et il
+                  fallait deviner qu'il faut passer par le nom. */}
+              <button
+                onClick={() => setEditing({ name: me.name, bio: me.profile?.bio ?? '' })}
+                className="mt-2 max-w-full rounded-lg px-2 py-0.5 text-center text-sm hover:bg-slate-100 dark:hover:bg-zinc-800"
+              >
+                {me.profile?.bio ? (
+                  <span className="text-slate-500 dark:text-zinc-400">{me.profile.bio}</span>
+                ) : (
+                  <span className="italic text-slate-400">{t('profile.add_bio_hint')}</span>
+                )}
+              </button>
               <p className="mt-1 text-sm text-slate-400">{me.phone}</p>
             </>
           ) : (
@@ -331,6 +410,109 @@ export function ProfilePanel({
           </button>
         </section>
       </div>
+
+      {/*
+        ÉDITION DU NOM ET DE LA BIO — les deux dans la MÊME boîte, comme sur mobile : ce sont
+        les deux champs libres du profil, et les séparer obligerait à ouvrir deux fois.
+
+        ⚠️ Les limites (40 et 140) sont celles du mobile. Elles valent surtout pour la bio :
+        au-delà, elle déborde partout où elle s'affiche.
+      */}
+      {/* ⚠️ Mêmes variantes que les autres boîtes de l'app (`ConfirmDialog`, `ChoiceDialog`) :
+          une modale qui apparaît sèchement au milieu de fenêtres qui, elles, s'animent, se
+          remarque immédiatement comme une pièce rapportée. */}
+      <AnimatePresence>
+      {editing && (
+        <motion.div
+          variants={backdrop}
+          initial="hidden"
+          animate="show"
+          exit="exit"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
+          onClick={() => setEditing(null)}
+        >
+          <motion.div
+            variants={dialog}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-zinc-900"
+          >
+            <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-zinc-100">
+              {t('profile.edit_profile')}
+            </h3>
+
+            <input
+              autoFocus
+              value={editing.name}
+              maxLength={40}
+              onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+              placeholder={t('profile.your_name')}
+              className="mb-3 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
+            />
+
+            <textarea
+              value={editing.bio}
+              maxLength={140}
+              rows={3}
+              onChange={(e) => setEditing({ ...editing, bio: e.target.value })}
+              placeholder={t('profile.bio_placeholder')}
+              className="w-full resize-none rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            <p className="mt-1 text-right text-xs text-slate-400">{editing.bio.length}/140</p>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                /* ⚠️ Un nom VIDE est refusé : il s'affiche partout (liste, bulles, groupes) et
+                   un blanc y serait illisible. La bio, elle, peut être vidée. */
+                disabled={saving || !editing.name.trim()}
+                onClick={() => {
+                  setSaving(true);
+                  void updateMe({ name: editing.name.trim(), bio: editing.bio.trim() })
+                    .then((updated) => {
+                      onUpdated(updated);
+                      setEditing(null);
+                    })
+                    .catch((err) => window.alert(err.message))
+                    .finally(() => setSaving(false));
+                }}
+                className="rounded-lg bg-[#1E40AF] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {t('details.save')}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      {/* Suppression de la photo : demandée plutôt qu'exécutée. Il faut re-téléverser pour
+          revenir en arrière — ce n'est pas un réglage qu'on bascule. */}
+      <ConfirmDialog
+        open={removePhotoOpen}
+        title={t('profile.remove_photo')}
+        message={t('profile.remove_photo_confirm')}
+        confirmLabel={t('profile.remove_photo')}
+        danger
+        busy={saving}
+        onConfirm={() => {
+          setSaving(true);
+          // ⚠️ `null` et non une chaîne vide : c'est ce que le serveur attend pour EFFACER la
+          // photo et revenir à l'initiale sur pastille.
+          void updateMe({ photoUrl: null })
+            .then(onUpdated)
+            .catch((err) => window.alert(err.message))
+            .finally(() => {
+              setSaving(false);
+              setRemovePhotoOpen(false);
+            });
+        }}
+        onClose={() => setRemovePhotoOpen(false)}
+      />
     </motion.div>
   );
 }

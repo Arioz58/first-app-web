@@ -249,7 +249,10 @@
     "delete_all": "Delete for everyone?\n\nCancel = delete for me only.",
     "search_ph": "Search…",
     "send_failed": "Failed to send {{name}}",
-    "gif": "Send a GIF"
+    "gif": "Send a GIF",
+    "location_denied": "Location access denied. Allow geolocation in your browser.",
+    "location_failed": "Location unavailable right now.",
+    "show_map": "Show map"
   },
   "gallery": {
     "media": "Media",
@@ -323,7 +326,14 @@
     "blocked": "Blocked users",
     "blocked_hint": "These people can't message you or see your profile. They aren't told.",
     "blocked_none": "You haven't blocked anyone.",
-    "back": "Back to profile"
+    "back": "Back to profile",
+    "edit_profile": "Edit profile",
+    "your_name": "Your name",
+    "bio_placeholder": "Bio (optional)",
+    "change_photo": "Change photo",
+    "remove_photo": "Remove photo",
+    "add_bio_hint": "Click to add a bio",
+    "remove_photo_confirm": "Your photo will be replaced by your initial. You can add a new one at any time."
   },
   "newchat": {
     "chat": "Chat",
@@ -378,7 +388,8 @@
     "media": "Photos and videos",
     "camera": "Camera",
     "audio": "Audio",
-    "gif": "GIF"
+    "gif": "GIF",
+    "location": "Location"
   },
   "camera": {
     "title": "Take a photo",
@@ -460,5 +471,10 @@
     "message": "Couldn't refresh",
     "retry": "Retry",
     "reconnected": "Back online"
+  },
+  "location": {
+    "send_title": "Send my location",
+    "send_action": "Send this location",
+    "searching": "Looking up address…"
   }
 }

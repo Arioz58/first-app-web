@@ -2,6 +2,7 @@
 
 import { AudioMessage } from '@/components/AudioMessage';
 import { QuotedPreview } from '@/components/QuotedPreview';
+import { LocationMap } from '@/components/LocationMap';
 
 import { motion } from 'framer-motion';
 import { bubble } from '@/lib/motion';
@@ -444,6 +445,13 @@ function MediaContent({
 }) {
   const { t } = useTranslation();
   const item = row.messages[0];
+  /**
+   * Carte d'une position, dépliée à la demande.
+   *
+   * ⚠️ Faux par défaut et RÉINITIALISÉ à chaque message (l'état vit dans le composant de la
+   * ligne) : c'est le destinataire qui décide, à chaque fois, de charger des tuiles.
+   */
+  const [showMap, setShowMap] = useState(false);
 
   /**
    * Position partagée.
@@ -463,26 +471,49 @@ function MediaContent({
      * l'on clique — et c'est alors un choix.
      */
     return (
-      <a
-        href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className={`mb-1 flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${
-          isMe ? 'bg-white/15' : 'bg-black/5 dark:bg-white/10'
-        }`}
-      >
-        <IconLocation size={22} className="shrink-0" />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">
-            {/* `content` porte l'adresse lisible, calculée par l'app qui a partagé. */}
-            {item.content || t('thread.shared_location')}
+      <span className="mb-1 block">
+        {/*
+          ⚠️ La carte n'est chargée QUE si le destinataire la demande : elle n'est pas affichée
+          d'office. Voir `LocationMap` — une tuile chargée sans son accord livrerait son
+          adresse IP et le lieu consulté au fournisseur de cartes.
+        */}
+        {showMap && <LocationMap lat={lat} lon={lon} />}
+
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={`mt-1 flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${
+            isMe ? 'bg-white/15' : 'bg-black/5 dark:bg-white/10'
+          }`}
+        >
+          <IconLocation size={22} className="shrink-0" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">
+              {/* `content` porte l'adresse lisible, calculée par l'app qui a partagé. */}
+              {item.content || t('thread.shared_location')}
+            </span>
+            <span className="block text-xs opacity-70">
+              {lat.toFixed(5)}, {lon.toFixed(5)} · {t('thread.open_in_maps')}
+            </span>
           </span>
-          <span className="block text-xs opacity-70">
-            {lat.toFixed(5)}, {lon.toFixed(5)} · {t('thread.open_in_maps')}
-          </span>
-        </span>
-      </a>
+        </a>
+
+        {!showMap && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMap(true);
+            }}
+            className={`mt-1 w-full rounded-lg px-2.5 py-1.5 text-xs font-medium ${
+              isMe ? 'bg-white/15 hover:bg-white/25' : 'bg-black/5 hover:bg-black/10 dark:bg-white/10'
+            }`}
+          >
+            {t('thread.show_map')}
+          </button>
+        )}
+      </span>
     );
   }
 

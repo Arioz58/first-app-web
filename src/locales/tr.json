@@ -249,7 +249,10 @@
     "delete_all": "Herkes için silinsin mi?\n\nİptal = yalnızca benim için sil.",
     "search_ph": "Ara…",
     "send_failed": "{{name}} gönderilemedi",
-    "gif": "GIF gönder"
+    "gif": "GIF gönder",
+    "location_denied": "Konum erişimi reddedildi. Tarayıcınızda konum iznini verin.",
+    "location_failed": "Konum şu anda kullanılamıyor.",
+    "show_map": "Haritayı göster"
   },
   "gallery": {
     "media": "Medya",
@@ -323,7 +326,14 @@
     "blocked": "Engellenen kullanıcılar",
     "blocked_hint": "Bu kişiler size mesaj gönderemez ve profilinizi göremez. Bilgilendirilmezler.",
     "blocked_none": "Kimseyi engellemediniz.",
-    "back": "Profile dön"
+    "back": "Profile dön",
+    "edit_profile": "Profili düzenle",
+    "your_name": "Adınız",
+    "bio_placeholder": "Biyografi (isteğe bağlı)",
+    "change_photo": "Fotoğrafı değiştir",
+    "remove_photo": "Fotoğrafı kaldır",
+    "add_bio_hint": "Biyografi eklemek için tıklayın",
+    "remove_photo_confirm": "Fotoğrafınızın yerini baş harfiniz alacak. İstediğiniz zaman yenisini ekleyebilirsiniz."
   },
   "newchat": {
     "chat": "Sohbet",
@@ -378,7 +388,8 @@
     "media": "Fotoğraflar ve videolar",
     "camera": "Kamera",
     "audio": "Ses",
-    "gif": "GIF"
+    "gif": "GIF",
+    "location": "Konum"
   },
   "camera": {
     "title": "Fotoğraf çek",
@@ -460,5 +471,10 @@
     "message": "Güncellenemedi",
     "retry": "Tekrar dene",
     "reconnected": "Bağlantı yeniden kuruldu"
+  },
+  "location": {
+    "send_title": "Konumumu gönder",
+    "send_action": "Bu konumu gönder",
+    "searching": "Adres aranıyor…"
   }
 }

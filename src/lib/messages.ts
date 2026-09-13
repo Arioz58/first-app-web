@@ -431,6 +431,20 @@ export type Me = {
 export const fetchMe = () => apiRequest<Me>('/users/me');
 
 /**
+ * Mise à jour de SON profil.
+ *
+ * ⚠️ Le serveur route les champs vers deux tables : `name` et `photoUrl` sur `User`, `bio` sur
+ * `Profile`. Rien à faire côté client, mais cela explique que la réponse renvoie `profile`
+ * imbriqué là où l'on a envoyé `bio` à plat.
+ *
+ * ⚠️ `photoUrl: null` EFFACE la photo (retour à l'initiale sur pastille) ; `bio: ''` efface la
+ * bio. Ce ne sont pas des valeurs manquantes : ne pas les remplacer par `undefined`, sinon le
+ * champ est simplement ignoré et l'utilisateur croit avoir supprimé quelque chose.
+ */
+export const updateMe = (body: { name?: string; photoUrl?: string | null; bio?: string }) =>
+  apiRequest<Me>('/users/me', { method: 'PATCH', body });
+
+/**
  * Identifiant de la LIGNE qui affiche un message donné.
  *
  * ⚠️ Un album est plusieurs messages mais UNE ligne, ancrée sur le premier du lot. Chercher

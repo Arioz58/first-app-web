@@ -1092,7 +1092,7 @@ export function ConversationList() {
         />
       )}
 
-      {profileOpen && <ProfilePanel me={me} onClose={() => setProfileOpen(false)} />}
+      {profileOpen && <ProfilePanel me={me} onClose={() => setProfileOpen(false)} onUpdated={setMe} />}
 
       <NewChatDialog
         open={newChatOpen}

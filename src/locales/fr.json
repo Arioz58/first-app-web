@@ -249,7 +249,10 @@
     "delete_all": "Supprimer pour tout le monde ?\n\nAnnuler = supprimer pour moi seulement.",
     "search_ph": "Rechercher…",
     "send_failed": "Échec de l'envoi de {{name}}",
-    "gif": "Envoyer un GIF"
+    "gif": "Envoyer un GIF",
+    "location_denied": "Accès à la position refusé. Autorisez la géolocalisation dans votre navigateur.",
+    "location_failed": "Position indisponible pour le moment.",
+    "show_map": "Afficher la carte"
   },
   "gallery": {
     "media": "Médias",
@@ -323,7 +326,14 @@
     "blocked": "Utilisateurs bloqués",
     "blocked_hint": "Ces personnes ne peuvent pas vous écrire ni voir votre profil. Elles n'en sont pas informées.",
     "blocked_none": "Vous n'avez bloqué personne.",
-    "back": "Retour au profil"
+    "back": "Retour au profil",
+    "edit_profile": "Modifier le profil",
+    "your_name": "Votre nom",
+    "bio_placeholder": "Bio (optionnel)",
+    "change_photo": "Changer la photo",
+    "remove_photo": "Supprimer la photo",
+    "add_bio_hint": "Cliquer pour ajouter une bio",
+    "remove_photo_confirm": "Votre photo sera remplacée par votre initiale. Vous pourrez en ajouter une nouvelle à tout moment."
   },
   "newchat": {
     "chat": "Conversation",
@@ -378,7 +388,8 @@
     "media": "Photos et vidéos",
     "camera": "Caméra",
     "audio": "Audio",
-    "gif": "GIF"
+    "gif": "GIF",
+    "location": "Position"
   },
   "camera": {
     "title": "Prendre une photo",
@@ -460,5 +471,10 @@
     "message": "Mise à jour impossible",
     "retry": "Réessayer",
     "reconnected": "Connexion rétablie"
+  },
+  "location": {
+    "send_title": "Envoyer ma position",
+    "send_action": "Envoyer cette position",
+    "searching": "Recherche de l’adresse…"
   }
 }

@@ -38,6 +38,7 @@ import { PrivacyPanel } from '@/components/PrivacyPanel';
 import { type Me } from '@/lib/messages';
 import { disconnectSocket } from '@/lib/socket';
 import { setThemePref, THEME_OPTIONS, useThemePref, type ThemePref } from '@/lib/theme';
+import { setSoundsEnabled, useSoundsEnabled } from '@/lib/sounds';
 
 const THEME_ICON: Record<ThemePref, typeof IconLight> = {
   light: IconLight,
@@ -128,6 +129,7 @@ export function ProfilePanel({
   }, [qrOpen, me]);
 
   const pref = useThemePref();
+  const sounds = useSoundsEnabled();
   const router = useRouter();
 
   /**
@@ -363,6 +365,20 @@ export function ProfilePanel({
               );
             })}
           </div>
+
+          {/* ⚠️ Réglage LOCAL au navigateur, à la différence de l'apparence et de la langue :
+              on peut vouloir le son sur l'ordinateur et le silence sur le téléphone. */}
+          <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-zinc-700">
+            <span className="min-w-0 flex-1 text-sm text-slate-900 dark:text-zinc-100">
+              {t('profile.sounds')}
+            </span>
+            <input
+              type="checkbox"
+              checked={sounds}
+              onChange={(e) => setSoundsEnabled(e.target.checked)}
+              className="size-4 accent-[#1E40AF]"
+            />
+          </label>
         </section>
 
         <section className="border-t border-slate-100 px-4 py-4 dark:border-zinc-800">

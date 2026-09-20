@@ -97,6 +97,7 @@ import {
   type Conversation,
 } from '@/lib/conversations';
 import { connectSocket } from '@/lib/socket';
+import { playSent } from '@/lib/sounds';
 import { getUserId } from '@/lib/storage';
 import { dismissToastsFor } from '@/lib/toasts';
 
@@ -1050,6 +1051,12 @@ export default function ThreadPage() {
     setMessages((prev) => [...prev, draft]);
     requestAnimationFrame(() => scrollToBottom(true));
 
+    /**
+     * ⚠️ Le son accompagne le GESTE, au moment où la bulle se pose — pas l'écho du serveur.
+     * Le jouer à la confirmation le décrocherait de l'action, et pour un fichier il
+     * n'arriverait qu'une fois le téléversement fini, plusieurs secondes plus tard.
+     */
+    playSent();
     socket.emit('send_message', { conversationId: id, content, replyToId: replyTo?.id });
     setReplyTo(null);
     setText('');
@@ -1348,6 +1355,7 @@ export default function ThreadPage() {
     (files: FileList) => {
       const list = Array.from(files).slice(0, 10);
       if (!list.length) return;
+      playSent();
       setUploading(true);
       // ⚠️ Un `batchId` partagé regroupe les médias d'un même envoi en UNE bulle chez le
       // destinataire — le suffixe `#n` lui dit combien en attendre.

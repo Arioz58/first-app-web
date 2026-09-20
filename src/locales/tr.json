@@ -340,7 +340,8 @@
     "add_bio_hint": "Biyografi eklemek için tıklayın",
     "remove_photo_confirm": "Fotoğrafınızın yerini baş harfiniz alacak. İstediğiniz zaman yenisini ekleyebilirsiniz.",
     "qr_title": "QR kodum",
-    "qr_hint": "Eklenmek için bu kodu okutun."
+    "qr_hint": "Eklenmek için bu kodu okutun.",
+    "sounds": "Mesaj sesleri"
   },
   "newchat": {
     "chat": "Sohbet",

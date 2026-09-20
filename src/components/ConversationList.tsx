@@ -74,6 +74,7 @@ import {
 import { fetchMe, searchAllMessages, type Me, type MessageHit } from '@/lib/messages';
 import { connectSocket } from '@/lib/socket';
 import { subscribeConnection } from '@/lib/connection';
+import { playReceived } from '@/lib/sounds';
 import { setPanelCollapsed, usePanelCollapsed } from '@/lib/panel';
 import { getUserId } from '@/lib/storage';
 import { showToast } from '@/lib/toasts';
@@ -391,6 +392,13 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
        * Afficher les deux ferait dire deux fois la même chose au même moment.
        */
       if (alert) {
+        /**
+         * ⚠️ Le son est joué dans les DEUX cas, et avant le choix du canal : le client
+         * signalait qu'aucune notification web ne s'entendait. Onglet caché, la notification
+         * du navigateur peut sonner ou non selon le système — la nôtre, elle, est certaine.
+         * Conversation déjà ouverte, seul le bandeau n'a pas lieu d'être ; le son, si.
+         */
+        playReceived();
         const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
         if (hidden) {
           void notify({

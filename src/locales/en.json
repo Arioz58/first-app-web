@@ -340,7 +340,8 @@
     "add_bio_hint": "Click to add a bio",
     "remove_photo_confirm": "Your photo will be replaced by your initial. You can add a new one at any time.",
     "qr_title": "My QR code",
-    "qr_hint": "Let others scan this code to add you."
+    "qr_hint": "Let others scan this code to add you.",
+    "sounds": "Message sounds"
   },
   "newchat": {
     "chat": "Chat",

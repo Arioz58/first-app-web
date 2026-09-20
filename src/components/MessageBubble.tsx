@@ -570,23 +570,51 @@ function MediaContent({
           large, elle, s'étalait sans limite. En fixant la largeur et en plafonnant la hauteur,
           les deux formats occupent une place comparable, comme sur WhatsApp.
 
-          ⚠️ `object-contain` et non `object-cover` : recadrer gagnerait quelques pixels de
-          largeur sur les formats extrêmes, au prix d'un sujet coupé sans prévenir. Une photo
-          très haute garde donc ses proportions et laisse un peu de place à ses côtés.
-
           ⚠️ CADRE AGRANDI le 13/09 : 20rem × 30rem (320 × 480) → 25rem × 36rem (400 × 576).
           C'est ici que se jouait vraiment le « sur PC on dirait un téléphone » : une photo
           verticale s'affichait à ~270 × 480, un timbre-poste au milieu de 1100 px de large.
 
           ⚠️ LES DEUX VALEURS doivent bouger ENSEMBLE. Une photo verticale est limitée par sa
           HAUTEUR : n'élargir que le cadre ne l'aurait pas agrandie d'un pixel. C'est le
-          piège exact du correctif précédent, où seule la hauteur était contrainte.
+          piège exact du correctif du 11/09, où seule la hauteur était contrainte.
+
+          ⚠️ RECADRAGE (20/09, demande du client, qui REVIENT SUR le choix du 13/09).
+          J'avais retenu `object-contain` : garder les proportions plutôt que couper un sujet
+          sans prévenir. Le client a redemandé après l'élargissement du cadre, en décrivant
+          WhatsApp — « la bulle est plus large mais plus petite, et l'image un peu plus zoomée ».
+
+          ⚠️ LA LARGEUR EST FIXE (`w-[25rem]`) ET NON `min(25rem,100%)`, et c'est LÀ qu'était
+          le défaut — pas dans `object-contain`. MESURÉ dans un navigateur, sur la structure
+          réelle (rangée flex → bulle → image), parce que deux bancs d'essai simplifiés
+          donnaient deux résultats contraires :
+
+              min(25rem,100%) + contain ......... 324 × 576   (l'état d'avant)
+              min(25rem,100%) + cover ........... 297 × 528   (PIRE : plus étroit encore)
+              25rem + max-w-full + cover ........ 400 × 528   ✅
+
+          La bulle est un ÉLÉMENT FLEX : sa largeur vient de son contenu, donc un `100%` à
+          l'intérieur se résout contre une largeur INDÉFINIE et la largeur retombe à « auto ».
+          CSS la recalcule alors depuis la hauteur plafonnée (CSS 2.1 §10.4) — d'où les 324 px,
+          et d'où les 297 quand on ajoute un `min-width` porté par la même expression, qui
+          s'effondre pour la même raison. Une largeur FIXE n'est jamais recalculée : la boîte
+          reste à 400 et `object-cover` remplit en rognant.
+
+          ⚠️ `max-w-full` reste indispensable pour l'écran étroit — vérifié aussi : la boîte
+          descend alors à la largeur disponible (374 px à 390 de fenêtre) sans déborder.
+
+          ⚠️ Hauteur plafonnée à 33rem (528) et non 36rem (576) : 400 × 528 donne un rapport
+          proche de 3:4. Une photo 9:16 passe de 324 × 576 à 400 × 528 — plus large, plus
+          courte, plus zoomée, les trois mots du client. Une photo PAYSAGE n'est pas touchée
+          (16:9 mesuré à 400 × 225, aucun rognage) : rien n'est rogné sans nécessité.
+
+          ⚠️ Le MOBILE n'est pas concerné : `MessageMedia` y pose déjà un carré de 244 avec
+          `contentFit="cover"`. Il recadrait depuis toujours — l'écart était propre au web.
         */}
         <motion.img
           layoutId={`media-${item.id}`}
           src={item.mediaUrl}
           alt=""
-          className="h-auto w-[min(25rem,100%)] max-h-[36rem] rounded-lg object-contain"
+          className="h-auto w-[25rem] max-w-full max-h-[33rem] rounded-lg object-cover"
         />
       </button>
     );
@@ -598,10 +626,12 @@ function MediaContent({
         {/* ⚠️ Sans `controls` : la vidéo est une VIGNETTE ici, elle se lit dans la
             visionneuse. Des contrôles sur la bulle captureraient le clic et l'on ne pourrait
             plus l'ouvrir en grand ni passer aux médias suivants. */}
-        {/* Même cadre que les photos : une vidéo verticale souffrait du même défaut. */}
+        {/* Même cadre que les photos, recadrage compris : une vidéo verticale souffrait du
+            même défaut, et deux règles différentes se verraient dans un fil qui mélange les
+            deux. */}
         <video
           src={item.mediaUrl}
-          className="h-auto w-[min(25rem,100%)] max-h-[36rem] rounded-lg object-contain"
+          className="h-auto w-[25rem] max-w-full max-h-[33rem] rounded-lg object-cover"
         />
       </button>
     );

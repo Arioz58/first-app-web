@@ -301,6 +301,12 @@ export default function ThreadPage() {
    * jamais la valeur d'état changer. Même motif que `otherUserIdRef` sur mobile.
    */
   const hasNewerRef = useRef(false);
+  /**
+   * ⚠️ Miroir du fil, pour la même raison : l'écouteur de reconnexion est posé une fois et
+   * doit savoir où l'on en est pour demander la SUITE. Lire `messages` l'obligerait à figurer
+   * dans les dépendances de l'effet, qui se rebrancherait alors à chaque message reçu.
+   */
+  const messagesRef = useRef<Message[]>([]);
   const typingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingSentRef = useRef(false);
   /** Vrai tant que l'ouverture n'a pas calé le fil : le premier scroll ne doit pas s'animer. */
@@ -395,6 +401,10 @@ export default function ThreadPage() {
   useEffect(() => {
     hasNewerRef.current = hasNewer;
   }, [hasNewer]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // --- Chargement initial ---
   useEffect(() => {
@@ -729,6 +739,61 @@ export default function ThreadPage() {
       router.replace('/chat');
     };
 
+    /**
+     * RECONNEXION — rejoindre la room, puis rattraper ce qui est arrivé pendant la coupure.
+     *
+     * ⚠️ LES ROOMS APPARTIENNENT À L'ANCIEN SOCKET. `join_conversation` n'était émis qu'au
+     * montage : après une reconnexion (jeton renouvelé, veille de la machine, redémarrage du
+     * serveur), le socket revenait bien vivant, mais hors de la room de la conversation — le
+     * fil OUVERT restait muet alors que la liste, elle, se remettait à jour, puisqu'elle écoute
+     * la room personnelle que le serveur rejoint de lui-même au handshake. C'est l'autre moitié
+     * du « je dois recharger la page pour voir les nouveaux messages » signalé par le client :
+     * `lib/socket` garde désormais le socket en vie, encore faut-il le remettre à l'écoute.
+     *
+     * ⚠️ La toute PREMIÈRE connexion est couverte par l'émission du montage, juste au-dessus.
+     * Rejouer l'émission est sans effet (rejoindre une room où l'on est déjà ne fait rien),
+     * mais le RATTRAPAGE, lui, ne doit pas partir pour rien — d'où le test sur le dernier
+     * message connu.
+     */
+    const onConnect = () => {
+      socket.emit('join_conversation', id);
+      /**
+       * ⚠️ On ne rattrape PAS si le fil est ouvert au milieu de l'historique (`hasNewer`) :
+       * la suite du fil n'est pas le présent, et `loadNewer` s'en charge quand on y redescend.
+       * Y coller les derniers messages les poserait derrière un message d'il y a un mois.
+       */
+      if (hasNewerRef.current) return;
+      /**
+       * ⚠️ Le dernier message VENU DU SERVEUR : un brouillon local porte un identifiant qui
+       * n'existe pas en base, et le serveur ne saurait pas de quoi il est le curseur.
+       */
+      const last = [...messagesRef.current].reverse().find((m) => !m.pendingLocal);
+      if (!last) return;
+      void fetchMessages(id, { newerCursor: last.id })
+        .then((page) => {
+          if (!page.length) return;
+          marquerVus(page.map((m) => m.id));
+          setMessages((prev) => mergeMessages(prev, page.slice().reverse(), 'end'));
+          // Lu à l'instant : la conversation est ouverte sous les yeux.
+          void markConversationRead(id);
+          // ⚠️ Même règle que pour un message reçu en direct : on ne suit le bas que si l'on
+          // y était, sinon on coupe la lecture de quelqu'un en train de remonter le fil.
+          const el = scrollRef.current;
+          if (!el || el.scrollHeight - el.scrollTop - el.clientHeight < AT_BOTTOM_PX) {
+            requestAnimationFrame(() => scrollToBottom(true));
+          }
+        })
+        .catch(() => {
+          // Réseau : le prochain `connect` réessaiera, et la liste garde le bandeau.
+        });
+    };
+    /**
+     * ⚠️ NOMMÉ, et retiré nommément au démontage : un `socket.off('connect')` sans argument
+     * détacherait AUSSI celui de la liste des conversations, qui la recharge à la reconnexion
+     * (mésaventure du mobile). Quitter une conversation rendrait la liste sourde.
+     */
+    socket.on('connect', onConnect);
+
     socket.on('presence_update', onPresence);
     socket.on('members_added', onGroupChanged);
     socket.on('member_removed', onGroupChanged);
@@ -765,6 +830,7 @@ export default function ThreadPage() {
 
     return () => {
       socket.emit('leave_conversation', id);
+      socket.off('connect', onConnect);
       socket.off('presence_update', onPresence);
       socket.off('members_added', onGroupChanged);
       socket.off('member_removed', onGroupChanged);

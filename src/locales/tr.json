@@ -412,6 +412,8 @@
     "title": "Gizlilik",
     "everyone": "Herkes",
     "friends": "Arkadaşlarım",
+    "friends_except": "Arkadaşlarım, şunlar hariç…",
+    "friends_except_count": "Arkadaşlarım, {{count}} kişi hariç",
     "nobody": "Hiç kimse",
     "friends_of_friends": "Arkadaşlarımın arkadaşları",
     "section_visibility": "Kimler görebilir",
@@ -427,7 +429,11 @@
     "location_enabled": "Konumumu paylaş",
     "read_receipts": "Okundu bilgisi",
     "read_receipts_hint": "Kapalıyken okumalarınız bildirilmez — ve başkalarınınkini de göremezsiniz. İletildi bilgisi açık kalır.",
-    "failed": "Ayarlarınız yüklenemedi."
+    "failed": "Ayarlarınız yüklenemedi.",
+    "except_title": "Bu kişilerden gizle",
+    "except_hint": "Şunu görmeyecekler: {{field}}",
+    "except_no_friends": "Henüz hariç tutabileceğiniz bir arkadaşınız yok.",
+    "except_done": "Tamam"
   },
   "notifications": {
     "title": "Tarayıcı bildirimleri",

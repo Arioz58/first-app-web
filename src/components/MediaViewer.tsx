@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { backdrop, morph } from '@/lib/motion';
+import { backdrop } from '@/lib/motion';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -221,11 +221,7 @@ export function MediaViewer({
     <motion.div
       // ⚠️ Le fond ferme, pas le contenu : `stopPropagation` sur tout ce qui est cliquable.
       onClick={onClose}
-      /*
-        ⚠️ Le fond APPARAÎT EN FONDU pendant que la photo se déplace. Posé d'un coup, l'aplat
-        noir masquerait le trajet de l'image et le morphing serait invisible : on verrait une
-        photo surgir au centre, ce qui est précisément ce qu'on cherchait à éviter.
-      */
+      /* Fondu du fond noir, seule animation conservée à l'ouverture (voir plus bas). */
       variants={backdrop}
       initial="hidden"
       animate="show"
@@ -373,20 +369,17 @@ export function MediaViewer({
           />
         ) : (
           /*
-            ⚠️ Même `layoutId` que la vignette du fil : c'est ce qui fait GRANDIR la photo
-            depuis sa bulle jusqu'au plein écran, puis la fait revenir se ranger à sa place à
-            la fermeture. Sans lui, la visionneuse s'ouvrait en fondu par-dessus, et rien ne
-            reliait ce qu'on voit à ce qu'on avait cliqué.
+            ⚠️ PLUS DE `layoutId` (20/09, demande du client) : la photo GRANDISSAIT depuis sa
+            bulle jusqu'au plein écran, puis revenait s'y ranger à la fermeture. Le procédé
+            reste en place pour les STORIES, où la pastille s'ouvre en story — il n'est retiré
+            que sur les médias du fil.
 
-            ⚠️ Le `layoutId` ne suit QUE le média d'origine (`initial.id`) : en faisant défiler
-            vers la photo suivante, il n'y a plus de vignette correspondante à rejoindre, et
-            garder l'identifiant ferait revenir l'image vers une bulle qui n'est pas la
-            sienne à la fermeture.
+            → Ne reste que le fondu du fond noir : la photo, elle, s'affiche d'emblée à sa
+              place définitive.
           */
-          <motion.img
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             key={current.id}
-            layoutId={current.id === initial.id ? `media-${current.id}` : undefined}
-            transition={morph}
             src={current.mediaUrl ?? ''}
             alt=""
             onClick={(e) => e.stopPropagation()}

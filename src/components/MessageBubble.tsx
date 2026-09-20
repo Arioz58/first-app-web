@@ -528,12 +528,8 @@ function MediaContent({
             onClick={() => onOpen(m)}
             className="relative"
           >
-            {/* ⚠️ Les tuiles d'ALBUM portent le même `layoutId` que l'image seule : sans
-                elles, ouvrir une photo d'album n'avait aucune source à rejoindre et la
-                visionneuse s'ouvrait sèchement — ce qui représente la majorité des photos
-                dans une conversation un peu fournie. */}
-            <motion.img
-              layoutId={`media-${m.id}`}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={m.mediaUrl ?? ''}
               alt=""
               className="h-32 w-full rounded-lg object-cover"
@@ -554,12 +550,12 @@ function MediaContent({
     return (
       <button onClick={() => onOpen(item)} className="mb-1 block">
         {/*
-          ⚠️ `layoutId` partagé avec la visionneuse : la photo GRANDIT depuis sa place dans le
-          fil jusqu'au plein écran, au lieu qu'un panneau noir apparaisse par-dessus. C'est le
-          procédé du « dossier iOS » — l'élément ne se duplique pas, il se déplace.
-
-          ⚠️ L'identifiant est celui du MESSAGE : il doit désigner un média et un seul, sinon
-          deux photos identiques dans le fil se disputeraient la transformation.
+          ⚠️ PLUS DE `layoutId` (20/09, demande du client) : la photo grandissait depuis sa
+          place dans le fil jusqu'au plein écran. Elle s'affiche désormais directement, seul
+          le fond noir de la visionneuse arrivant en fondu. Les tuiles d'album suivent, sinon
+          la moitié des photos s'ouvrirait d'une façon et l'autre moitié d'une autre.
+          → Le procédé reste en place ailleurs : les STORIES s'ouvrent toujours depuis leur
+            pastille, et l'indicateur de la barre de navigation glisse d'une icône à l'autre.
         */}
         {/*
           ⚠️ LA LARGEUR EST CONTRAINTE, PAS SEULEMENT LA HAUTEUR (11/09, remarque du client :
@@ -610,8 +606,8 @@ function MediaContent({
           ⚠️ Le MOBILE n'est pas concerné : `MessageMedia` y pose déjà un carré de 244 avec
           `contentFit="cover"`. Il recadrait depuis toujours — l'écart était propre au web.
         */}
-        <motion.img
-          layoutId={`media-${item.id}`}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={item.mediaUrl}
           alt=""
           className="h-auto w-[25rem] max-w-full max-h-[33rem] rounded-lg object-cover"

@@ -213,7 +213,22 @@ export function FriendsPanel({
           : 'flex flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-900'
       }
     >
-      <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
+      {/*
+        ⚠️ MÊME EN-TÊTE que les deux autres destinations de la colonne (Discussions, Actus) :
+        même taille, même graisse, même bleu, même hauteur. Ce panneau avait gardé le titre
+        discret d'un sous-écran (`text-lg`, gris, `py-3`) alors qu'il est devenu une
+        destination de plein droit en rejoignant la barre de navigation — la barre les annonce
+        comme trois vues de même rang, l'en-tête les contredisait.
+
+        ⚠️ Le filet du bas ne subsiste que pour le mode RECOUVREMENT (`onClose`), où l'en-tête
+        flotte au-dessus de la liste et a besoin d'être détaché d'elle. Dans la colonne, aucune
+        des deux autres vues n'en a.
+      */}
+      <header
+        className={`flex items-center gap-3 px-4 py-4 ${
+          onClose ? 'border-b border-slate-200 dark:border-zinc-800' : ''
+        }`}
+      >
         {onClose && (
           <button
             onClick={onClose}
@@ -223,7 +238,7 @@ export function FriendsPanel({
             <IconBack size={20} />
           </button>
         )}
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">{tr('friends.title')}</h1>
+        <h1 className="text-2xl font-bold text-[#1E40AF] dark:text-blue-400">{tr('friends.title')}</h1>
       </header>
 
       {/*

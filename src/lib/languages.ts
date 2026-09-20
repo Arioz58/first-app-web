@@ -35,3 +35,15 @@ export type ThemeChoice = 'light' | 'dark';
 
 /** Le cookie ne porte QUE les choix explicites : « système » se traduit par son absence. */
 export const isThemeChoice = (v: unknown): v is ThemeChoice => v === 'light' || v === 'dark';
+
+/**
+ * Cookie du panneau de gauche replié.
+ *
+ * ⚠️ Ici pour la même raison que les deux precedents : le layout de la messagerie est un
+ * composant SERVEUR et doit connaitre l'etat AVANT le premier rendu. En `localStorage`, la
+ * page serait peinte panneau ouvert puis le verrait se refermer a l'hydratation -- le meme
+ * defaut que le theme perdu a chaque rechargement, corrige le 05/09.
+ *
+ * ⚠️ Il ne porte que le repli (`1`) : le defaut, panneau ouvert, est son ABSENCE.
+ */
+export const PANEL_COOKIE = 'nexa.panel';

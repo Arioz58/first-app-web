@@ -91,4 +91,8 @@ export {
   QrCode as IconQr,
   // « Effacer la discussion » : une gomme, distincte de la corbeille qui la SUPPRIME.
   Eraser as IconEraser,
+  // Repli du panneau de gauche. Deux glyphes et non un seul pivoté : le chevron dit une
+  // direction, ces icônes montrent l'ÉTAT de la disposition — panneau plein ou colonne seule.
+  PanelLeftClose as IconPanelClose,
+  PanelLeftOpen as IconPanelOpen,
 } from 'lucide-react';

@@ -469,7 +469,9 @@
     "chats": "Sohbetler",
     "friends": "Arkadaşlar",
     "stories": "Güncellemeler",
-    "you": "Sen"
+    "you": "Sen",
+    "collapse": "Listeyi gizle",
+    "expand": "Listeyi göster"
   },
   "toast": {
     "expand": "Tüm bildirimleri göster"

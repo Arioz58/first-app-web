@@ -469,7 +469,9 @@
     "chats": "Discussions",
     "friends": "Amis",
     "stories": "Actus",
-    "you": "Vous"
+    "you": "Vous",
+    "collapse": "Masquer la liste",
+    "expand": "Afficher la liste"
   },
   "toast": {
     "expand": "Afficher toutes les notifications"

@@ -74,6 +74,7 @@ import {
 import { fetchMe, searchAllMessages, type Me, type MessageHit } from '@/lib/messages';
 import { connectSocket } from '@/lib/socket';
 import { subscribeConnection } from '@/lib/connection';
+import { setPanelCollapsed, usePanelCollapsed } from '@/lib/panel';
 import { getUserId } from '@/lib/storage';
 import { showToast } from '@/lib/toasts';
 
@@ -118,7 +119,7 @@ const FILTERS: { key: Filter; labelKey: string }[] = [
  * son défilement, ses filtres, sa recherche — et surtout son écouteur socket, qui serait
  * sinon détaché et rattaché à chaque clic.
  */
-export function ConversationList() {
+export function ConversationList({ initialCollapsed }: { initialCollapsed: boolean }) {
   const { t } = useTranslation();
   const router = useRouter();
   // Conversation ouverte, pour la marquer comme active. `useParams` est vide sur /chat.
@@ -188,6 +189,22 @@ export function ConversationList() {
    * déplacement dans la barre, elle confirme le geste qu'on vient de faire.
    */
   const [sens, setSens] = useState(1);
+  /**
+   * Panneau replié — demande du client : la conversation prend toute la largeur, la barre de
+   * navigation reste visible.
+   *
+   * ⚠️ `initialCollapsed` vient du SERVEUR, qui a lu le cookie : c'est la valeur avec laquelle
+   * le HTML a été rendu. La déduire ici la trouverait trop tard, et la page se replierait sous
+   * les yeux à l'hydratation.
+   */
+  const replie = usePanelCollapsed(initialCollapsed);
+  /**
+   * ⚠️ Replier ne doit jamais rendre une commande inatteignable. Deux chemins déplient donc
+   * d'office : choisir une destination dans la barre (sans quoi le clic n'aurait AUCUN effet
+   * visible, la colonne étant fermée), et ouvrir son profil — ce panneau se pose en
+   * `absolute inset-0` sur la colonne, et serait écrasé dans les 64 px de la barre.
+   */
+  const deplier = useCallback(() => setPanelCollapsed(false), []);
   const changerVue = useCallback(
     (v: Vue) => {
       const ordre: Vue[] = ['chats', 'friends', 'stories'];
@@ -199,8 +216,9 @@ export function ConversationList() {
        */
       setSens(ordre.indexOf(v) >= ordre.indexOf(vue) ? 1 : -1);
       setVue(v);
+      deplier();
     },
-    [vue],
+    [vue, deplier],
   );
   /** Onglet sur lequel ouvrir le dialogue « + » — « Par numéro » quand on vient des Amis. */
   const [newChatMode, setNewChatMode] = useState<'direct' | 'phone'>('direct');
@@ -644,7 +662,16 @@ export function ConversationList() {
 
 
   return (
-    <aside className="relative flex w-full shrink-0 flex-row border-r border-slate-200 bg-white md:w-[444px] dark:border-zinc-800 dark:bg-zinc-900">
+    /*
+      ⚠️ `md:w-auto` : la largeur est désormais portée par la COLONNE de contenu, qui seule
+      se replie. Un `md:w-[444px]` ici l'aurait figée et le repli n'aurait rien fait -- 444 =
+      64 (la barre) + 380 (la colonne), la disposition ouverte est inchangée.
+
+      ⚠️ PAS d'`overflow-hidden` ici : les infobulles de la barre débordent volontairement sur
+      la colonne, et panneau replié elles sortent de l'aside. Les couper les rendrait
+      illisibles exactement là où elles servent le plus -- une barre d'icônes sans libellé.
+    */
+    <aside className="relative flex w-full shrink-0 flex-row border-r border-slate-200 bg-white md:w-auto dark:border-zinc-800 dark:bg-zinc-900">
       <NavRail
         vue={vue}
         onChange={changerVue}
@@ -652,13 +679,35 @@ export function ConversationList() {
            quelle vue. */
         badges={{ chats: unreadTotal, friends: friendRequests }}
         me={me}
-        onOpenProfile={() => setProfileOpen(true)}
+        onOpenProfile={() => {
+          deplier();
+          setProfileOpen(true);
+        }}
+        collapsed={replie}
+        onToggleCollapsed={() => setPanelCollapsed(!replie)}
       />
 
       {/* ⚠️ La colonne de contenu est en `min-w-0` : sans elle, un nom de conversation long
           élargirait le conteneur flex au lieu d'être tronqué, et pousserait la barre hors de
           l'écran. */}
-      <div className="relative flex min-w-0 flex-1 flex-col">
+      {/*
+        LARGEUR PAR VARIABLE CSS, et transition CSS plutôt que framer-motion.
+
+        ⚠️ Une largeur en style inline s'appliquerait à TOUTES les tailles d'écran et écraserait
+        le `w-full` de la disposition étroite : sous 768 px la liste occupe seul l'écran, et
+        elle s'y serait retrouvée à zéro pixel pour peu qu'on ait replié depuis un ordinateur.
+        En passant par une variable, c'est `md:` qui décide si elle s'applique -- Tailwind garde
+        la main sur le point de rupture.
+
+        ⚠️ La colonne garde une largeur FIXE (380 px) pendant qu'elle se referme, et c'est
+        `overflow-hidden` qui la rogne. Animer sa largeur réelle relaierait le texte et les
+        avatars à chaque image, pour une colonne entière -- ici rien ne se recalcule, la boîte
+        se ferme sur un contenu immobile.
+      */}
+      <div
+        style={{ ['--panel-w' as string]: replie ? '0px' : '380px' }}
+        className="relative flex min-w-0 flex-1 flex-col overflow-hidden transition-[width] duration-300 ease-out md:w-[var(--panel-w)] md:flex-none"
+      >
       {/*
         ⚠️ `mode="wait"` : la vue sortante s'en va AVANT que l'entrante n'arrive. En
         simultané, les deux se superposeraient dans une colonne étroite et l'on verrait deux

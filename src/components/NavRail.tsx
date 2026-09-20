@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@/components/Avatar';
-import { IconChat, IconSparkle, IconUsers } from '@/components/icons';
-import { damped, listItem, morph, snappy, staggeredList } from '@/lib/motion';
+import { IconChat, IconPanelClose, IconPanelOpen, IconSparkle, IconUsers } from '@/components/icons';
+import { STAGGER, damped, listItem, morph, snappy, staggeredList } from '@/lib/motion';
 
 /**
  * Barre de navigation en pilule — conversations, amis, stories.
@@ -51,6 +51,8 @@ export function NavRail({
   badges,
   me,
   onOpenProfile,
+  collapsed,
+  onToggleCollapsed,
 }: {
   vue: Vue;
   onChange: (v: Vue) => void;
@@ -58,6 +60,8 @@ export function NavRail({
   badges?: Partial<Record<Vue, number>>;
   me: { name: string; photoUrl: string | null } | null;
   onOpenProfile: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -199,6 +203,33 @@ export function NavRail({
         </motion.button>
       </motion.div>
 
+      {/*
+        ⚠️ HORS de la pilule, et volontairement : ce bouton ne mène nulle part. Les quatre
+        entrées ci-dessus changent ce que la colonne montre, celui-ci change la DISPOSITION.
+        Glissé dans la pilule, il se serait lu comme une cinquième destination — et
+        l'indicateur actif, qui ne s'y pose jamais, aurait paru défaillant.
+
+        ⚠️ `hidden md:flex` : sous 768 px il n'y a pas deux colonnes mais une seule, qui occupe
+        déjà tout l'écran. Replier n'y veut rien dire, et laisserait l'utilisateur devant une
+        barre de navigation seule, sans moyen évident de revenir.
+      */}
+      <motion.button
+        type="button"
+        onClick={onToggleCollapsed}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: STAGGER * (ENTREES.length + 1) }}
+        whileHover={{ scale: 1.12 }}
+        whileTap={{ scale: 0.9 }}
+        aria-label={t(collapsed ? 'nav.expand' : 'nav.collapse')}
+        aria-expanded={!collapsed}
+        className="group relative mt-2 hidden h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 md:flex dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+      >
+        <Bulle texte={t(collapsed ? 'nav.expand' : 'nav.collapse')} />
+        {/* ⚠️ Deux glyphes et non un seul que l'on ferait pivoter : ils montrent la
+            disposition OBTENUE, pas une direction de mouvement. */}
+        {collapsed ? <IconPanelOpen size={19} /> : <IconPanelClose size={19} />}
+      </motion.button>
     </nav>
   );
 }

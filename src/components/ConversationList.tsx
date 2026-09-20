@@ -73,6 +73,7 @@ import {
 } from '@/lib/conversations';
 import { fetchMe, searchAllMessages, type Me, type MessageHit } from '@/lib/messages';
 import { connectSocket } from '@/lib/socket';
+import { subscribeConnection } from '@/lib/connection';
 import { getUserId } from '@/lib/storage';
 import { showToast } from '@/lib/toasts';
 
@@ -137,13 +138,6 @@ export function ConversationList() {
   const [banner, setBanner] = useState<'offline' | 'back' | null>(null);
   /** Dit s'il y a eu coupure, donc s'il y a lieu d'afficher la confirmation verte. */
   const wasOfflineRef = useRef(false);
-  /**
-   * ⚠️ Le socket a-t-il déjà réussi à se connecter ? Un `connect_error` au tout premier
-   * essai ne veut rien dire ici — la liste vient d'être chargée en HTTP, elle est fraîche, et
-   * le client retente de lui-même après avoir renouvelé son jeton. Sans ce test, un simple
-   * jeton expiré à l'ouverture collerait un bandeau d'erreur sur une liste à jour.
-   */
-  const hasConnectedRef = useRef(false);
   const backTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * Miroir de la liste, lu par l'écouteur socket.
@@ -265,6 +259,26 @@ export function ConversationList() {
     wasOfflineRef.current = true;
     setBanner('offline');
   }, []);
+
+  /**
+   * Coupure constatée par le SOCKET (`lib/connection`), par opposition à un échec de requête.
+   *
+   * ⚠️ On lit un verdict, on ne l'établit pas : `lib/socket` a déjà écarté les refus de
+   * handshake qui ne font qu'annoncer un renouvellement de jeton — le cas ordinaire sur un
+   * onglet resté ouvert, et la cause du faux bandeau rouge du 15/09.
+   *
+   * ⚠️ Le retour à `false` ne fait rien ici : c'est `onConnect` qui recharge, et le succès du
+   * chargement qui bascule le bandeau au vert puis l'efface. Effacer le bandeau dès la
+   * reconnexion le ferait disparaître avant que la liste soit à jour, donc annoncer une
+   * fraîcheur qui n'existe pas encore.
+   */
+  useEffect(
+    () =>
+      subscribeConnection((offline) => {
+        if (offline) showOffline();
+      }),
+    [showOffline],
+  );
 
   // ⚠️ Minuteur annulé au démontage : un minuteur qui survit à son écran rappelle du code
   // appartenant à un composant qui n'existe plus (mésaventure du 12/09 côté mobile).
@@ -420,26 +434,19 @@ export function ConversationList() {
     if (notificationState() === 'granted') void registerNotificationWorker();
 
     /**
-     * COUPURE → bandeau, immédiatement.
+     * ⚠️ PLUS D'ÉCOUTE DIRECTE de `disconnect` / `connect_error` ici.
      *
-     * ⚠️ On lit l'ÉTAT DU SOCKET au lieu d'envoyer des requêtes pour découvrir que le serveur
-     * est injoignable : sans réessai périodique, un « échec » n'existe que s'il y a une
-     * requête — perdre le réseau ne produisait donc rien du tout, et la liste restait périmée
-     * en silence. Le socket, lui, le sait déjà.
+     * Ce composant en tirait lui-même ses conclusions, et se trompait : un `connect_error` sur
+     * jeton expiré — le cas ORDINAIRE, le jeton d'accès ne vivant que quinze minutes et un
+     * onglet restant ouvert bien plus longtemps — était compté comme une coupure, alors que
+     * `lib/socket` le renouvelle et se reconnecte dans la foulée. D'où le bandeau rouge que le
+     * client voyait à l'ouverture, disparaissant seul une dizaine de secondes plus tard (15/09).
      *
-     * ⚠️ `io client disconnect` ignoré : c'est une coupure VOLONTAIRE de notre part (fin de
-     * session). Elle n'a rien d'un incident à signaler.
+     * La distinction demande de savoir si un renouvellement a été tenté et s'il a abouti : seul
+     * `lib/socket` le sait. Il publie désormais son verdict dans `lib/connection`, auquel on
+     * s'abonne plus bas. Les échecs de requête HTTP, eux, restent traités ici — c'est ce
+     * composant qui les provoque, et lui seul sait ce qu'il demandait.
      */
-    const onDisconnect = (reason: string) => {
-      if (reason === 'io client disconnect') return;
-      showOffline();
-    };
-
-    /** Reconnexion impossible alors qu'on avait déjà été connecté : c'est une vraie perte. */
-    const onConnectError = () => {
-      if (!hasConnectedRef.current) return;
-      showOffline();
-    };
 
     /**
      * RECONNEXION → on rattrape, en UNE requête.
@@ -453,20 +460,13 @@ export function ConversationList() {
      * ferait sauter un rattrapage légitime et laisserait un trou dans la liste, cette fois
      * sans bandeau pour le dire.
      */
-    const onConnect = () => {
-      hasConnectedRef.current = true;
-      load();
-    };
-
-    if (socket.connected) hasConnectedRef.current = true;
+    const onConnect = () => load();
 
     socket.on('friend_request_received', onFriendRequest);
     socket.on('conversation_updated', onUpdate);
     socket.on('added_to_group', load);
     socket.on('removed_from_group', load);
     socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
 
     return () => {
       socket.off('friend_request_received', onFriendRequest);
@@ -474,10 +474,8 @@ export function ConversationList() {
       socket.off('added_to_group', load);
       socket.off('removed_from_group', load);
       socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-      socket.off('connect_error', onConnectError);
     };
-  }, [router, load, activeId, meId, showOffline]);
+  }, [router, load, activeId, meId]);
 
   // Même règle que le rendu : la conversation ouverte ne compte pas, sinon l'en-tête
   // annoncerait des non-lus que la liste affiche à zéro.

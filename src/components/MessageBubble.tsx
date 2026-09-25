@@ -434,6 +434,12 @@ export function MessageBubble({
 }
 
 /** Pièce jointe : album, image, vidéo, audio ou document. */
+/**
+ * Cadre d'une photo, d'un GIF ou d'une vidéo dans le fil : un carré FIXE, recadré.
+ * Voir le commentaire dans `MediaContent` pour le pourquoi (taille connue avant chargement).
+ */
+const MEDIA_BOX = 'h-[18rem] w-[18rem] max-w-full rounded-lg object-cover';
+
 function MediaContent({
   row,
   album,
@@ -527,7 +533,9 @@ function MediaContent({
 
   if (album) {
     return (
-      <div className="mb-1 grid grid-cols-2 gap-1">
+      // Même encombrement qu'une photo seule (`MEDIA_BOX`) : un album ne doit pas s'étaler
+      // sur toute la largeur de la bulle quand une photo, elle, reste compacte.
+      <div className="mb-1 grid w-[18rem] max-w-full grid-cols-2 gap-1">
         {album.slice(0, 4).map((m, i) => (
           <button
             key={m.id}
@@ -538,7 +546,7 @@ function MediaContent({
             <img
               src={m.mediaUrl ?? ''}
               alt=""
-              className="h-32 w-full rounded-lg object-cover"
+              className="h-[8.875rem] w-full rounded-lg object-cover"
             />
             {/* « +N » sur la dernière tuile quand l'album déborde. */}
             {i === 3 && album.length > 4 && (
@@ -564,59 +572,39 @@ function MediaContent({
             pastille, et l'indicateur de la barre de navigation glisse d'une icône à l'autre.
         */}
         {/*
-          ⚠️ LA LARGEUR EST CONTRAINTE, PAS SEULEMENT LA HAUTEUR (11/09, remarque du client :
-          « le format de la photo est visible mais beaucoup en longueur »).
+          HISTORIQUE du cadre, pour ne pas refaire le chemin :
+            11/09  hauteur seule plafonnée → les photos verticales en bande étroite ;
+            13/09  cadre 25rem × 36rem, `object-contain` → « on dirait un téléphone » réglé ;
+            20/09  `object-cover` + largeur FIXE (un `min(25rem,100%)` dans une bulle flex se
+                   résout contre une largeur indéfinie et retombe à « auto » — mesuré) ;
+            25/09  trop grand, et le fil sautait au chargement → carré fixe, ci-dessous.
+        */}
+        {/*
+          ⚠️ CADRE FIXE, LARGEUR ET HAUTEUR (25/09, deux remarques du client d'un coup :
+          « les photos sont trop larges », et « la moitié de la conversation est inexistante,
+          je suis obligé de défiler pour rattraper le fil »).
 
-          Seule `max-h-80` était posée : une photo prise au téléphone (9:16) voyait sa hauteur
-          ramenée à 320 px, donc sa largeur à 180 — une bande étroite et haute. Une photo
-          large, elle, s'étalait sans limite. En fixant la largeur et en plafonnant la hauteur,
-          les deux formats occupent une place comparable, comme sur WhatsApp.
+          Jusqu'ici la hauteur était `h-auto` : une image n'a AUCUNE hauteur avant d'être
+          chargée. Le fil se calait sur le bas, puis la photo arrivait et poussait tout de
+          jusqu'à 528 px — le bas de la conversation passait sous le bord. Le rattrapage par
+          `ResizeObserver` dépendait de l'ordre d'arrivée entre le défilement animé, l'insertion
+          et le chargement ; il ratait parfois. Une boîte dont la taille est connue AVANT le
+          chargement ne pousse plus rien : il n'y a plus rien à rattraper.
 
-          ⚠️ CADRE AGRANDI le 13/09 : 20rem × 30rem (320 × 480) → 25rem × 36rem (400 × 576).
-          C'est ici que se jouait vraiment le « sur PC on dirait un téléphone » : une photo
-          verticale s'affichait à ~270 × 480, un timbre-poste au milieu de 1100 px de large.
+          ⚠️ Conséquence assumée : un CARRÉ, donc toute photo est recadrée (`object-cover`) —
+          ni portrait ni paysage ne s'affichent entiers dans le fil. C'est le choix du mobile
+          depuis toujours (carré de 244 `contentFit="cover"`), et la photo entière reste à un
+          clic dans la visionneuse. Garder les proportions demanderait de connaître la taille
+          de l'image avant son chargement, que le serveur ne stocke pas.
 
-          ⚠️ LES DEUX VALEURS doivent bouger ENSEMBLE. Une photo verticale est limitée par sa
-          HAUTEUR : n'élargir que le cadre ne l'aurait pas agrandie d'un pixel. C'est le
-          piège exact du correctif du 11/09, où seule la hauteur était contrainte.
-
-          ⚠️ RECADRAGE (20/09, demande du client, qui REVIENT SUR le choix du 13/09).
-          J'avais retenu `object-contain` : garder les proportions plutôt que couper un sujet
-          sans prévenir. Le client a redemandé après l'élargissement du cadre, en décrivant
-          WhatsApp — « la bulle est plus large mais plus petite, et l'image un peu plus zoomée ».
-
-          ⚠️ LA LARGEUR EST FIXE (`w-[25rem]`) ET NON `min(25rem,100%)`, et c'est LÀ qu'était
-          le défaut — pas dans `object-contain`. MESURÉ dans un navigateur, sur la structure
-          réelle (rangée flex → bulle → image), parce que deux bancs d'essai simplifiés
-          donnaient deux résultats contraires :
-
-              min(25rem,100%) + contain ......... 324 × 576   (l'état d'avant)
-              min(25rem,100%) + cover ........... 297 × 528   (PIRE : plus étroit encore)
-              25rem + max-w-full + cover ........ 400 × 528   ✅
-
-          La bulle est un ÉLÉMENT FLEX : sa largeur vient de son contenu, donc un `100%` à
-          l'intérieur se résout contre une largeur INDÉFINIE et la largeur retombe à « auto ».
-          CSS la recalcule alors depuis la hauteur plafonnée (CSS 2.1 §10.4) — d'où les 324 px,
-          et d'où les 297 quand on ajoute un `min-width` porté par la même expression, qui
-          s'effondre pour la même raison. Une largeur FIXE n'est jamais recalculée : la boîte
-          reste à 400 et `object-cover` remplit en rognant.
-
-          ⚠️ `max-w-full` reste indispensable pour l'écran étroit — vérifié aussi : la boîte
-          descend alors à la largeur disponible (374 px à 390 de fenêtre) sans déborder.
-
-          ⚠️ Hauteur plafonnée à 33rem (528) et non 36rem (576) : 400 × 528 donne un rapport
-          proche de 3:4. Une photo 9:16 passe de 324 × 576 à 400 × 528 — plus large, plus
-          courte, plus zoomée, les trois mots du client. Une photo PAYSAGE n'est pas touchée
-          (16:9 mesuré à 400 × 225, aucun rognage) : rien n'est rogné sans nécessité.
-
-          ⚠️ Le MOBILE n'est pas concerné : `MessageMedia` y pose déjà un carré de 244 avec
-          `contentFit="cover"`. Il recadrait depuis toujours — l'écart était propre au web.
+          ⚠️ 18rem = 270 px avec la base de 15 px (`globals.css`), contre 400 × 528 avant :
+          environ trois fois moins de surface.
         */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={item.mediaUrl}
           alt=""
-          className="h-auto w-[25rem] max-w-full max-h-[33rem] rounded-lg object-cover"
+          className={MEDIA_BOX}
         />
       </button>
     );
@@ -633,7 +621,7 @@ function MediaContent({
             deux. */}
         <video
           src={item.mediaUrl}
-          className="h-auto w-[25rem] max-w-full max-h-[33rem] rounded-lg object-cover"
+          className={MEDIA_BOX}
         />
       </button>
     );

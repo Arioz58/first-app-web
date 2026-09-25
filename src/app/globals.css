@@ -58,6 +58,26 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/**
+ * Taille de base de la page : 15 px au lieu des 16 du navigateur (demande du client, 25/09 :
+ * « la police d'écriture est trop grande »).
+ *
+ * ⚠️ Réglée ICI, sur la racine, et non classe par classe : Tailwind exprime le texte ET les
+ * espacements en `rem`, qui suivent cette valeur. Tout rétrécit donc ensemble, de 6 %, comme
+ * un léger zoom arrière — les proportions ne bougent pas. Réduire le texte seul donnerait
+ * des lettres flottant dans des boîtes restées à leur taille : l'erreur commise puis
+ * abandonnée sur le mobile en juillet.
+ *
+ * ⚠️ En POURCENTAGE et non en `px` : quelqu'un qui a agrandi le texte dans les réglages de
+ * son navigateur garde son agrandissement (93,75 % de SA taille, et non 15 px imposés).
+ *
+ * Les rares tailles fixées en pixels (`text-[11px]`, les avatars en `size={…}`) ne suivent
+ * pas — elles sont déjà petites, c'est voulu.
+ */
+html {
+  font-size: 93.75%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

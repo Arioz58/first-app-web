@@ -497,5 +497,16 @@
     "title": "Live location",
     "others_sharing": "{{count}} person is sharing their location",
     "stale": "Frozen · {{time}}"
+  },
+  "calls": {
+    "live": "Call in progress…",
+    "missed": "Missed call",
+    "no_answer": "No answer",
+    "cancelled": "Cancelled call",
+    "declined": "Declined call",
+    "outgoing": "Outgoing call",
+    "incoming": "Incoming call",
+    "audio_call": "Voice call",
+    "on_phone": "Calls take place on the phone"
   }
 }

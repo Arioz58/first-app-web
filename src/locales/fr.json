@@ -497,5 +497,16 @@
     "title": "Position en direct",
     "others_sharing": "{{count}} personne partage sa position",
     "stale": "Position figée · {{time}}"
+  },
+  "calls": {
+    "live": "Appel en cours…",
+    "missed": "Appel manqué",
+    "no_answer": "Sans réponse",
+    "cancelled": "Appel annulé",
+    "declined": "Appel refusé",
+    "outgoing": "Appel sortant",
+    "incoming": "Appel entrant",
+    "audio_call": "Appel audio",
+    "on_phone": "Les appels se passent sur le téléphone"
   }
 }

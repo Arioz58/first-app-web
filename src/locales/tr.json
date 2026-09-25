@@ -497,5 +497,16 @@
     "title": "Canlı konum",
     "others_sharing": "{{count}} kişi konumunu paylaşıyor",
     "stale": "Donmuş konum · {{time}}"
+  },
+  "calls": {
+    "live": "Arama sürüyor…",
+    "missed": "Cevapsız arama",
+    "no_answer": "Yanıt yok",
+    "cancelled": "İptal edilen arama",
+    "declined": "Reddedilen arama",
+    "outgoing": "Giden arama",
+    "incoming": "Gelen arama",
+    "audio_call": "Sesli arama",
+    "on_phone": "Aramalar telefondan yapılır"
   }
 }

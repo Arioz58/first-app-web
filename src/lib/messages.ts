@@ -1,5 +1,6 @@
 import { apiRequest } from './api';
 import type { Member } from './conversations';
+import type { CallInfo } from '@/lib/calls';
 
 /**
  * Fil de discussion — types et règles portés depuis `app/chat/[id].tsx` du mobile.
@@ -66,6 +67,8 @@ export type Message = {
   storyMediaUrl?: string | null;
   /** Bulle posée localement le temps de l'envoi — voir `pushDraft` dans l'écran. */
   pendingLocal?: boolean;
+  /** Bulle d'appel (`type: 'call'`) : l'état réel de l'appel, tenu à jour par socket. */
+  call?: CallInfo | null;
 };
 
 export type ConvMember = Member & {
@@ -153,6 +156,9 @@ export const sameGroup = (a?: Message, b?: Message): boolean =>
   !!b &&
   a.type !== 'system' &&
   b.type !== 'system' &&
+  // Une bulle d'appel est hors série : ni nom d'auteur ni regroupement.
+  a.type !== 'call' &&
+  b.type !== 'call' &&
   !!a.sender?.id &&
   a.sender.id === b.sender?.id &&
   new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() < GROUP_WINDOW_MS;

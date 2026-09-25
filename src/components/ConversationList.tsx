@@ -21,6 +21,7 @@ import {
   IconLocation,
   IconMic,
   IconMore,
+  IconPhone,
   IconPhoto,
   IconPin,
   IconPlus,
@@ -37,6 +38,7 @@ import { NavRail, type Vue } from '@/components/NavRail';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { StoriesPage } from '@/components/StoriesPage';
 import { AnimatePresence, motion } from 'framer-motion';
+import { isMissedCall, type CallInfo } from '@/lib/calls';
 import { damped, soft } from '@/lib/motion';
 import { notify, notificationState, registerNotificationWorker } from '@/lib/webNotifications';
 import { FriendsPanel } from '@/components/FriendsPanel';
@@ -94,6 +96,7 @@ const PREVIEW_ICON: Record<Exclude<PreviewKind, null>, typeof IconPhoto> = {
   audio: IconMic,
   document: IconDocument,
   location: IconLocation,
+  call: IconPhone,
 };
 
 
@@ -139,6 +142,8 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
    */
   const [banner, setBanner] = useState<'offline' | 'back' | null>(null);
   /** Dit s'il y a eu coupure, donc s'il y a lieu d'afficher la confirmation verte. */
+  // Appels déjà comptés comme manqués : un même appel ne monte la pastille qu'une fois.
+  const countedCalls = useRef<Set<string>>(new Set());
   const wasOfflineRef = useRef(false);
   const backTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
@@ -430,12 +435,20 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
         // le fil la marque lue à chaque message reçu. Sans cette garde, la pastille
         // clignoterait pendant qu'on lit.
         const isOpen = conversationId === activeId;
+        /**
+         * Une bulle d'appel ne compte que MANQUÉE (règle du serveur). Elle arrive ici dès la
+         * sonnerie, donc jamais manquée à cet instant : `onCallUpdate` la comptera si elle le
+         * devient.
+         */
+        const countable =
+          message.type !== 'call' || (!!message.call && isMissedCall(message.call, getUserId()));
         const next = [...prev];
         next[idx] = {
           ...next[idx],
           messages: [message],
           lastMessageAt: message.createdAt,
-          unreadCount: fromMe || isOpen ? next[idx].unreadCount : next[idx].unreadCount + 1,
+          unreadCount:
+            fromMe || isOpen || !countable ? next[idx].unreadCount : next[idx].unreadCount + 1,
         };
         return sortConversations(next);
       });
@@ -450,6 +463,30 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
      * vient d'arriver, la recompter au serveur n'apprendrait rien de plus.
      */
     const onFriendRequest = () => setFriendRequests((n) => n + 1);
+
+    /**
+     * Un appel a changé d'état : l'aperçu suit, et la pastille monte s'il vient de devenir
+     * MANQUÉ pour moi — une seule fois par appel (`countedCalls`), l'événement pouvant
+     * arriver plusieurs fois (reconnexion, deux appareils qui raccrochent ensemble).
+     */
+    const onCallUpdate = (d: { conversationId: string; messageId: string; call: CallInfo }) => {
+      const newlyMissed =
+        isMissedCall(d.call, getUserId()) &&
+        d.conversationId !== activeId &&
+        !countedCalls.current.has(d.call.id);
+      if (newlyMissed) countedCalls.current.add(d.call.id);
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id !== d.conversationId) return c;
+          const last = c.messages[0];
+          return {
+            ...c,
+            messages: last?.id === d.messageId ? [{ ...last, call: d.call }] : c.messages,
+            unreadCount: newlyMissed ? c.unreadCount + 1 : c.unreadCount,
+          };
+        }),
+      );
+    };
 
     /**
      * ⚠️ Réenregistré au montage quand la permission est déjà accordée : l'enregistrement
@@ -490,6 +527,7 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
 
     socket.on('friend_request_received', onFriendRequest);
     socket.on('conversation_updated', onUpdate);
+    socket.on('call_message_updated', onCallUpdate);
     socket.on('added_to_group', load);
     socket.on('removed_from_group', load);
     socket.on('connect', onConnect);
@@ -497,6 +535,7 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
     return () => {
       socket.off('friend_request_received', onFriendRequest);
       socket.off('conversation_updated', onUpdate);
+      socket.off('call_message_updated', onCallUpdate);
       socket.off('added_to_group', load);
       socket.off('removed_from_group', load);
       socket.off('connect', onConnect);
@@ -938,7 +977,7 @@ export function ConversationList({ initialCollapsed }: { initialCollapsed: boole
             <AnimatePresence initial={false}>
             {visible.map((c) => {
               const last = c.messages[0];
-              const preview = messagePreview(last);
+              const preview = messagePreview(last, meId);
               const name = conversationName(c, meId);
               const unread = c.unreadCount > 0;
               const active = c.id === activeId;

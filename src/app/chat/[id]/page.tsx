@@ -100,6 +100,7 @@ import { connectSocket } from '@/lib/socket';
 import { playSent } from '@/lib/sounds';
 import { getUserId } from '@/lib/storage';
 import { dismissToastsFor } from '@/lib/toasts';
+import type { CallInfo } from '@/lib/calls';
 
 /** Distance au bas en deçà de laquelle on considère l'utilisateur « en bas ». */
 /**
@@ -703,6 +704,12 @@ export default function ThreadPage() {
       );
     };
 
+    // Bulle d'appel : l'appel a changé d'état (décroché, fini, manqué).
+    const onCallUpdated = (d: { conversationId: string; messageId: string; call: CallInfo }) => {
+      if (d.conversationId !== id) return;
+      setMessages((prev) => prev.map((m) => (m.id === d.messageId ? { ...m, call: d.call } : m)));
+    };
+
     const onEdited = (d: {
       conversationId: string;
       messageId: string;
@@ -805,6 +812,7 @@ export default function ThreadPage() {
     socket.on('conversation_read', onRead);
     socket.on('message_preview', onPreview);
     socket.on('message_edited', onEdited);
+    socket.on('call_message_updated', onCallUpdated);
     socket.on('new_message', onNew);
     socket.on('peer_typing', onTyping);
     socket.on('message_deleted', onDeleted);
@@ -842,6 +850,7 @@ export default function ThreadPage() {
       socket.off('conversation_read', onRead);
       socket.off('message_preview', onPreview);
       socket.off('message_edited', onEdited);
+      socket.off('call_message_updated', onCallUpdated);
       socket.off('new_message', onNew);
       socket.off('peer_typing', onTyping);
       socket.off('message_deleted', onDeleted);

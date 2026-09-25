@@ -1,4 +1,6 @@
 import { apiRequest } from './api';
+import i18n from '@/lib/i18n';
+import { callText, type CallInfo } from '@/lib/calls';
 
 /**
  * Liste des conversations — types et tri portés depuis le mobile (`app/(tabs)/index.tsx`).
@@ -24,6 +26,8 @@ export type LastMessage = {
   createdAt: string;
   /** Médias d'un même envoi : plusieurs messages, une seule bulle — donc un seul non-lu. */
   batchId?: string | null;
+  /** Bulle d'appel : l'appel lui-même, qui donne l'aperçu et décide du non-lu. */
+  call?: CallInfo | null;
 };
 
 /**
@@ -97,13 +101,32 @@ export const conversationPhoto = (conv: Conversation, meId: string | null): stri
  * système d'exploitation — donc différent sur macOS, Windows et Android, et sans rapport avec
  * les icônes du reste de l'écran.
  */
-export type PreviewKind = 'photo' | 'video' | 'audio' | 'document' | 'gif' | 'location' | null;
+export type PreviewKind =
+  | 'photo'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'gif'
+  | 'location'
+  | 'call'
+  | null;
 
+/**
+ * `meId` sert aux bulles d'appel : un même appel est « manqué » chez l'appelé et « sans
+ * réponse » chez l'appelant.
+ */
 export const messagePreview = (
   msg: LastMessage | undefined,
+  meId: string | null = null,
 ): { kind: PreviewKind; text: string } => {
   const none = { kind: null, text: '' } as const;
   if (!msg) return none;
+  if (msg.type === 'call') {
+    return {
+      kind: 'call',
+      text: msg.call ? callText(msg.call, meId, (k) => i18n.t(k)) : i18n.t('calls.audio_call'),
+    };
+  }
   /**
    * ⚠️ Un bandeau système porte une CLÉ i18n en JSON (`{"k":"ephemeral_off","by":…}`), pas
    * du texte lisible : l'afficher tel quel montrerait `{"k":"ephemeral_off"…}` en aperçu.

@@ -1,6 +1,7 @@
 'use client';
 
 import { AudioMessage } from '@/components/AudioMessage';
+import { CallBubble } from '@/components/CallBubble';
 import { QuotedPreview } from '@/components/QuotedPreview';
 import { LocationMap } from '@/components/LocationMap';
 
@@ -128,6 +129,11 @@ export function MessageBubble({
    * ⚠️ Rendu APRÈS tous les hooks, comme la bulle ordinaire : une sortie anticipée placée
    * plus haut changerait le nombre de hooks selon le type de message.
    */
+  // Bulle d'appel : lecture seule sur le web (on n'y passe pas d'appel).
+  if (item.type === 'call' && item.call) {
+    return <CallBubble call={item.call} meId={meId} createdAt={item.createdAt} />;
+  }
+
   if (item.type === 'system') {
     const label = systemText(item.content, t);
     // Clé inconnue ou contenu illisible : on n'affiche rien plutôt qu'un bandeau vide.

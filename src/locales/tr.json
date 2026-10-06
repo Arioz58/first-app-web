@@ -507,6 +507,7 @@
     "outgoing": "Giden arama",
     "incoming": "Gelen arama",
     "audio_call": "Sesli arama",
+    "video_call": "Görüntülü arama",
     "on_phone": "Aramalar telefondan yapılır"
   }
 }

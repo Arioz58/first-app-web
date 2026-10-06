@@ -507,6 +507,7 @@
     "outgoing": "Appel sortant",
     "incoming": "Appel entrant",
     "audio_call": "Appel audio",
+    "video_call": "Appel vidéo",
     "on_phone": "Les appels se passent sur le téléphone"
   }
 }

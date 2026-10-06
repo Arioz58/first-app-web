@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconPhone } from '@/components/icons';
+import { IconPhone, IconVideo } from '@/components/icons';
 import { callKind, callText, formatCallDuration, isLiveCall, type CallInfo } from '@/lib/calls';
 import { formatTime } from '@/lib/messages';
 
@@ -31,6 +31,8 @@ export function CallBubble({
   const kind = callKind(call, meId);
   const missed = kind === 'missed';
   const isMe = call.callerId === meId;
+  // Appel vidéo dès le départ, ou passé en vidéo en cours de route (le serveur l'inscrit).
+  const video = call.type === 'video';
 
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -43,7 +45,7 @@ export function CallBubble({
   }, [ongoing, call.answeredAt]);
 
   const title = ongoing
-    ? `${t('calls.audio_call')} · ${formatCallDuration(elapsed)}`
+    ? `${t(video ? 'calls.video_call' : 'calls.audio_call')} · ${formatCallDuration(elapsed)}`
     : callText(call, meId, t);
 
   const tone = live
@@ -60,7 +62,7 @@ export function CallBubble({
             live ? 'bg-white/20' : missed ? 'bg-red-50 dark:bg-red-950' : 'bg-slate-100 dark:bg-zinc-700'
           }`}
         >
-          <IconPhone size={17} />
+          {video ? <IconVideo size={17} /> : <IconPhone size={17} />}
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tabular-nums">{title}</p>

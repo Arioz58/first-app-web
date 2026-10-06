@@ -507,6 +507,7 @@
     "outgoing": "Outgoing call",
     "incoming": "Incoming call",
     "audio_call": "Voice call",
+    "video_call": "Video call",
     "on_phone": "Calls take place on the phone"
   }
 }

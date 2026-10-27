@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { BASE_URL } from './config';
 import { clearSession, getAccessToken, getRefreshToken, isTokenExpired, saveSession } from './storage';
 import { clearToasts } from './toasts';
 
@@ -43,6 +44,21 @@ export const verifyCode = async (phone: string, code: string, name?: string) => 
 };
 
 export const logout = () => {
+  /**
+   * ⚠️ Ferme la session CÔTÉ SERVEUR (23/10) : effacer le `localStorage` ne suffisait pas, une
+   * copie du jeton restait utilisable 7 jours. Sans attendre la réponse — la déconnexion ne doit
+   * pas dépendre du réseau ; hors ligne, la session expirera seule. `keepalive` : la requête
+   * survit au changement de page qui suit.
+   */
+  const refreshToken = getRefreshToken();
+  if (refreshToken) {
+    fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      keepalive: true,
+    }).catch(() => {});
+  }
   // Les bandeaux du compte quitté mèneraient à des conversations devenues inaccessibles.
   clearToasts();
   clearSession();
